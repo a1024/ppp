@@ -1469,6 +1469,7 @@ int*			hist_start(int iw, int ih)//current buffer is in history[histpos]
 }
 void			hist_premodify(int *&buffer, int nw, int nh)//nw, nh: new dimensions
 {
+	modify();
 	iw=nw, ih=nh, image_size=iw*ih, buffer=(int*)malloc(image_size<<2);
 	auto &oldhframe=history[histpos];
 	int *&obuffer=oldhframe.buffer, &ow=oldhframe.iw, &oh=oldhframe.ih;
@@ -1492,6 +1493,7 @@ void			hist_premodify(int *&buffer, int nw, int nh)//nw, nh: new dimensions
 }
 void			hist_postmodify(int *buffer, int nw, int nh)
 {
+	modify();
 	image=buffer, iw=nw, ih=nh;
 	if(unsigned(histpos+1)<history.size())
 	{
@@ -1763,6 +1765,7 @@ void			selection_deselect()//sel_buffer -> image
 	selection_moved=false;
 	if(sel_start!=sel_end)
 	{
+		hist_premodify(image, iw, ih);
 		//Point p1, p2;//sorted-bounded selection in image coordinates
 		//selection_sortNbound(sel_start, sel_end, p1, p2);
 		int ystart=selpos.y>0?0:-selpos.y, yend=minimum(ih-selpos.y, sh),
@@ -2533,6 +2536,7 @@ void			polygon_draw(int *buffer, int color_line, int color_fill)
 	int npoints=polygon.size();
 	if(npoints>=3)
 	{
+		hist_premodify(image, iw, ih);
 		if(polygon_type==ST_FULL||polygon_type==ST_FILL)//fill polygon
 		{
 			int color3=polygon_type==ST_FILL?color_line:color_fill;
@@ -4019,7 +4023,6 @@ void			render()
 				if(!prev_drag)
 					hist_premodify(image, iw, ih);
 				draw_line_brush_mouse(image, erasertype, prev_mx, prev_my, mx, my, color2);
-				modify();
 				break;
 		//	case M_FILL:			break;//done
 			case M_PICK_COLOR:
@@ -4031,19 +4034,16 @@ void			render()
 				if(!prev_drag)
 					hist_premodify(image, iw, ih);
 				draw_line_mouse(image, prev_mx, prev_my, mx, my, color);
-				modify();
 				break;
 			case M_BRUSH:
 				if(!prev_drag)
 					hist_premodify(image, iw, ih);
 				draw_line_brush_mouse(image, brushtype, prev_mx, prev_my, mx, my, color);
-				modify();
 				break;
 			case M_AIRBRUSH:
 				if(!prev_drag)
 					hist_premodify(image, iw, ih);
 				airbrush_mouse(image, mx, my, color);
-				modify();
 				break;
 			case M_TEXT:
 				if(drag==D_DRAW)//define textbox with mouse
@@ -5442,7 +5442,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				break;
 			case IDM_IMAGE_INVERT_COLORS:
 				hist_premodify(image, iw, ih);
-				modify();
 				invertcolor(image, iw, ih);
 				render();
 				break;
@@ -5450,7 +5449,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			case IDM_IMAGE_CLEAR_IMAGE:
 				hist_premodify(image, iw, ih);
 				memset(image, 0xFF, image_size<<2);
-				modify();
 				render();
 				break;
 			case IDM_IMAGE_DRAW_OPAQUE:
@@ -5557,35 +5555,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		else//mouse polling test
 			render2();//
 #endif
-		Rectangle(ghDC, -1, h-17, w+1, h+1);
-	//	Rectangle(ghDC, 0, h-16, w, h);
-		if(mousepos==MP_IMAGE)
-		{
-			Point pm;
-			screen2image(mx, my, pm.x, pm.y);
-			if(!icheck(pm.x, pm.y))
-			{
-				auto p=(byte*)(image+iw*pm.y+pm.x);
-				int a=p[3], r=p[2], g=p[1], b=p[0];
-				GUITPrint(ghDC, 0, h-16, "XY=(%d, %d),\tARGB=(%d, %d, %d, %d)\t=0x%02X%02X%02X%02X", pm.x, pm.y, a, r, g, b, a, r, g, b);
-			}
-		}
-		else if(mousepos==MP_COLORBAR)
-		{
-			if(mx>=31&&mx<255&&my>=h-65&&my<h-33)
-			{
-				int kx=(mx-31)>>4, ky=(my-(h-65))>>4, idx=kx<<1|ky;
-				auto p=(byte*)(colorpalette+idx);
-				int r=p[2], g=p[1], b=p[0];
-				GUITPrint(ghDC, 0, h-16, "RGB=(%d, %d, %d)\t=0x%02X%02X%02X", r, g, b, r, g, b);
-			}
-		}
-		{
-			int size=0;
-			for(int k=0, nv=history.size();k<nv;++k)
-				size+=history[k].iw*history[k].ih;
-			GUIPrint(ghDC, w-200, h-16, "%d/%d, %.2lfMB", histpos, history.size(), float(size<<2)/1048576);//
-		}
 		break;
 	case WM_LBUTTONDOWN://left click
 	case WM_LBUTTONDBLCLK:
@@ -5690,7 +5659,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 						currentmode=prevmode;
 					if(prevmode<=M_RECT_SELECTION&&currentmode>M_RECT_SELECTION&&!selection_persistent)//switch away from selection
 					{
-						hist_premodify(image, iw, ih);
 						selection_deselect();
 						selection_remove();
 					}
@@ -5709,7 +5677,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 					}
 					if(prevmode==M_POLYGON&&currentmode!=M_POLYGON)//switch away from polygon
 					{
-						hist_premodify(image, iw, ih);
 						polygon_draw(image, polygon_leftbutton?primarycolor:secondarycolor, polygon_type==ST_FILL==polygon_leftbutton?primarycolor:secondarycolor);
 						//int c3, c4;
 						//if(polygon_type==ST_FILL==polygon_leftbutton)
@@ -5807,7 +5774,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 						drag=D_SELECTION;
 					else
 					{
-						hist_premodify(image, iw, ih);
 						selection_deselect();
 						screen2image(mx, my, sel_start.x, sel_start.y);
 						sel_end=sel_start;
@@ -5817,7 +5783,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				case M_FILL:
 					hist_premodify(image, iw, ih);
 					fill_mouse(image, mx, my, primarycolor);
-					modify();
 					break;
 				case M_MAGNIFIER:
 					if(logzoom!=magnifier_level)
@@ -5923,13 +5888,11 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				hist_premodify(image, iw, ih);
 				draw_line_mouse(image, start_mx, start_my, mx, my, primarycolor);
 				use_temp_buffer=false;
-				modify();
 				break;
 			case M_CURVE:
 				if(bezier.size()==4)
 				{
 					hist_premodify(image, iw, ih);
-					modify();
 					curve_draw(image, primarycolor);
 					bezier.clear();
 					use_temp_buffer=false;
@@ -5939,7 +5902,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				hist_premodify(image, iw, ih);
 				draw_rectangle_mouse(image, start_mx, mx, start_my, my, primarycolor, secondarycolor);
 				use_temp_buffer=false;
-				modify();
 				break;
 			case M_POLYGON:
 				polygon_add_mouse(start_mx, start_my, mx, my);
@@ -5948,13 +5910,11 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				hist_premodify(image, iw, ih);
 				draw_ellipse_mouse(image, start_mx, mx, start_my, my, primarycolor, secondarycolor);
 				use_temp_buffer=false;
-				modify();
 				break;
 			case M_ROUNDED_RECT:
 				hist_premodify(image, iw, ih);
 				draw_roundrect_mouse(image, start_mx, mx, start_my, my, primarycolor, secondarycolor);
 				use_temp_buffer=false;
-				modify();
 				break;
 			}
 		}
@@ -6006,7 +5966,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				case M_FILL:
 					hist_premodify(image, iw, ih);
 					fill_mouse(image, mx, my, secondarycolor);
-					modify();
 					break;
 				case M_AIRBRUSH:
 					drag=D_DRAW;
@@ -6057,13 +6016,11 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				hist_premodify(image, iw, ih);
 				draw_line_mouse(image, start_mx, start_my, mx, my, secondarycolor);
 				use_temp_buffer=false;
-				modify();
 				break;
 			case M_CURVE:
 				if(bezier.size()==4)
 				{
 					hist_premodify(image, iw, ih);
-					modify();
 					curve_draw(image, secondarycolor);
 					bezier.clear();
 					use_temp_buffer=false;
@@ -6073,7 +6030,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				hist_premodify(image, iw, ih);
 				draw_rectangle_mouse(image, start_mx, mx, start_my, my, secondarycolor, primarycolor);
 				use_temp_buffer=false;
-				modify();
 				break;
 			case M_POLYGON:
 				polygon_add_mouse(start_mx, start_my, mx, my);
@@ -6082,13 +6038,11 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				hist_premodify(image, iw, ih);
 				draw_ellipse_mouse(image, start_mx, mx, start_my, my, secondarycolor, primarycolor);
 				use_temp_buffer=false;
-				modify();
 				break;
 			case M_ROUNDED_RECT:
 				hist_premodify(image, iw, ih);
 				draw_roundrect_mouse(image, start_mx, mx, start_my, my, secondarycolor, primarycolor);
 				use_temp_buffer=false;
-				modify();
 				break;
 			}
 		}
@@ -6242,7 +6196,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			case VK_ESCAPE:
 				if(sel_start!=sel_end)//deselect
 				{
-					hist_premodify(image, iw, ih);
 					selection_deselect();
 					selection_remove();
 				}
@@ -6302,7 +6255,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 						invertcolor(sel_buffer, sw, sh, true);
 					else
 						invertcolor(image, iw, ih);
-					modify();
 					render();
 				}
 				break;
@@ -6313,7 +6265,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 					{
 						hist_premodify(image, iw, ih);
 						memset(image, 0xFF, image_size<<2);
-						modify();
 						render();
 					}
 					else//new image
@@ -6330,7 +6281,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 					//	image[k]=0xFFFFFFFF;
 						image[k]=0xFF000000|rand()<<15|rand();
 					//	image[k]=rand()<<30|rand()<<15|rand();
-					modify();
 					render();
 				}
 				break;
@@ -6395,6 +6345,35 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 
 //	GUIPrint(ghDC, w>>1, 0, "message=0x%04X, drag=%d", message, (int)drag);//
 #endif
+	Rectangle(ghDC, -1, h-17, w+1, h+1);
+//	Rectangle(ghDC, 0, h-16, w, h);
+	if(mousepos==MP_IMAGE)
+	{
+		Point pm;
+		screen2image(mx, my, pm.x, pm.y);
+		if(!icheck(pm.x, pm.y))
+		{
+			auto p=(byte*)(image+iw*pm.y+pm.x);
+			int a=p[3], r=p[2], g=p[1], b=p[0];
+			GUITPrint(ghDC, 0, h-16, "XY=(%d, %d),\tARGB=(%d, %d, %d, %d)\t=0x%02X%02X%02X%02X", pm.x, pm.y, a, r, g, b, a, r, g, b);
+		}
+	}
+	else if(mousepos==MP_COLORBAR)
+	{
+		if(mx>=31&&mx<255&&my>=h-65&&my<h-33)
+		{
+			int kx=(mx-31)>>4, ky=(my-(h-65))>>4, idx=kx<<1|ky;
+			auto p=(byte*)(colorpalette+idx);
+			int r=p[2], g=p[1], b=p[0];
+			GUITPrint(ghDC, 0, h-16, "RGB=(%d, %d, %d)\t=0x%02X%02X%02X", r, g, b, r, g, b);
+		}
+	}
+	{
+		int size=0;
+		for(int k=0, nv=history.size();k<nv;++k)
+			size+=history[k].iw*history[k].ih;
+		GUIPrint(ghDC, w-200, h-16, "%d/%d, %.2lfMB", histpos, history.size(), float(size<<2)/1048576);//
+	}
 	if(handled)
 		return r;
 	return DefWindowProcA(hWnd, message, wParam, lParam);
