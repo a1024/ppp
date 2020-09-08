@@ -35,7 +35,7 @@
 #include		<strsafe.h>
 //#pragma		comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
-//	#define		RELEASE
+	#define		RELEASE
 #ifndef RELEASE
 	#define		PROFILER
 #endif
@@ -3100,8 +3100,8 @@ double			getwindowdouble(HWND hWnd)
 	int length=GetWindowTextA(hWnd, g_buf, g_buf_size);
 	return atof(g_buf);
 }
-enum			FlipRotate{ROTATE_ARBITRARY, FLIP_HORIZONTAL, FLIP_VERTICAL, ROTATE90, ROTATE180, ROTATE270};
-void			fliprotate(int *buffer, int bw, int bh, int *&b2, int &w2, int &h2, int fr)
+enum			FlipRotate{FLIP_HORIZONTAL, FLIP_VERTICAL, ROTATE90, ROTATE180, ROTATE270, ROTATE_ARBITRARY};
+void			fliprotate(int *buffer, int bw, int bh, int *&b2, int &w2, int &h2, int fr, int bk)
 {
 	switch(fr)
 	{
@@ -3135,110 +3135,110 @@ void			fliprotate(int *buffer, int bw, int bh, int *&b2, int &w2, int &h2, int f
 			for(int kx=0;kx<w2;++kx)
 				b2[w2*ky+kx]=buffer[bw*(bh-1-kx)+ky];
 		break;
-	}
-}
-void			rotate(int *buffer, int bw, int bh, int *&b2, int &w2, int &h2, double radians, int bk)
-{
-	double cth=cos(radians), sth=sin(radians);
-
-	Point2d U(0, bh), UR(bw, bh), R(bw, 0);//determine new size
-	U.rotate(cth, sth);
-	UR.rotate(cth, sth);
-	R.rotate(cth, sth);
-	w2=(int)ceil(maximum(0, U.x, UR.x, R.x)-minimum(0, U.x, UR.x, R.x)), h2=(int)ceil(maximum(0, U.y, UR.y, R.y)-minimum(0, U.y, UR.y, R.y));
-
-	int size2=w2*h2;
-	b2=(int*)malloc(size2<<2);
-	for(int k=0;k<size2;++k)
-		b2[k]=bk;
-	const double half=0.5;
-	double bw_2=bw*half, bh_2=bh*half, w2_2=w2*half, h2_2=h2*half;
-	if(interpolation_type==I_BILINEAR)
-	{
-		for(int ky=0;ky<h2;++ky)
+	case ROTATE_ARBITRARY:
 		{
-			for(int kx=0;kx<w2;++kx)
+			double radians=getwindowdouble(hRotatebox)*torad;
+			if(radians)
 			{
-				double x0=kx-w2_2, y0=ky-h2_2;
-				double xd=bw_2+x0*cth+y0*sth, yd=bh_2-x0*sth+y0*cth;
-				int x=(int)floor(xd), y=(int)floor(yd);
-				double alpha_x=xd-x, alpha_y=yd-y;
-				//byte *SW, *SE, *NE, *NW;
-				//if((unsigned)x<(unsigned)bw)
-				//{
-				//	if((unsigned)y<(unsigned)bh)
-				//	{
-				//	}
-				//	else
-				//	{
-				//	}
-				//}
-				byte *result=(byte*)(b2+w2*ky+kx),
-					*NW=(unsigned)x  <(unsigned)bw&&(unsigned)y  <(unsigned)bh?(byte*)(buffer+bw* y   +x  ):(byte*)&bk,
-					*SW=(unsigned)x  <(unsigned)bw&&(unsigned)y+1<(unsigned)bh?(byte*)(buffer+bw*(y+1)+x  ):(byte*)&bk,
-					*SE=(unsigned)x+1<(unsigned)bw&&(unsigned)y+1<(unsigned)bh?(byte*)(buffer+bw*(y+1)+x+1):(byte*)&bk,
-					*NE=(unsigned)x+1<(unsigned)bw&&(unsigned)y  <(unsigned)bh?(byte*)(buffer+bw* y   +x+1):(byte*)&bk;
-				for(int kc=0;kc<4;++kc)
+				double cth=cos(radians), sth=sin(radians);
+
+				Point2d U(0, bh), UR(bw, bh), R(bw, 0);//determine new size
+				U.rotate(cth, sth);
+				UR.rotate(cth, sth);
+				R.rotate(cth, sth);
+				w2=(int)ceil(maximum(0, U.x, UR.x, R.x)-minimum(0, U.x, UR.x, R.x)), h2=(int)ceil(maximum(0, U.y, UR.y, R.y)-minimum(0, U.y, UR.y, R.y));
+
+				int size2=w2*h2;
+				b2=(int*)malloc(size2<<2);
+				for(int k=0;k<size2;++k)
+					b2[k]=bk;
+				const double half=0.5;
+				double bw_2=bw*half, bh_2=bh*half, w2_2=w2*half, h2_2=h2*half;
+				if(interpolation_type==I_BILINEAR)
 				{
-					byte
-						N=NW[kc]+int((NE[kc]-NW[kc])*alpha_x),
-						S=SW[kc]+int((SE[kc]-SW[kc])*alpha_x);
-					result[kc]=N+int((S-N)*alpha_y);
+					for(int ky=0;ky<h2;++ky)
+					{
+						for(int kx=0;kx<w2;++kx)
+						{
+							double x0=kx-w2_2, y0=ky-h2_2;
+							double xd=bw_2+x0*cth+y0*sth, yd=bh_2-x0*sth+y0*cth;
+							int x=(int)floor(xd), y=(int)floor(yd);
+							double alpha_x=xd-x, alpha_y=yd-y;
+							//byte *SW, *SE, *NE, *NW;
+							//if((unsigned)x<(unsigned)bw)
+							//{
+							//	if((unsigned)y<(unsigned)bh)
+							//	{
+							//	}
+							//	else
+							//	{
+							//	}
+							//}
+							byte *result=(byte*)(b2+w2*ky+kx),
+								*NW=(unsigned)x  <(unsigned)bw&&(unsigned)y  <(unsigned)bh?(byte*)(buffer+bw* y   +x  ):(byte*)&bk,
+								*SW=(unsigned)x  <(unsigned)bw&&(unsigned)y+1<(unsigned)bh?(byte*)(buffer+bw*(y+1)+x  ):(byte*)&bk,
+								*SE=(unsigned)x+1<(unsigned)bw&&(unsigned)y+1<(unsigned)bh?(byte*)(buffer+bw*(y+1)+x+1):(byte*)&bk,
+								*NE=(unsigned)x+1<(unsigned)bw&&(unsigned)y  <(unsigned)bh?(byte*)(buffer+bw* y   +x+1):(byte*)&bk;
+							for(int kc=0;kc<4;++kc)
+							{
+								byte
+									N=NW[kc]+int((NE[kc]-NW[kc])*alpha_x),
+									S=SW[kc]+int((SE[kc]-SW[kc])*alpha_x);
+								result[kc]=N+int((S-N)*alpha_y);
+							}
+						}
+					}
+				}
+				else
+				{
+					for(int ky=0;ky<h2;++ky)
+					{
+						for(int kx=0;kx<w2;++kx)
+						{
+							double x0=kx-w2_2, y0=ky-h2_2;
+							int x1=int(bw_2+x0*cth+y0*sth), y1=int(bh_2-x0*sth+y0*cth);
+							//x1%=bw, x1+=bw&-(x1<0);
+							//y1%=bh, y1+=bh&-(y1<0);
+							if((unsigned)x1<(unsigned)bw&&(unsigned)y1<(unsigned)bh)
+								b2[w2*ky+kx]=buffer[bw*y1+x1];
+						}
+					}
 				}
 			}
 		}
-	}
-	else
-	{
-		for(int ky=0;ky<h2;++ky)
-		{
-			for(int kx=0;kx<w2;++kx)
-			{
-				double x0=kx-w2_2, y0=ky-h2_2;
-				int x1=int(bw_2+x0*cth+y0*sth), y1=int(bh_2-x0*sth+y0*cth);
-				//x1%=bw, x1+=bw&-(x1<0);
-				//y1%=bh, y1+=bh&-(y1<0);
-				if((unsigned)x1<(unsigned)bw&&(unsigned)y1<(unsigned)bh)
-					b2[w2*ky+kx]=buffer[bw*y1+x1];
-			}
-		}
+		break;
 	}
 }
 void			fliprotate(int fr=ROTATE_ARBITRARY)
 {
-	double degrees=getwindowdouble(hRotatebox);
-	if(degrees)
+	int *b2=nullptr, w2=0, h2=0;
+	if(sel_start!=sel_end)
 	{
-		double radians=degrees*torad;
-		int *b2=nullptr, w2=0, h2=0;
-		if(sel_start!=sel_end)
+		if(selection_free)
 		{
-			if(selection_free)
-			{
-				rotate(sel_buffer, sw, sh, b2, w2, h2, radians, secondarycolor);
-				int *b3=nullptr, w3=0, h3=0;
-				rotate(sel_mask, sw, sh, b3, w3, h3, radians, false);
-				free(sel_mask);
-				sel_mask=b3;
-			}
-			else
-				rotate(sel_buffer, sw, sh, b2, w2, h2, radians, secondarycolor);
-			free(sel_buffer);
-			sel_buffer=b2, sw=w2, sh=h2;
-			if(sel_start.x>sel_end.x)
-				std::swap(sel_start.x, sel_end.x);
-			if(sel_start.y>sel_end.y)
-				std::swap(sel_start.y, sel_end.y);
-			sel_end=sel_start+Point(sw, sh);
-			selection_assign();
+			fliprotate(sel_buffer, sw, sh, b2, w2, h2, fr, secondarycolor);
+			int *b3=nullptr, w3=0, h3=0;
+			fliprotate(sel_mask, sw, sh, b3, w3, h3, fr, false);
+			free(sel_mask);
+			sel_mask=b3;
 		}
 		else
-		{
-			rotate(image, iw, ih, b2, w2, h2, radians, secondarycolor);
-			if(history[histpos].buffer!=image)//
-				int LOL_1=0;//
-			hist_postmodify(b2, w2, h2);
-		}
+			fliprotate(sel_buffer, sw, sh, b2, w2, h2, fr, secondarycolor);
+		free(sel_buffer);
+		sel_buffer=b2, sw=w2, sh=h2;
+		if(sel_start.x>sel_end.x)
+			std::swap(sel_start.x, sel_end.x);
+		if(sel_start.y>sel_end.y)
+			std::swap(sel_start.y, sel_end.y);
+		sel_end=sel_start+Point(sw, sh);
+		selection_assign();
+	}
+	else
+	{
+		fliprotate(image, iw, ih, b2, w2, h2, fr, secondarycolor);
+		//if(history[histpos].buffer!=image)//
+		//	int LOL_1=0;//
+		hist_postmodify(b2, w2, h2);
 	}
 }
 void			stretchskew(int *buffer, int bw, int bh, int *&b2, int &w2, int &h2, double stretchH, double stretchV, double skewH, double skewV, int bk)
@@ -3516,7 +3516,7 @@ void			render()
 		}
 		if(x2-x1>575)//draw alphas slider
 		{
-			const int sstart=320;
+			const int sstart=320;//slider start
 			if(drag==D_ALPHA1)
 				primary_alpha=clamp(0, mx-sstart, 255), assign_alpha(primarycolor, primary_alpha);
 			else if(drag==D_ALPHA2)
@@ -5050,7 +5050,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 {
 	bool handled=false;
 	int r=0;
-#if !defined RLEEASE && defined _DEBUG
+#if !defined RELEASE && defined _DEBUG
 	const char *debugmsg=nullptr;
 #define			DEBUG(format, ...)	sprintf_s(g_buf, g_buf_size, format, __VA_ARGS__), debugmsg=g_buf;
 #else
@@ -5580,6 +5580,12 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				GUITPrint(ghDC, 0, h-16, "RGB=(%d, %d, %d)\t=0x%02X%02X%02X", r, g, b, r, g, b);
 			}
 		}
+		{
+			int size=0;
+			for(int k=0, nv=history.size();k<nv;++k)
+				size+=history[k].iw*history[k].ih;
+			GUIPrint(ghDC, w-200, h-16, "%d/%d, %.2lfMB", histpos, history.size(), float(size<<2)/1048576);//
+		}
 		break;
 	case WM_LBUTTONDOWN://left click
 	case WM_LBUTTONDBLCLK:
@@ -5646,15 +5652,31 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				}
 				else
 				{
-					int x0=700, y0=h-48;
-					if(mx>=x0&&mx<x0+150&&my>=y0&&my<y0+23)//bold, italic, underline buttons
+					switch(colorbarcontents)
 					{
-						if(mx<x0+50)
-							bold=!bold;
-						else if(mx<x0+100)
-							italic=!italic;
-						else
-							underline=!underline;
+					case CS_TEXTOPTIONS:
+						{
+							int x0=700, y0=h-48;
+							if(mx>=x0&&mx<x0+150&&my>=y0&&my<y0+23)//bold, italic, underline buttons
+							{
+								if(mx<x0+50)
+									bold=!bold;
+								else if(mx<x0+100)
+									italic=!italic;
+								else
+									underline=!underline;
+							}
+						}
+						break;
+					case CS_FLIPROTATE:
+						if(mx>=650&&mx<650+104*3&&my>=h-68&&my<h-68+40)
+						{
+							int kx=(mx-650)/104, ky=(my-(h-68))/20, idx=kx<<1|ky;
+							fliprotate(idx);
+						}
+						break;
+					//case CS_STRETCHSKEW://no buttons
+					//	break;
 					}
 				}
 				break;
