@@ -44,6 +44,15 @@
 
 //	#define		MOUSE_POLLING_TEST
 
+#if _MSC_VER<1700//__cplusplus<201103
+namespace	std
+{
+	inline double round(double x){return floor(x+0.5);}
+	inline bool signbit(double x){return (((char*)&x)[7]>>7)!=0;}
+	inline bool isnan(double x){return x!=x;}
+	inline bool isinf(double x){return abs(x)==_HUGE;}
+}
+#endif
 const double	_pi=acos(-1.), todeg=180/_pi, torad=_pi/180;
 int				*rgb=nullptr, w=0, h=0, rgbn=0,
 				mx=0, my=0,//current mouse position
@@ -237,6 +246,11 @@ void			check(int line)
 		broken=error, broken_line=line;
 		formatted_error(L"check", line);
 	}
+}
+void			check(void *p, int line)
+{
+	if(!p)
+		check(line);
 }
 void			check_exit(const wchar_t *lpszFunction, int line)
 {
@@ -988,6 +1002,8 @@ void			delete_workfolder()
 enum			Commands
 {
 	IDM_FONT_COMBOBOX=1, IDM_FONTSIZE_COMBOBOX, IDM_TEXT_EDIT,
+	IDM_ROTATE_BOX,
+	IDM_STRETCH_H_BOX, IDM_STRETCH_V_BOX, IDM_SKEW_H_BOX, IDM_SKEW_V_BOX,
 
 	//menu bar
 	IDM_FILE_NEW, IDM_FILE_OPEN, IDM_FILE_SAVE, IDM_FILE_SAVE_AS, IDM_FILE_QUIT,
@@ -1405,7 +1421,7 @@ struct			Point
 	int x, y;
 	Point():x(0), y(0){}
 	Point(int x, int y):x(x), y(y){}
-	Point(Point2d const &p):x((int)round(p.x)), y((int)round(p.y)){}
+	Point(Point2d const &p):x((int)std::round(p.x)), y((int)std::round(p.y)){}
 	void set(int x, int y){this->x=x, this->y=y;}
 	void setzero(){x=y=0;}
 	Point& operator+=(Point const &b){x+=b.x, y+=b.y;return *this;}
@@ -1910,7 +1926,7 @@ void			draw_line(int *buffer, int x1, int y1, int x2, int y2, int color, bool in
 			double y=ya+(x-xa)*r;
 			if(y>=0&&y<ih)
 			{
-				int ix=(int)round(x), iy=(int)round(y);
+				int ix=(int)std::round(x), iy=(int)std::round(y);
 				if(icheck(ix, iy))//
 					continue;//
 				int idx=iw*iy+ix;
@@ -1942,7 +1958,7 @@ void			draw_line(int *buffer, int x1, int y1, int x2, int y2, int color, bool in
 			double x=xa+(y-ya)*r;
 			if(x>=0&&x<iw)
 			{
-				int ix=(int)round(x), iy=(int)round(y);
+				int ix=(int)std::round(x), iy=(int)std::round(y);
 				if(icheck(ix, iy))//
 					continue;//
 				int idx=iw*iy+ix;
@@ -1998,7 +2014,7 @@ void			register_line(std::vector<Range> &bounds, int x1, int y1, int x2, int y2)
 			double y=ya+(x-xa)*r;
 			if(y>=0&&y<ih)
 			{
-				int ix=(int)round(x), iy=(int)round(y);
+				int ix=(int)std::round(x), iy=(int)std::round(y);
 				if(icheck(ix, iy))//
 					continue;//
 				bounds[iy].assign(ix);
@@ -2018,7 +2034,7 @@ void			register_line(std::vector<Range> &bounds, int x1, int y1, int x2, int y2)
 			double x=xa+(y-ya)*r;
 			if(x>=0&&x<iw)
 			{
-				int ix=(int)round(x), iy=(int)round(y);
+				int ix=(int)std::round(x), iy=(int)std::round(y);
 				if(icheck(ix, iy))//
 					continue;//
 				bounds[iy].assign(ix);
@@ -2043,10 +2059,10 @@ void			draw_line_brush(int *buffer, int brush, int x1, int y1, int x2, int y2, i
 		{
 			std::vector<Range> bounds(ih);
 			Point
-				p1L={x1+b->bounds[0], y1+b->yoffset},
-				p1R={x1+b->bounds[(b->ysize-1)<<1], y1+b->yoffset+b->ysize-1},
-				p2L={x2+b->bounds[0], y2+b->yoffset},
-				p2R={x2+b->bounds[(b->ysize-1)<<1], y2+b->yoffset+b->ysize-1};
+				p1L(x1+b->bounds[0], y1+b->yoffset),
+				p1R(x1+b->bounds[(b->ysize-1)<<1], y1+b->yoffset+b->ysize-1),
+				p2L(x2+b->bounds[0], y2+b->yoffset),
+				p2R(x2+b->bounds[(b->ysize-1)<<1], y2+b->yoffset+b->ysize-1);
 			register_line(bounds, p1L.x, p1L.y, p2L.x, p2L.y);
 			register_line(bounds, p2L.x, p2L.y, p2R.x, p2R.y);
 			register_line(bounds, p2R.x, p2R.y, p1R.x, p1R.y);
@@ -2089,7 +2105,7 @@ void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int colo
 	if(kb[VK_SHIFT])
 	{
 		int dx=x2-x1, dy=y2-y1;
-		double angle=todeg*atan2(dy, dx);
+		double angle=todeg*atan2((double)dy, (double)dx);
 		angle+=360&-(angle<0);
 		GUIPrint(ghMemDC, w>>1, h>>1, "angle=%lf", angle);//
 		if(angle<22.5||angle>337.5)//0 degrees
@@ -2219,7 +2235,7 @@ void			curve_update_mouse(int mx, int my)
 	if(idx!=-1)
 		bezier[idx].set(i.x, i.y);
 }
-double			distance(Point const &a, Point const &b){int dx=b.x-a.x, dy=b.y-a.y; return sqrt(dx*dx+dy*dy);}
+double			distance(Point const &a, Point const &b){int dx=b.x-a.x, dy=b.y-a.y; return sqrt(double(dx*dx+dy*dy));}
 void			curve_draw(int *buffer, int color)
 {
 	double outerpath=0;
@@ -2536,7 +2552,6 @@ void			polygon_draw(int *buffer, int color_line, int color_fill)
 	int npoints=polygon.size();
 	if(npoints>=3)
 	{
-		hist_premodify(image, iw, ih);
 		if(polygon_type==ST_FULL||polygon_type==ST_FILL)//fill polygon
 		{
 			int color3=polygon_type==ST_FILL?color_line:color_fill;
@@ -2548,7 +2563,7 @@ void			polygon_draw(int *buffer, int color_line, int color_fill)
 				polygon_rowbounds(polygon, ky, bounds);
 				for(int kb=0, nbounds=bounds.size();kb+1<nbounds;kb+=2)
 				{
-					int kx=(int)round(bounds[kb]), kxEnd=(int)round(bounds[kb+1]);
+					int kx=(int)std::round(bounds[kb]), kxEnd=(int)std::round(bounds[kb+1]);
 					if(kx<0)
 						kx=0;
 					if(kxEnd>iw)
@@ -2604,7 +2619,7 @@ void			freesel_select()
 			polygon_rowbounds(freesel, ky, bounds);
 			for(int kb=0, nbounds=bounds.size();kb+1<nbounds;kb+=2)
 			{
-				int kx=(int)round(bounds[kb]), kxEnd=(int)round(bounds[kb+1]);
+				int kx=(int)std::round(bounds[kb]), kxEnd=(int)std::round(bounds[kb+1]);
 				if(kx<0)
 					kx=0;
 				if(kxEnd>iw)
@@ -2646,7 +2661,7 @@ void			draw_ellipse_hollow(int *buffer, int xCenter, int yCenter, int Rx, int Ry
 	int px=0, py=twoRx2*y;
 	ellipsePlotPoints(buffer, xCenter, yCenter, x, y, color);
 	//For Region 1
-	p=(int)round(Ry2-Rx2*Ry+0.25*Rx2);
+	p=(int)std::round(Ry2-Rx2*Ry+0.25*Rx2);
 //	p=Ry2-Rx2*Ry+(Rx2>>2);
 	while(px<py)
 	{
@@ -2663,7 +2678,7 @@ void			draw_ellipse_hollow(int *buffer, int xCenter, int yCenter, int Rx, int Ry
 		ellipsePlotPoints(buffer, xCenter, yCenter, x, y, color);
 	}
 	//For Region 2
-	p=(int)round(Ry2*(x+0.5)*(x+0.5)+Rx2*(y-1)*(y-1)-Rx2*Ry2);
+	p=(int)std::round(Ry2*(x+0.5)*(x+0.5)+Rx2*(y-1)*(y-1)-Rx2*Ry2);
 	while(y>0)
 	{
 		--y;
@@ -3020,39 +3035,39 @@ void			draw_selection_rectangle(Point &start, Point &end, Point &s1, Point &s2, 
 			v_line(s2.x, ystart, yend, black);
 	}
 }
-void			movewindow_c(HWND hWnd, int x, int y, int w, int h, bool repaint)//MoveWindow takes client coordinates
+void			movewindow_c(HWND hWnd, int x, int y, int w, int h, bool repaint)//MoveWindow takes client coordinates, for CHILD windows
 {
 	int success=MoveWindow(hWnd, x, y, w, h, repaint);
 	if(!success)
 		formatted_error(L"MoveWindow", __LINE__);
 //	check(__LINE__);
 }
-void			movewindow(HWND hWnd, int x, int y, int w, int h, bool repaint)//MoveWindow takes screen coordinates
-{
-	POINT position={x, y};
-	ClientToScreen(ghWnd, &position);
-	movewindow_c(hWnd, position.x, position.y, w, h, repaint);
-}
+//void			movewindow(HWND hWnd, int x, int y, int w, int h, bool repaint)//MoveWindow takes screen coordinates, for POPUP windows
+//{
+//	POINT position={x, y};
+//	ClientToScreen(ghWnd, &position);
+//	movewindow_c(hWnd, position.x, position.y, w, h, repaint);
+//}
 void			move_textbox()
 {
-	movewindow(hTextbox, text_s1.x+1, text_s1.y+1, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
+	movewindow_c(hTextbox, text_s1.x+1, text_s1.y+1, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
 	//movewindow(hTextbox, text_s1.x, text_s1.y, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
 //	movewindow(hTextbox, 8+text_s1.x, 50+text_s1.y, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
 //	movewindow(hTextbox, 9+text_s1.x, 51+text_s1.y, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
 }
 void			fliprotate_moveui(bool repaint)
 {
-	movewindow(hRotatebox, 924-17, h-49, 50, 21, repaint);
+	movewindow_c(hRotatebox, 924-17, h-49, 50, 21, repaint);
 }
 void			stretchskew_moveui(bool repaint)
 {
 	int x1=705, x2=x1+180,
 		y1=h-69, y2=y1+22,
 		dx=50, dy=21;
-	movewindow(hStretchHbox, x1, y1, dx, dy, repaint);
-	movewindow(hStretchVbox, x1, y2, dx, dy, repaint);
-	movewindow(hSkewHbox, x2, y1, dx, dy, repaint);
-	movewindow(hSkewVbox, x2, y2, dx, dy, repaint);
+	movewindow_c(hStretchHbox, x1, y1, dx, dy, repaint);
+	movewindow_c(hStretchVbox, x1, y2, dx, dy, repaint);
+	movewindow_c(hSkewHbox, x2, y1, dx, dy, repaint);
+	movewindow_c(hSkewVbox, x2, y2, dx, dy, repaint);
 }
 void			show_colorbarcontents(bool show)
 {
@@ -3069,7 +3084,7 @@ void			show_colorbarcontents(bool show)
 	case CS_FLIPROTATE:
 		if(show)
 		{
-			fliprotate_moveui(false);
+			fliprotate_moveui(true);
 			SetWindowTextA(hRotatebox, zero);
 		}
 		ShowWindow(hRotatebox, ncmdshow);
@@ -3077,7 +3092,7 @@ void			show_colorbarcontents(bool show)
 	case CS_STRETCHSKEW:
 		if(show)
 		{
-			stretchskew_moveui(false);
+			stretchskew_moveui(true);
 			SetWindowTextA(hStretchHbox, onehundred);
 			SetWindowTextA(hStretchVbox, onehundred);
 			SetWindowTextA(hSkewHbox, zero);
@@ -5066,115 +5081,74 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		//	RegisterDragDrop(hWnd, (IDropTarget*)&mdt);
 
 			//menu bar
-			hMenubar=CreateMenu();
-			hMenuFile=CreateMenu(), hMenuEdit=CreateMenu(), hMenuView=CreateMenu(), hMenuZoom=CreateMenu(), hMenuImage=CreateMenu(), hMenuColors=CreateMenu(), hMenuHelp=CreateMenu();
-			hMenuTest=CreateMenu();
-			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_NEW, L"&New\tCtrl+N");			//[F]ILE
-			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_OPEN, L"&Open...\tCtrl+O");
-			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_SAVE, L"&Save\tCtrl+S");
-			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_SAVE_AS, L"Save &As...\tCtrl+Shift+S");
-			AppendMenuW(hMenuFile, MF_SEPARATOR, 0, 0);
-			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_QUIT, L"E&xit\tAlt+F4");
-			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuFile, L"&File");
+			hMenubar=CreateMenu();	check(__LINE__);
+			hMenuFile=CreateMenu(), hMenuEdit=CreateMenu(), hMenuView=CreateMenu(), hMenuZoom=CreateMenu(), hMenuImage=CreateMenu(), hMenuColors=CreateMenu(), hMenuHelp=CreateMenu();	check(__LINE__);
+			hMenuTest=CreateMenu();	check(__LINE__);
+			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_NEW, L"&New\tCtrl+N");	check(__LINE__);			//[F]ILE
+			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_OPEN, L"&Open...\tCtrl+O");	check(__LINE__);
+			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_SAVE, L"&Save\tCtrl+S");	check(__LINE__);
+			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_SAVE_AS, L"Save &As...\tCtrl+Shift+S");	check(__LINE__);
+			AppendMenuW(hMenuFile, MF_SEPARATOR, 0, 0);	check(__LINE__);
+			AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_QUIT, L"E&xit\tAlt+F4");	check(__LINE__);
+			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuFile, L"&File");	check(__LINE__);
 
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_UNDO, L"&Undo\tCrtl+Z");			//[E]DIT
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_REPEAT, L"&Repeat\tCrtl+Y");
-			AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CUT, L"Cu&t\tCrtl+X");
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY, L"&Copy\tCrtl+C");
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE, L"&Paste\tCrtl+V");
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CLEAR_SELECTION, L"C&lear Selection\tDel");
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_SELECT_ALL, L"Select &All\tCtrl+A");
-			AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY_TO, L"C&opy To...");
-			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE_FROM, L"Paste &From...");
-			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuEdit, L"&Edit");
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_UNDO, L"&Undo\tCrtl+Z");		check(__LINE__);		//[E]DIT
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_REPEAT, L"&Repeat\tCrtl+Y");	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CUT, L"Cu&t\tCrtl+X");	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY, L"&Copy\tCrtl+C");	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE, L"&Paste\tCrtl+V");	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CLEAR_SELECTION, L"C&lear Selection\tDel");	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_SELECT_ALL, L"Select &All\tCtrl+A");	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY_TO, L"C&opy To...");	check(__LINE__);
+			AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE_FROM, L"Paste &From...");	check(__LINE__);
+			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuEdit, L"&Edit");	check(__LINE__);
 
-			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TOOLBOX, L"&Tool Box\tCtrl+T");	//[V]IEW
-			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_COLORBOX, L"&Color Box\tCtrl+L");
-			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_STATUSBAR, L"&Status Bar");
-			CheckMenuItem(hMenuView, IDM_VIEW_STATUSBAR, MF_CHECKED);//deprecated
-			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TEXT_TOOLBAR, L"T&ext Toolbar");
-			AppendMenuW(hMenuView, MF_SEPARATOR, 0, 0);
-		//	AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_ZOOM, L"&Zoom");
-			AppendMenuW(hMenuView, MF_STRING | MF_POPUP, (unsigned)hMenuZoom, L"&Zoom");
-			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_VIEWBITMAP, L"&View Bitmap\tCtrl+F");
-			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuView, L"&View");
+			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TOOLBOX, L"&Tool Box\tCtrl+T");	check(__LINE__);	//[V]IEW
+			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_COLORBOX, L"&Color Box\tCtrl+L");	check(__LINE__);
+			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_STATUSBAR, L"&Status Bar");	check(__LINE__);
+			CheckMenuItem(hMenuView, IDM_VIEW_STATUSBAR, MF_CHECKED);	check(__LINE__);//deprecated
+			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TEXT_TOOLBAR, L"T&ext Toolbar");	check(__LINE__);
+			AppendMenuW(hMenuView, MF_SEPARATOR, 0, 0);	check(__LINE__);
+		//	AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_ZOOM, L"&Zoom");	check(__LINE__);
+			AppendMenuW(hMenuView, MF_STRING | MF_POPUP, (unsigned)hMenuZoom, L"&Zoom");	check(__LINE__);
+			AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_VIEWBITMAP, L"&View Bitmap\tCtrl+F");	check(__LINE__);
+			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuView, L"&View");	check(__LINE__);
 
-			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_IN, L"&Zoom Out\tCtrl+PgUp");		//VIEW/[Z]OOM
-			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_OUT, L"&Zoom In\tCtrl+PgDn");
-			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_CUSTOM, L"C&ustom...");
-			AppendMenuW(hMenuZoom, MF_SEPARATOR, 0, 0);
-			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_GRID, L"Show &Grid\tCtrl+G");
-			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_THUMBNAIL, L"Show T&humbnail");
+			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_IN, L"&Zoom Out\tCtrl+PgUp");	check(__LINE__);		//VIEW/[Z]OOM
+			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_OUT, L"&Zoom In\tCtrl+PgDn");	check(__LINE__);
+			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_CUSTOM, L"C&ustom...");	check(__LINE__);
+			AppendMenuW(hMenuZoom, MF_SEPARATOR, 0, 0);	check(__LINE__);
+			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_GRID, L"Show &Grid\tCtrl+G");	check(__LINE__);
+			AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_THUMBNAIL, L"Show T&humbnail");	check(__LINE__);
 
-			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_FLIP_ROTATE, L"&Flip/Rotate...\tCtrl+R");	//IMAGE
-			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SKETCH_SKEW, L"&Sketch/Skew...\tCtrl+W");
-			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_INVERT_COLORS, L"&Invert Colors\tCtrl+I");
-			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ATTRIBUTES, L"&Attributes...\tCtrl+E");
-			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CLEAR_IMAGE, L"&Clear Image\tCtrl+Shift+N");
-			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_DRAW_OPAQUE, L"&Draw Opaque");
-			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuImage, L"&Image");
+			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_FLIP_ROTATE, L"&Flip/Rotate...\tCtrl+R");	check(__LINE__);	//IMAGE
+			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SKETCH_SKEW, L"&Sketch/Skew...\tCtrl+W");	check(__LINE__);
+			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_INVERT_COLORS, L"&Invert Colors\tCtrl+I");	check(__LINE__);
+			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ATTRIBUTES, L"&Attributes...\tCtrl+E");	check(__LINE__);
+			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CLEAR_IMAGE, L"&Clear Image\tCtrl+Shift+N");	check(__LINE__);
+			AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_DRAW_OPAQUE, L"&Draw Opaque");	check(__LINE__);
+			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuImage, L"&Image");	check(__LINE__);
 
-			AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITCOLORS, L"&Edit Colors...");	//COLORS
-			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuColors, L"&Colors");
+			AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITCOLORS, L"&Edit Colors...");	check(__LINE__);	//COLORS
+			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuColors, L"&Colors");	check(__LINE__);
 
-			AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO1, L".&BMP");			//TEST
-			AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO2, L".&TIFF");
-			AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO3, L".&PNG");
-			AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO4, L".&JPEG");
-		//	AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO5, L".&FLIF");
-			CheckMenuRadioItem(hMenuTest, IDM_TEST_RADIO1, IDM_TEST_RADIO4, IDM_TEST_RADIO3, MF_BYCOMMAND);
-			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuTest, L"&Temp Format");
+			AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO1, L".&BMP");	check(__LINE__);			//TEST
+			AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO2, L".&TIFF");	check(__LINE__);
+			AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO3, L".&PNG");	check(__LINE__);
+			AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO4, L".&JPEG");	check(__LINE__);
+		//	AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO5, L".&FLIF");	check(__LINE__);
+			CheckMenuRadioItem(hMenuTest, IDM_TEST_RADIO1, IDM_TEST_RADIO4, IDM_TEST_RADIO3, MF_BYCOMMAND);	check(__LINE__);
+			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuTest, L"&Temp Format");	check(__LINE__);
 
-			AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_TOPICS, L"&Help Topics");			//HELP
-			AppendMenuW(hMenuHelp, MF_SEPARATOR, 0, 0);
-			AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, L"&About Paint++");
-			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuHelp, L"&Help");
+			AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_TOPICS, L"&Help Topics");	check(__LINE__);			//HELP
+			AppendMenuW(hMenuHelp, MF_SEPARATOR, 0, 0);	check(__LINE__);
+			AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, L"&About Paint++");	check(__LINE__);
+			AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuHelp, L"&Help");	check(__LINE__);
 
-			SetMenu(hWnd, hMenubar);
-			check_exit(L"Entry", __LINE__);
-
-			//WNDCLASSEXW tb={sizeof WNDCLASSEXW, CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS, };
-			//RegisterClassExW(&tb);
-		//	hFontbar=CreateWindowExW(0, TOOLBARCLASSNAMEW, L"Fonts", WS_CAPTION|WS_SYSMENU|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, 9+472+9, 30+31+8, hWnd, 0, 0, 0);//floating toolbar
-			//hFontbar=CreateWindowExW(0, TOOLBARCLASSNAMEW, L"Fonts", WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, 0, 0, 0);//grey window
-			//hFontbar=CreateWindowExW(WS_EX_TOOLWINDOW, TOOLBARCLASSNAMEW, L"Fonts", WS_CHILD, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, 0, 0, 0);//grey bar on top
-		//	ShowWindow(hFontbar, SW_SHOWDEFAULT);
-			HFONT hfDefault=(HFONT)GetStockObject(DEFAULT_GUI_FONT);
-
-			hFontcombobox=CreateWindowExW(0, WC_COMBOBOXW, nullptr, CBS_DROPDOWN|CBS_HASSTRINGS|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_VSCROLL, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, (HMENU)IDM_FONT_COMBOBOX, nullptr, nullptr);
-			SendMessageW(hFontcombobox, WM_SETFONT, (WPARAM)hfDefault, 0);
-
-			hFontsizecb=CreateWindowExW(0, WC_COMBOBOXW, nullptr, CBS_DROPDOWN|CBS_HASSTRINGS|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_VSCROLL, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, (HMENU)IDM_FONTSIZE_COMBOBOX, nullptr, nullptr);
-			SendMessageW(hFontsizecb, WM_SETFONT, (WPARAM)hfDefault, 0);
-
-			hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, nullptr, nullptr);
-		//	hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, (HMENU)IDM_TEXT_EDIT, nullptr, nullptr);//returns nullptr
-			if(!hTextbox)
-				formatted_error(L"reateWindowExW(textbox)", __LINE__);
-			//	messagebox(hWnd, L"Error", L"CreateWindowExW(textbox) at line %d", __LINE__);
-			//	error_exit(L"CreateWindowExW(textbox)", __LINE__);
-		//	hTextbox=CreateWindowExW(WS_EX_LAYERED, WC_EDITW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, nullptr, nullptr);//invisible
-			oldEditProc=(WNDPROC)SetWindowLongW(hTextbox, GWLP_WNDPROC, (long)EditProc);
-
-			hRotatebox	=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, ghInstance, nullptr);
-			hStretchHbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, ghInstance, nullptr);
-			hStretchVbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, ghInstance, nullptr);
-			hSkewHbox	=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, ghInstance, nullptr);
-			hSkewVbox	=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, ghInstance, nullptr);
-			//hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, nullptr, nullptr);//thick black rectangle
-			//hStretchHbox	=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, nullptr, nullptr);
-			//hStretchVbox	=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, nullptr, nullptr);
-			//hSkewHbox		=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, nullptr, nullptr);
-			//hSkewVbox		=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, nullptr, nullptr, nullptr);
-			if(!hRotatebox||!hStretchHbox||!hStretchVbox||!hSkewHbox||!hSkewVbox)
-				formatted_error(L"CreateWindowExW(hRotatebox...hSkewVbox)", __LINE__);
-			SendMessageW(hRotatebox		, WM_SETFONT, (WPARAM)hfDefault, 0);
-			SendMessageW(hStretchHbox	, WM_SETFONT, (WPARAM)hfDefault, 0);
-			SendMessageW(hStretchVbox	, WM_SETFONT, (WPARAM)hfDefault, 0);
-			SendMessageW(hSkewHbox		, WM_SETFONT, (WPARAM)hfDefault, 0);
-			SendMessageW(hSkewVbox		, WM_SETFONT, (WPARAM)hfDefault, 0);
+			SetMenu(hWnd, hMenubar);	check(__LINE__);
+		//	check_exit(L"Entry", __LINE__);
 		}
 		break;
 	case WM_SIZE:
@@ -5243,8 +5217,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		{
 			//https://stackoverflow.com/questions/4285890/how-to-load-a-small-system-icon
 			//100: IDI_APPLICATION, 101: IDI_WARNING, 102: IDI_QUESTION, 103: IDI_ERROR, 104: IDI_INFORMATION, 105:IDI_WINLOGO, 106: IDI_SHIELD
-			HINSTANCE hModule=GetModuleHandleW(L"user32");
-			HICON hIcon=(HICON)LoadImageW(hModule, (wchar_t*)100, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
+			HINSTANCE hUser32=GetModuleHandleW(L"user32");
+			HICON hIcon=(HICON)LoadImageW(hUser32, (wchar_t*)100, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
 			if(!hIcon)
 				formatted_error(L"LoadImageW", __LINE__);
 			return (long)hIcon;
@@ -5641,7 +5615,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 						if(mx>=650&&mx<650+104*3&&my>=h-68&&my<h-68+40)
 						{
 							int kx=(mx-650)/104, ky=(my-(h-68))/20, idx=kx<<1|ky;
-							fliprotate(idx);
+							if(idx<ROTATE_ARBITRARY)
+								fliprotate(idx);
 						}
 						break;
 					//case CS_STRETCHSKEW://no buttons
@@ -5677,6 +5652,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 					}
 					if(prevmode==M_POLYGON&&currentmode!=M_POLYGON)//switch away from polygon
 					{
+						if(polygon.size()>=3)
+							hist_premodify(image, iw, ih);
 						polygon_draw(image, polygon_leftbutton?primarycolor:secondarycolor, polygon_type==ST_FILL==polygon_leftbutton?primarycolor:secondarycolor);
 						//int c3, c4;
 						//if(polygon_type==ST_FILL==polygon_leftbutton)
@@ -6345,30 +6322,31 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 
 //	GUIPrint(ghDC, w>>1, 0, "message=0x%04X, drag=%d", message, (int)drag);//
 #endif
-	Rectangle(ghDC, -1, h-17, w+1, h+1);
-//	Rectangle(ghDC, 0, h-16, w, h);
-	if(mousepos==MP_IMAGE)
+	if(ghDC)//draw statusbar
 	{
-		Point pm;
-		screen2image(mx, my, pm.x, pm.y);
-		if(!icheck(pm.x, pm.y))
+		Rectangle(ghDC, -1, h-17, w+1, h+1);
+	//	Rectangle(ghDC, 0, h-16, w, h);
+		if(mousepos==MP_IMAGE)
 		{
-			auto p=(byte*)(image+iw*pm.y+pm.x);
-			int a=p[3], r=p[2], g=p[1], b=p[0];
-			GUITPrint(ghDC, 0, h-16, "XY=(%d, %d),\tARGB=(%d, %d, %d, %d)\t=0x%02X%02X%02X%02X", pm.x, pm.y, a, r, g, b, a, r, g, b);
+			Point pm;
+			screen2image(mx, my, pm.x, pm.y);
+			if(!icheck(pm.x, pm.y))
+			{
+				auto p=(byte*)(image+iw*pm.y+pm.x);
+				int a=p[3], r=p[2], g=p[1], b=p[0];
+				GUITPrint(ghDC, 0, h-16, "XY=(%d, %d),\tARGB=(%d, %d, %d, %d)\t=0x%02X%02X%02X%02X", pm.x, pm.y, a, r, g, b, a, r, g, b);
+			}
 		}
-	}
-	else if(mousepos==MP_COLORBAR)
-	{
-		if(mx>=31&&mx<255&&my>=h-65&&my<h-33)
+		else if(mousepos==MP_COLORBAR)
 		{
-			int kx=(mx-31)>>4, ky=(my-(h-65))>>4, idx=kx<<1|ky;
-			auto p=(byte*)(colorpalette+idx);
-			int r=p[2], g=p[1], b=p[0];
-			GUITPrint(ghDC, 0, h-16, "RGB=(%d, %d, %d)\t=0x%02X%02X%02X", r, g, b, r, g, b);
+			if(mx>=31&&mx<255&&my>=h-65&&my<h-33)
+			{
+				int kx=(mx-31)>>4, ky=(my-(h-65))>>4, idx=kx<<1|ky;
+				auto p=(byte*)(colorpalette+idx);
+				int r=p[2], g=p[1], b=p[0];
+				GUITPrint(ghDC, 0, h-16, "RGB=(%d, %d, %d)\t=0x%02X%02X%02X", r, g, b, r, g, b);
+			}
 		}
-	}
-	{
 		int size=0;
 		for(int k=0, nv=history.size();k<nv;++k)
 			size+=history[k].iw*history[k].ih;
@@ -6399,8 +6377,69 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 
 		(HBRUSH__*)(COLOR_WINDOW+1), 0, "New format", 0
 	};
-	RegisterClassExA(&wndClassEx);
-	ghWnd=CreateWindowExA(WS_EX_ACCEPTFILES, wndClassEx.lpszClassName, "Untitled - Paint++", WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);//2020-06-02
+	RegisterClassExA(&wndClassEx);	check(__LINE__);
+	ghWnd=CreateWindowExA(WS_EX_ACCEPTFILES, wndClassEx.lpszClassName, "Untitled - Paint++", WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);	check(__LINE__);//2020-06-02
+	
+
+	//WNDCLASSEXW tb={sizeof WNDCLASSEXW, CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS, };
+	//RegisterClassExW(&tb);
+//	hFontbar=CreateWindowExW(0, TOOLBARCLASSNAMEW, L"Fonts", WS_CAPTION|WS_SYSMENU|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, 9+472+9, 30+31+8, hWnd, 0, 0, 0);//floating toolbar
+	//hFontbar=CreateWindowExW(0, TOOLBARCLASSNAMEW, L"Fonts", WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, 0, 0, 0);//grey window
+	//hFontbar=CreateWindowExW(WS_EX_TOOLWINDOW, TOOLBARCLASSNAMEW, L"Fonts", WS_CHILD, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWnd, 0, 0, 0);//grey bar on top
+//	ShowWindow(hFontbar, SW_SHOWDEFAULT);
+	HFONT hfDefault=(HFONT)GetStockObject(DEFAULT_GUI_FONT);	check(__LINE__);
+//	HINSTANCE hModule=GetModuleHandleA("user32");	check(__LINE__);
+	HINSTANCE hModule=GetModuleHandleA("kernel32");	check(__LINE__);
+	
+//	hFontcombobox	=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONT_COMBOBOX, hModule, nullptr);	check(hFontcombobox, __LINE__);//126 the specified module could not be found
+	hFontcombobox	=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONT_COMBOBOX, hInstance, nullptr);	check(hFontcombobox, __LINE__);//126 the specified module could not be found
+//	hFontcombobox	=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONT_COMBOBOX, nullptr, nullptr);	check(hFontcombobox, __LINE__);//126 the specified module could not be found
+	SendMessageW(hFontcombobox, WM_SETFONT, (WPARAM)hfDefault, 0);	check(__LINE__);
+
+	hFontsizecb		=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONTSIZE_COMBOBOX, hInstance, nullptr);	check(hFontsizecb, __LINE__);
+	SendMessageW(hFontsizecb, WM_SETFONT, (WPARAM)hfDefault, 0);	check(__LINE__);
+
+//	HINSTANCE LOL_1=(HINSTANCE)GetWindowLongW(ghWnd, GWLP_HINSTANCE);//same as hInstance
+//	hTextbox=CreateWindowExW(0, L"EDIT", nullptr, WS_CHILD|WS_VISIBLE|WS_VSCROLL | ES_LEFT|ES_MULTILINE|ES_AUTOVSCROLL, 0, 0, 0, 0, ghWnd, (HMENU)100, (HINSTANCE)GetWindowLongW(ghWnd, GWLP_HINSTANCE), nullptr);	check(__LINE__);//from documentation: 6 invalid handle	https://docs.microsoft.com/en-us/windows/win32/controls/use-a-multiline-edit-control
+//	hTextbox=CreateWindowExA(0, WC_EDITA, nullptr, WS_CHILD|WS_VISIBLE | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);	check(__LINE__);//6 invalid handle
+//	hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);	check(__LINE__);//6 invalid handle
+//	hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hFontsizecb, (HMENU)IDM_TEXT_EDIT, hInstance, nullptr);	check(__LINE__);//doesn't work, no error
+//	hTextbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_TEXT_EDIT, hInstance, nullptr);	check(__LINE__);//6 invalid handle
+	hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_TEXT_EDIT, hInstance, nullptr);	check(hTextbox, __LINE__);//6 invalid handle
+//	hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_POPUP | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);	check(__LINE__);//takes focus	X WS_POPUP cannot be used with WS_CHILD
+//	hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_POPUP | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_TEXT_EDIT, nullptr, nullptr);	check(__LINE__);//returns nullptr, 1401 invalid hmenu
+	//if(!hTextbox)
+	//	formatted_error(L"CreateWindow(textbox)", __LINE__);
+	//	messagebox(ghWnd, L"Error", L"CreateWindowExW(textbox) at line %d", __LINE__);
+	//	error_exit(L"CreateWindowExW(textbox)", __LINE__);
+//	hTextbox=CreateWindowExW(WS_EX_LAYERED, WC_EDITW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, nullptr, nullptr);//invisible
+	oldEditProc=(WNDPROC)SetWindowLongW(hTextbox, GWLP_WNDPROC, (long)EditProc);	check(__LINE__);
+
+	hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_ROTATE_BOX,	hInstance, nullptr);	check(hRotatebox,	__LINE__);
+	hStretchHbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_H_BOX,	hInstance, nullptr);	check(hStretchHbox, __LINE__);
+	hStretchVbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_V_BOX,	hInstance, nullptr);	check(hStretchVbox, __LINE__);
+	hSkewHbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_H_BOX,	hInstance, nullptr);	check(hSkewHbox,	__LINE__);
+	hSkewVbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_V_BOX,	hInstance, nullptr);	check(hSkewVbox,	__LINE__);
+
+	//hRotatebox	=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);			check(hRotatebox,	__LINE__);//X WS_POPUP cannot be used with WS_CHILD
+	//hStretchHbox	=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);			check(hStretchHbox, __LINE__);
+	//hStretchVbox	=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);			check(hStretchVbox, __LINE__);
+	//hSkewHbox		=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);			check(hSkewHbox,	__LINE__);
+	//hSkewVbox		=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);			check(hSkewVbox,	__LINE__);
+
+	//hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);//thick black rectangle
+	//hStretchHbox	=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);
+	//hStretchVbox	=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);
+	//hSkewHbox		=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);
+	//hSkewVbox		=CreateWindowExW(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);
+	//if(!hRotatebox||!hStretchHbox||!hStretchVbox||!hSkewHbox||!hSkewVbox)
+	//	formatted_error(L"CreateWindow(hRotatebox...hSkewVbox)", __LINE__);
+	SendMessageW(hRotatebox		, WM_SETFONT, (WPARAM)hfDefault, 0);
+	SendMessageW(hStretchHbox	, WM_SETFONT, (WPARAM)hfDefault, 0);
+	SendMessageW(hStretchVbox	, WM_SETFONT, (WPARAM)hfDefault, 0);
+	SendMessageW(hSkewHbox		, WM_SETFONT, (WPARAM)hfDefault, 0);
+	SendMessageW(hSkewVbox		, WM_SETFONT, (WPARAM)hfDefault, 0);
+
 
 	ShowWindow(ghWnd, nCmdShow);
 	
