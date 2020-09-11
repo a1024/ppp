@@ -224,6 +224,11 @@ void			messagebox(HWND hWnd, const wchar_t *title, const wchar_t *format, ...)
 	vswprintf_s(g_wbuf, g_buf_size, format, (char*)(&format+1));
 	MessageBoxW(hWnd, g_wbuf, title, MB_OK);
 }
+void			messageboxa(HWND hWnd, const char *title, const char *format, ...)
+{
+	vsprintf_s(g_buf, g_buf_size, format, (char*)(&format+1));
+	MessageBoxA(hWnd, g_buf, title, MB_OK);
+}
 void			formatted_error(const wchar_t *lpszFunction, int line)
 {
 	DWORD dw=GetLastError();
@@ -2298,7 +2303,7 @@ void			curve_draw(int *buffer, int color)
 
 void			fill(int *buffer, int x0, int y0, int color)
 {
-	if(check(x0, y0))
+	if(icheck(x0, y0))
 		return;
 	typedef std::pair<int, int> Point;
 	std::queue<Point> q;
@@ -2326,9 +2331,9 @@ void			fill(int *buffer, int x0, int y0, int color)
 }
 void			fill_mouse(int *buffer, int mx0, int my0, int color)
 {
-	double x0, y0;
+	int x0, y0;
 	screen2image(mx0, my0, x0, y0);
-	fill(buffer, (int)x0, (int)y0, color);
+	fill(buffer, x0, y0, color);
 }
 
 void			airbrush(int *buffer, int x0, int y0, int color)
@@ -5102,6 +5107,65 @@ void			pickcolor_palette(int message, int &color, int &pcolor, int alpha)
 	else
 		color=pcolor, assign_alpha(color, alpha);
 }
+void			displayhelp()
+{
+#if 0
+	const char *help[]=
+	{
+		"Ctrl 0",		"Reset zoom",
+		"Ctrl +/-",		"Zoom in/out",
+		"Ctrl O",		"Open",
+		"Ctrl S",		"Save",
+		"Ctrl Shift S", "Save as",
+		"Ctrl A",		"Select all",
+		"Ctrl X/C/V",	"Cut/Copy/Paste",
+		"Esc",			"Deselect",
+		"Delete",		"Delete selection",
+		"Ctrl G",		"Toggle grid",
+		"Ctrl Z/Y",		"Undo/redo",
+		"Ctrl I",		"Invert image/selection color",
+		"Ctrl N",		"New Image",
+		"F1",			"Show help",
+		"F7",			"Toggle debug mode",
+	};
+	const int nparts=sizeof help>>2;
+	int length=0;
+	HFONT hFont=(HFONT)GetStockObject(DEFAULT_GUI_FONT);
+	hFont=(HFONT)SelectObject(ghMemDC, hFont);
+	SIZE s;
+	GetTextExtentPoint32A(ghMemDC, " Ctrl Shift S ", 14, &s);
+//	GetTextExtentPoint32A(ghMemDC, "              ", 14, &s);
+	int spaces_px=s.cx;
+	for(int k=0;k+1<nparts;k+=2)
+	{
+		int padding=14;
+		int commandlen=strlen(help[k]);
+		if(GetTextExtentPoint32A(ghMemDC, help[k], commandlen, &s))
+			padding=(spaces_px-s.cx)/3+commandlen;
+		length+=sprintf_s(g_buf+length, g_buf_size-length, "%*s:  %s\n", padding, help[k], help[k+1]);
+	//	length+=sprintf_s(g_buf+length, g_buf_size-length, "%14s: %s\n", help[k], help[k+1]);
+	}
+	hFont=(HFONT)SelectObject(ghMemDC, hFont);
+	MessageBoxA(ghWnd, g_buf, "Help", MB_OK);
+#endif
+	messagebox(ghWnd, L"Help",
+		L"Ctrl 0:\t\tReset zoom\n"
+		L"Ctrl +/-:\t\tZoom in/out\n"
+		L"Ctrl O:\t\tOpen\n"
+		L"Ctrl S:\t\tSave\n"
+		L"Ctrl Shift S:\tSave as\n"
+		L"Ctrl A:\t\tSelect all\n"
+		L"Ctrl X/C/V:\tCut/Copy/Paste\n"
+		L"Esc:\t\tDeselect\n"
+		L"Delete:\t\tDelete selection\n"
+		L"Ctrl G:\t\tToggle grid\n"
+		L"Ctrl Z/Y:\t\tUndo/redo\n"
+		L"Ctrl I:\t\tInvert image/selection color\n"
+		L"Ctrl N:\t\tNew Image\n"
+		L"F1:\t\tShow help\n"
+		L"F7:\t\tToggle debug mode\n"
+		);
+}
 Point			p1, p2;
 long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
 {
@@ -5265,7 +5329,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 	//		HINSTANCE hUser32=GetModuleHandleW(L"user32");
 	//		HICON hIcon=(HICON)LoadImageW(hUser32, (wchar_t*)100, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
 	//		if(!hIcon)
-	//			formatted_error(L"LoadImageW", __LINE__);
+	//			formatted_error(L"LoadImageW", __LINE__);//spams '0 the operation completed successfully'
 	//		return (long)hIcon;
 	//	}
 	//	break;
@@ -5511,7 +5575,9 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				break;
 
 				//help menu
-			case IDM_HELP_TOPICS:			unimpl();break;
+			case IDM_HELP_TOPICS:
+				displayhelp();
+				break;
 			case IDM_HELP_ABOUT:
 				messagebox(ghWnd, L"About Paint++", L"%S version. Compiled on: %S, %S.",
 #ifdef _DEBUG
@@ -5892,6 +5958,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				break;
 			case M_PICK_COLOR:
 				primarycolor=pick_color_mouse(image, mx, my);//with alpha
+				primary_alpha=primarycolor>>24;
 				currentmode=prevmode;
 				break;
 			case M_AIRBRUSH:
@@ -6034,6 +6101,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			{
 			case M_PICK_COLOR:
 				secondarycolor=pick_color_mouse(image, mx, my);//with alpha
+				secondary_alpha=secondarycolor>>24;
+				currentmode=prevmode;
 				break;
 			case M_AIRBRUSH:
 				if(timer)
@@ -6197,6 +6266,13 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				}
 			}
 			break;
+		case 'A':
+			if(kb[VK_CONTROL])//select all
+			{
+				selection_selectall();
+				render();
+			}
+			break;
 		case 'X':
 			if(kb[VK_CONTROL])//cut
 				if(editcopy())
@@ -6238,13 +6314,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			if(sel_start!=sel_end)//delete selection
 			{
 				selection_remove();
-				render();
-			}
-			break;
-		case 'A':
-			if(kb[VK_CONTROL])//select all
-			{
-				selection_selectall();
 				render();
 			}
 			break;
@@ -6292,7 +6361,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				}
 				else//new image
 				{
-					image=hist_start(iw, ih);//TODO: save question
+					image=hist_start(iw, ih);				//TODO: save question
 					memset(image, 0xFF, image_size<<2);
 					render();
 				}
@@ -6306,6 +6375,9 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				//	image[k]=rand()<<30|rand()<<15|rand();
 				render();
 			}
+			break;
+		case VK_F1:
+			displayhelp();
 			break;
 		case VK_F7:
 			debugmode=!debugmode;
