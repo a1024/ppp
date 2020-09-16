@@ -1,3 +1,20 @@
+//ppp.cpp - Paint++ main implementation file.
+//UI design based on MSPaint for Windows XP by Microsoft.
+//Icons from MSPaint for Windows XP.
+//
+//This program is free software: you can redistribute it and/or modify
+//it under the terms of the GNU General Public License as published by
+//the Free Software Foundation, either version 3 of the License, or
+//(at your option) any later version.
+//
+//This program is distributed in the hope that it will be useful,
+//but WITHOUT ANY WARRANTY; without even the implied warranty of
+//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//GNU General Public License for more details.
+//
+//You should have received a copy of the GNU General Public License
+//along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 #include		<Windows.h>
 #include		<ppl.h>
 
@@ -55,7 +72,12 @@ namespace	std
 	inline bool isinf(double x){return abs(x)==_HUGE;}
 }
 #endif
+int				g_processed=0;//
+#ifdef _DEBUG
+bool			debugmode=true;
+#else
 bool			debugmode=false;
+#endif
 const double	_pi=acos(-1.), todeg=180/_pi, torad=_pi/180;
 int				*rgb=nullptr, w=0, h=0, rgbn=0,
 				mx=0, my=0,//current mouse position
@@ -108,24 +130,362 @@ const wchar_t	doublequote=L'\"';
 const int		g_buf_size=2048;
 char			g_buf[g_buf_size]={0};
 wchar_t			g_wbuf[g_buf_size]={0};
-long			GUITPrint(HDC__ *ghDC, int x, int y, const char *a, ...)//return value: 0xHHHHWWWW		width=(short&)ret, height=((short*)&ret)[1]
+int				GUINPrint(HDC__ *hDC, int x, int y, int w, int h, const char *a, ...)
 {
 	int length=vsprintf_s(g_buf, g_buf_size, a, (char*)(&a+1));
 	if(length>0)
-		return TabbedTextOutA(ghDC, x, y, g_buf, length, 0, nullptr, 0);
+	{
+		RECT r={x, y, x+w, y+h};
+		return DrawTextA(hDC, g_buf, length, &r, DT_NOCLIP|DT_EXPANDTABS);
+	}
 	return 0;
 }
-void			GUIPrint(HDC__ *ghDC, int x, int y, const char *a, ...)
+long			GUITPrint(HDC__ *hDC, int x, int y, const char *a, ...)//return value: 0xHHHHWWWW		width=(short&)ret, height=((short*)&ret)[1]
+{
+	int length=vsprintf_s(g_buf, g_buf_size, a, (char*)(&a+1));
+	if(length>0)
+		return TabbedTextOutA(hDC, x, y, g_buf, length, 0, nullptr, 0);
+	return 0;
+}
+void			GUIPrint(HDC__ *hDC, int x, int y, const char *a, ...)
 {
 	int length=vsprintf_s(g_buf, g_buf_size, a, (char*)(&a+1)), success;
 	if(length>0)
-		success=TextOutA(ghDC, x, y, g_buf, length);
+		success=TextOutA(hDC, x, y, g_buf, length);
 }
-void			GUIPrint(HDC__ *ghDC, int x, int y, int value)
+void			GUIPrint(HDC__ *hDC, int x, int y, int value)
 {
 	int length=sprintf_s(g_buf, 1024, "%d", value), success;
 	if(length>0)
-		success=TextOutA(ghDC, x, y, g_buf, length);
+		success=TextOutA(hDC, x, y, g_buf, length);
+}
+const char*		wm2str(int message)
+{
+	const char *a="???";
+	switch(message)
+	{//message case
+#define		MC(x)	case x:a=#x;break;
+	MC(WM_NULL)
+	MC(WM_CREATE)
+	MC(WM_DESTROY)
+	MC(WM_MOVE)
+	MC(WM_SIZE)
+
+	MC(WM_ACTIVATE)
+	MC(WM_SETFOCUS)
+	MC(WM_KILLFOCUS)
+	MC(WM_ENABLE)
+	MC(WM_SETREDRAW)
+	MC(WM_SETTEXT)
+	MC(WM_GETTEXT)
+	MC(WM_GETTEXTLENGTH)
+	MC(WM_PAINT)
+	MC(WM_CLOSE)
+
+	MC(WM_QUERYENDSESSION)
+	MC(WM_QUERYOPEN)
+	MC(WM_ENDSESSION)
+
+	MC(WM_QUIT)
+	MC(WM_ERASEBKGND)
+	MC(WM_SYSCOLORCHANGE)
+	MC(WM_SHOWWINDOW)
+	MC(WM_WININICHANGE)
+//	MC(WM_SETTINGCHANGE)//==WM_WININICHANGE
+
+	MC(WM_DEVMODECHANGE)
+	MC(WM_ACTIVATEAPP)
+	MC(WM_FONTCHANGE)
+	MC(WM_TIMECHANGE)
+	MC(WM_CANCELMODE)
+	MC(WM_SETCURSOR)
+	MC(WM_MOUSEACTIVATE)
+	MC(WM_CHILDACTIVATE)
+	MC(WM_QUEUESYNC)
+
+	MC(WM_GETMINMAXINFO)
+
+	MC(WM_PAINTICON)
+	MC(WM_ICONERASEBKGND)
+	MC(WM_NEXTDLGCTL)
+	MC(WM_SPOOLERSTATUS)
+	MC(WM_DRAWITEM)
+	MC(WM_MEASUREITEM)
+	MC(WM_DELETEITEM)
+	MC(WM_VKEYTOITEM)
+	MC(WM_CHARTOITEM)
+	MC(WM_SETFONT)
+	MC(WM_GETFONT)
+	MC(WM_SETHOTKEY)
+	MC(WM_GETHOTKEY)
+	MC(WM_QUERYDRAGICON)
+	MC(WM_COMPAREITEM)
+
+	MC(WM_GETOBJECT)
+
+	MC(WM_COMPACTING)
+	MC(WM_COMMNOTIFY)
+	MC(WM_WINDOWPOSCHANGING)
+	MC(WM_WINDOWPOSCHANGED)
+
+	MC(WM_POWER)
+
+	MC(WM_COPYDATA)
+	MC(WM_CANCELJOURNAL)
+
+	MC(WM_NOTIFY)
+	MC(WM_INPUTLANGCHANGEREQUEST)
+	MC(WM_INPUTLANGCHANGE)
+	MC(WM_TCARD)
+	MC(WM_HELP)
+	MC(WM_USERCHANGED)
+	MC(WM_NOTIFYFORMAT)
+
+	MC(WM_CONTEXTMENU)
+	MC(WM_STYLECHANGING)
+	MC(WM_STYLECHANGED)
+	MC(WM_DISPLAYCHANGE)
+	MC(WM_GETICON)
+	MC(WM_SETICON)
+
+	MC(WM_NCCREATE)
+	MC(WM_NCDESTROY)
+	MC(WM_NCCALCSIZE)
+	MC(WM_NCHITTEST)
+	MC(WM_NCPAINT)
+	MC(WM_NCACTIVATE)
+	MC(WM_GETDLGCODE)
+
+	MC(WM_SYNCPAINT)
+
+	MC(WM_NCMOUSEMOVE)
+	MC(WM_NCLBUTTONDOWN)
+	MC(WM_NCLBUTTONUP)
+	MC(WM_NCLBUTTONDBLCLK)
+	MC(WM_NCRBUTTONDOWN)
+	MC(WM_NCRBUTTONUP)
+	MC(WM_NCRBUTTONDBLCLK)
+	MC(WM_NCMBUTTONDOWN)
+	MC(WM_NCMBUTTONUP)
+	MC(WM_NCMBUTTONDBLCLK)
+
+	MC(WM_NCXBUTTONDOWN  )
+	MC(WM_NCXBUTTONUP    )
+	MC(WM_NCXBUTTONDBLCLK)
+
+	MC(WM_INPUT_DEVICE_CHANGE)
+
+	MC(WM_INPUT)
+
+//	MC(WM_KEYFIRST   )//==WM_KEYDOWN
+	MC(WM_KEYDOWN    )
+	MC(WM_KEYUP      )
+	MC(WM_CHAR       )
+	MC(WM_DEADCHAR   )
+	MC(WM_SYSKEYDOWN )
+	MC(WM_SYSKEYUP   )
+	MC(WM_SYSCHAR    )
+	MC(WM_SYSDEADCHAR)
+
+	MC(WM_UNICHAR)
+//	MC(WM_KEYLAST)		//==WM_UNICHAR
+	MC(UNICODE_NOCHAR)	//0xFFFF
+
+	MC(WM_IME_STARTCOMPOSITION)
+	MC(WM_IME_ENDCOMPOSITION)
+	MC(WM_IME_COMPOSITION)
+//	MC(WM_IME_KEYLAST)	//==WM_IME_KEYLAST
+
+	MC(WM_INITDIALOG   )
+	MC(WM_COMMAND      )
+	MC(WM_SYSCOMMAND   )
+	MC(WM_TIMER        )
+	MC(WM_HSCROLL      )
+	MC(WM_VSCROLL      )
+	MC(WM_INITMENU     )
+	MC(WM_INITMENUPOPUP)
+
+	MC(WM_GESTURE      )
+	MC(WM_GESTURENOTIFY)
+
+	MC(WM_MENUSELECT)
+	MC(WM_MENUCHAR  )
+	MC(WM_ENTERIDLE )
+
+	MC(WM_MENURBUTTONUP  )
+	MC(WM_MENUDRAG       )
+	MC(WM_MENUGETOBJECT  )
+	MC(WM_UNINITMENUPOPUP)
+	MC(WM_MENUCOMMAND    )
+
+	MC(WM_CHANGEUISTATE)
+	MC(WM_UPDATEUISTATE)
+	MC(WM_QUERYUISTATE )
+
+	MC(WM_CTLCOLORMSGBOX   )
+	MC(WM_CTLCOLOREDIT     )
+	MC(WM_CTLCOLORLISTBOX  )
+	MC(WM_CTLCOLORBTN      )
+	MC(WM_CTLCOLORDLG      )
+	MC(WM_CTLCOLORSCROLLBAR)
+	MC(WM_CTLCOLORSTATIC   )
+	MC(MN_GETHMENU         )
+
+//	MC(WM_MOUSEFIRST   )
+	MC(WM_MOUSEMOVE    )
+	MC(WM_LBUTTONDOWN  )
+	MC(WM_LBUTTONUP    )
+	MC(WM_LBUTTONDBLCLK)
+	MC(WM_RBUTTONDOWN  )
+	MC(WM_RBUTTONUP    )
+	MC(WM_RBUTTONDBLCLK)
+	MC(WM_MBUTTONDOWN  )
+	MC(WM_MBUTTONUP    )
+	MC(WM_MBUTTONDBLCLK)
+
+	MC(WM_MOUSEWHEEL)
+
+	MC(WM_XBUTTONDOWN  )
+	MC(WM_XBUTTONUP    )
+	MC(WM_XBUTTONDBLCLK)
+
+//	MC(WM_MOUSELAST)	//==WM_MOUSEWHEEL
+
+	MC(WM_PARENTNOTIFY )
+	MC(WM_ENTERMENULOOP)
+	MC(WM_EXITMENULOOP )
+
+	MC(WM_NEXTMENU      )
+	MC(WM_SIZING        )
+	MC(WM_CAPTURECHANGED)
+	MC(WM_MOVING        )
+
+	MC(WM_POWERBROADCAST)
+
+	MC(WM_DEVICECHANGE)
+
+	MC(WM_MDICREATE     )
+	MC(WM_MDIDESTROY    )
+	MC(WM_MDIACTIVATE   )
+	MC(WM_MDIRESTORE    )
+	MC(WM_MDINEXT       )
+	MC(WM_MDIMAXIMIZE   )
+	MC(WM_MDITILE       )
+	MC(WM_MDICASCADE    )
+	MC(WM_MDIICONARRANGE)
+	MC(WM_MDIGETACTIVE  )
+
+	MC(WM_MDISETMENU    )
+	MC(WM_ENTERSIZEMOVE )
+	MC(WM_EXITSIZEMOVE  )
+	MC(WM_DROPFILES     )
+	MC(WM_MDIREFRESHMENU)
+
+	MC(WM_POINTERDEVICECHANGE    )
+	MC(WM_POINTERDEVICEINRANGE   )
+	MC(WM_POINTERDEVICEOUTOFRANGE)
+
+	MC(WM_TOUCH)
+
+	MC(WM_NCPOINTERUPDATE      )
+	MC(WM_NCPOINTERDOWN        )
+	MC(WM_NCPOINTERUP          )
+	MC(WM_POINTERUPDATE        )
+	MC(WM_POINTERDOWN          )
+	MC(WM_POINTERUP            )
+	MC(WM_POINTERENTER         )
+	MC(WM_POINTERLEAVE         )
+	MC(WM_POINTERACTIVATE      )
+	MC(WM_POINTERCAPTURECHANGED)
+	MC(WM_TOUCHHITTESTING      )
+	MC(WM_POINTERWHEEL         )
+	MC(WM_POINTERHWHEEL        )
+	MC(DM_POINTERHITTEST       )
+
+	MC(WM_IME_SETCONTEXT     )
+	MC(WM_IME_NOTIFY         )
+	MC(WM_IME_CONTROL        )
+	MC(WM_IME_COMPOSITIONFULL)
+	MC(WM_IME_SELECT         )
+	MC(WM_IME_CHAR           )
+
+	MC(WM_IME_REQUEST)
+
+	MC(WM_IME_KEYDOWN)
+	MC(WM_IME_KEYUP  )
+
+	MC(WM_MOUSEHOVER)
+	MC(WM_MOUSELEAVE)
+
+	MC(WM_NCMOUSEHOVER)
+	MC(WM_NCMOUSELEAVE)
+
+	MC(WM_WTSSESSION_CHANGE)
+
+	MC(WM_TABLET_FIRST)
+	MC(WM_TABLET_LAST )
+
+	MC(WM_DPICHANGED)
+
+	MC(WM_CUT              )
+	MC(WM_COPY             )
+	MC(WM_PASTE            )
+	MC(WM_CLEAR            )
+	MC(WM_UNDO             )
+	MC(WM_RENDERFORMAT     )
+	MC(WM_RENDERALLFORMATS )
+	MC(WM_DESTROYCLIPBOARD )
+	MC(WM_DRAWCLIPBOARD    )
+	MC(WM_PAINTCLIPBOARD   )
+	MC(WM_VSCROLLCLIPBOARD )
+	MC(WM_SIZECLIPBOARD    )
+	MC(WM_ASKCBFORMATNAME  )
+	MC(WM_CHANGECBCHAIN    )
+	MC(WM_HSCROLLCLIPBOARD )
+	MC(WM_QUERYNEWPALETTE  )
+	MC(WM_PALETTEISCHANGING)
+	MC(WM_PALETTECHANGED   )
+	MC(WM_HOTKEY           )
+
+	MC(WM_PRINT      )
+	MC(WM_PRINTCLIENT)
+
+	MC(WM_APPCOMMAND)
+
+	MC(WM_THEMECHANGED)
+
+	MC(WM_CLIPBOARDUPDATE)
+
+	MC(WM_DWMCOMPOSITIONCHANGED      )
+	MC(WM_DWMNCRENDERINGCHANGED      )
+	MC(WM_DWMCOLORIZATIONCOLORCHANGED)
+	MC(WM_DWMWINDOWMAXIMIZEDCHANGE   )
+
+	MC(WM_DWMSENDICONICTHUMBNAIL        )
+	MC(WM_DWMSENDICONICLIVEPREVIEWBITMAP)
+
+	MC(WM_GETTITLEBARINFOEX)
+
+	MC(WM_HANDHELDFIRST)
+	MC(WM_HANDHELDLAST )
+
+	MC(WM_AFXFIRST)
+	MC(WM_AFXLAST )
+
+	MC(WM_PENWINFIRST)
+	MC(WM_PENWINLAST )
+
+	MC(WM_APP)
+
+	MC(WM_USER)
+#undef		MC
+	//case WM_NULL:			a="WM_NULL";		break;
+	//case WM_CREATE:			a="WM_CREATE";		break;
+	//case WM_DESTROY:		a="WM_DESTROY";		break;
+	//case WM_MOVE:			a="WM_MOVE";		break;
+	//case WM_SIZE:			a=
+	}
+	return a;
 }
 inline int		minimum(int a, int b){return (a+b-abs(a-b))>>1;}
 inline int		maximum(int a, int b){return (a+b+abs(a-b))>>1;}
@@ -5173,9 +5533,9 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 //	check(__LINE__);//
 //#endif//
 	bool handled=false;
-	int r=0;
+	int ret=0;
 #if !defined RELEASE //&& defined _DEBUG
-	const char *debugmsg=nullptr;
+	char *debugmsg=nullptr;
 #define			DEBUG(format, ...)	sprintf_s(g_buf, g_buf_size, format, __VA_ARGS__), debugmsg=g_buf;
 #else
 #define			DEBUG(format, ...)
@@ -5322,17 +5682,18 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 	case WM_TIMER:
 		render();
 		break;
-	//case WM_GETICON:
-	//	{
-	//		//https://stackoverflow.com/questions/4285890/how-to-load-a-small-system-icon
-	//		//100: IDI_APPLICATION, 101: IDI_WARNING, 102: IDI_QUESTION, 103: IDI_ERROR, 104: IDI_INFORMATION, 105:IDI_WINLOGO, 106: IDI_SHIELD
-	//		HINSTANCE hUser32=GetModuleHandleW(L"user32");
-	//		HICON hIcon=(HICON)LoadImageW(hUser32, (wchar_t*)100, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
-	//		if(!hIcon)
-	//			formatted_error(L"LoadImageW", __LINE__);//spams '0 the operation completed successfully'
-	//		return (long)hIcon;
-	//	}
-	//	break;
+	case WM_GETICON:
+		if(wParam==ICON_BIG)
+		{
+			//https://stackoverflow.com/questions/4285890/how-to-load-a-small-system-icon
+			//100: IDI_APPLICATION, 101: IDI_WARNING, 102: IDI_QUESTION, 103: IDI_ERROR, 104: IDI_INFORMATION, 105:IDI_WINLOGO, 106: IDI_SHIELD
+			HINSTANCE hUser32=GetModuleHandleW(L"user32");
+			HICON hIcon=(HICON)LoadImageW(hUser32, (wchar_t*)100, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
+			if(!hIcon)
+				formatted_error(L"LoadImageW", __LINE__);//spams '0 the operation completed successfully'
+			ret=(int)hIcon, handled=true;
+		}
+		break;
 	case WM_CTLCOLOREDIT:
 		if((HWND)lParam==hTextbox)//textbox about to be drawn
 		{
@@ -5418,6 +5779,69 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			//	if(wp_hi==EN_CHANGE)
 			//		RedrawWindow(hTextbox, nullptr, nullptr, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE);
 			//	break;
+				
+			case IDM_ROTATE_BOX:
+			//	fliprotate();
+				{
+					const int nn=10;//
+					static int notifications[nn]={0}, current=0;
+					notifications[current]=wp_hi;
+					int length=0;
+					for(int k=0;k<nn;++k)
+					{
+						const char *a="???";
+						switch(notifications[k])
+						{
+						case EN_SETFOCUS :a="EN_SETFOCUS";break;
+						case EN_KILLFOCUS:a="EN_KILLFOCUS";break;
+						case EN_CHANGE   :a="EN_CHANGE";break;
+						case EN_UPDATE   :a="EN_UPDATE";break;
+						case EN_ERRSPACE :a="EN_ERRSPACE";break;
+						case EN_MAXTEXT  :a="EN_MAXTEXT";break;
+						case EN_HSCROLL  :a="EN_HSCROLL";break;
+						case EN_VSCROLL  :a="EN_VSCROLL";break;
+						}
+						length+=sprintf_s(g_buf+length, g_buf_size-length, "0x%04X %s%s\t\n", notifications[k], a, k==current?" <":"");
+					//	GUITPrint(ghDC, 0, k<<4, "0x%04X %s%s\t", notifications[k], a, k==current?" <":"");
+					}
+					current=(current+1)%nn;//
+					debugmsg=g_buf;
+
+					//const int nn=10;//
+					//static int notifications[nn]={0}, current=0;
+					//notifications[current]=wp_hi;
+					//for(int k=0;k<nn;++k)
+					//{
+					//	const char *a="???";
+					//	switch(notifications[k])
+					//	{
+					//	case EN_SETFOCUS :a="EN_SETFOCUS";break;
+					//	case EN_KILLFOCUS:a="EN_KILLFOCUS";break;
+					//	case EN_CHANGE   :a="EN_CHANGE";break;
+					//	case EN_UPDATE   :a="EN_UPDATE";break;
+					//	case EN_ERRSPACE :a="EN_ERRSPACE";break;
+					//	case EN_MAXTEXT  :a="EN_MAXTEXT";break;
+					//	case EN_HSCROLL  :a="EN_HSCROLL";break;
+					//	case EN_VSCROLL  :a="EN_VSCROLL";break;
+					//	}
+					//	GUITPrint(ghDC, 0, k<<4, "0x%04X %s%s\t", notifications[k], a, k==current?" <":"");
+					//}
+					//current=(current+1)%nn;//
+
+				//	DEBUG("%d\t", wp_hi);//
+				//	int LOL_1=0;//
+				}
+				break;
+			case IDM_STRETCH_H_BOX:
+			case IDM_STRETCH_V_BOX:
+			case IDM_SKEW_H_BOX:
+			case IDM_SKEW_V_BOX:
+			//	stretchskew();
+				{
+					DEBUG("%d\t", wp_hi);//
+				//	int LOL_1=0;//
+				}
+				break;
 
 				//file menu
 			case IDM_FILE_NEW:
@@ -5626,7 +6050,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		if(mousepos!=MP_NONCLIENT)
 		{
 			SetCursor(mousepos==MP_IMAGE?hcursor:hcursor_original);//TODO: other tool cursors
-			r=true, handled=true;
+			ret=true, handled=true;
 		}
 		break;
 	//case WM_NCMOUSEMOVE://0x00A0: mouse on border
@@ -6424,7 +6848,21 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		if(debugmode)
 		{
 			if(debugmsg)
-				GUIPrint(ghDC, 0, 0, debugmsg);
+			{
+				RECT rect={0, 0, w, h};
+				int bkColor2=0x808080|0xFFFFFF&(rand()<<15|rand());
+				//auto p=(byte*)&bkColor2;
+				//p[0]=0x80|p[0]>>1;
+				//p[1]=0x80|p[1]>>1;
+				//p[2]=0x80|p[2]>>1;
+				int bkColor=SetBkColor(ghDC, bkColor2);
+			//	int bkColor=SetBkColor(ghDC, 0xFFFF00);
+				int height=DrawTextA(ghDC, debugmsg, -1, &rect, DT_EXPANDTABS);
+			//	TextOutA(ghDC, 0, 0, debugmsg, strlen(debugmsg));
+				SetBkColor(ghDC, bkColor);
+			}
+			//	GUINPrint(ghDC, 0, 0, w, h, debugmsg);
+			//	GUITPrint(ghDC, 0, 0, debugmsg);
 			static const int nmessages=10;
 			struct WMessage
 			{
@@ -6439,11 +6877,12 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			for(int k=0;k<nmessages;++k)
 			{
 				auto &msg=messages[k];
-				GUIPrint(ghDC, w>>1, k<<4, "0x%04X, (%d, %d)%s", msg.message, msg.mx, msg.my, k==m_idx?" <":"    ");
+				GUITPrint(ghDC, w>>1, k<<4, "0x%04X %s,\t(%d, %d)%s", msg.message, wm2str(msg.message), msg.mx, msg.my, k==m_idx?" <":"    ");
+			//	GUIPrint(ghDC, w>>1, k<<4, "0x%04X, (%d, %d)%s", msg.message, msg.mx, msg.my, k==m_idx?" <":"    ");
 			//	GUIPrint(ghDC, w>>1, k<<4, "0x%04X%s", msg.message, k==m_idx?" <":"    ");
 			}
 			m_idx=(m_idx+1)%nmessages;
-			GUIPrint(ghDC, (w>>1)+200, 0, "drag=%d", (int)drag);//
+			GUIPrint(ghDC, w>>2, 0, "drag=%d, dialog=%d", (int)drag, g_processed);//
 
 		//	GUIPrint(ghDC, w>>1, 0, "message=0x%04X, drag=%d", message, (int)drag);//
 		}
@@ -6482,7 +6921,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 //	check(__LINE__);
 //#endif
 	if(handled)
-		return r;
+		return ret;
 	return DefWindowProcA(hWnd, message, wParam, lParam);
 }
 int				__stdcall FontProc(LOGFONTW const *lf, TEXTMETRICW const *tm, unsigned long FontType, long lParam)
@@ -6544,11 +6983,17 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 //	hTextbox=CreateWindowExW(WS_EX_LAYERED, WC_EDITW, nullptr, WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, nullptr, nullptr);//invisible
 	oldEditProc=(WNDPROC)SetWindowLongW(hTextbox, GWLP_WNDPROC, (long)EditProc);	check(__LINE__);
 
-	hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_ROTATE_BOX,	hInstance, nullptr);	check(hRotatebox,	__LINE__);
-	hStretchHbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_H_BOX,	hInstance, nullptr);	check(hStretchHbox, __LINE__);
-	hStretchVbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_V_BOX,	hInstance, nullptr);	check(hStretchVbox, __LINE__);
-	hSkewHbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_H_BOX,	hInstance, nullptr);	check(hSkewHbox,	__LINE__);
-	hSkewVbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_V_BOX,	hInstance, nullptr);	check(hSkewVbox,	__LINE__);
+	hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_ROTATE_BOX,	hInstance, nullptr);	check(hRotatebox,	__LINE__);
+	hStretchHbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_H_BOX,	hInstance, nullptr);	check(hStretchHbox, __LINE__);
+	hStretchVbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_V_BOX,	hInstance, nullptr);	check(hStretchVbox, __LINE__);
+	hSkewHbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_H_BOX,	hInstance, nullptr);	check(hSkewHbox,	__LINE__);
+	hSkewVbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_V_BOX,	hInstance, nullptr);	check(hSkewVbox,	__LINE__);
+	
+	//hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_ROTATE_BOX,	hInstance, nullptr);	check(hRotatebox,	__LINE__);
+	//hStretchHbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_H_BOX,	hInstance, nullptr);	check(hStretchHbox, __LINE__);
+	//hStretchVbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_V_BOX,	hInstance, nullptr);	check(hStretchVbox, __LINE__);
+	//hSkewHbox		=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_H_BOX,	hInstance, nullptr);	check(hSkewHbox,	__LINE__);
+	//hSkewVbox		=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_BORDER|WS_OVERLAPPED|WS_TABSTOP | ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_V_BOX,	hInstance, nullptr);	check(hSkewVbox,	__LINE__);
 
 	//hRotatebox	=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);			check(hRotatebox,	__LINE__);//X WS_POPUP cannot be used with WS_CHILD
 	//hStretchHbox	=CreateWindowExW(0, WC_EDITW, nullptr, WS_BORDER|WS_CHILD|WS_OVERLAPPED|WS_VISIBLE|WS_POPUP|ES_LEFT|ES_NUMBER, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, nullptr, hInstance, nullptr);			check(hStretchHbox, __LINE__);
@@ -6668,7 +7113,16 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 		set_sizescombobox(font_idx);
 
 	tagMSG msg;
-	for(;GetMessageA(&msg, 0, 0, 0);)TranslateMessage(&msg), DispatchMessageA(&msg);
+	for(;GetMessageA(&msg, 0, 0, 0);)
+	{
+		g_processed=IsDialogMessageA(ghWnd, &msg);
+		if(!g_processed)
+		{
+			TranslateMessage(&msg);
+			DispatchMessageA(&msg);
+		}
+	}
+//	for(;GetMessageA(&msg, 0, 0, 0);)TranslateMessage(&msg), DispatchMessageA(&msg);
 
 	//	free_image(), free_frames();
 		Gdiplus::GdiplusShutdown(gdiplusToken);
