@@ -1128,15 +1128,21 @@ void			ask_FFmpeg_path()
 	log_start(LL_CRITICAL);
 	log(LL_CRITICAL,
 		"FFmpeg not found.\n"
-		"Please download FFmpeg from:\n"
+
+		"Please download FFmpeg for Windows from:\n"
 		"\n"
-		"\tffmpeg.zeranoe.com/builds\n"
-		"\n"
-		"In the website, choose:\n"
-		"\n"
-		"\tVersion: <latest>\n"
-		"\tArchitecture: 64bit\n"
-		"\tLinking: static\n"
+		"\tffmpeg.org/download.html\n"
+
+		//"Please download FFmpeg from:\n"
+		//"\n"
+		//"\tffmpeg.zeranoe.com/builds\n"
+		//"\n"
+		//"In the website, choose:\n"
+		//"\n"
+		//"\tVersion: <latest>\n"
+		//"\tArchitecture: 64bit\n"
+		//"\tLinking: static\n"
+
 		"\n"
 		"and specify the path to FFmpeg and FFprobe here, or in:\n"
 		"\n"
