@@ -2,13 +2,30 @@ Paint++: an MSPaint clone that supports transparency and animated formats using 
 
 
 How to compile:
-	Compile ppp.cpp with stb_image and lodepng libraries.
+	Compile all sources with the lodepng and stb_image libraries
+	as a 32-bit Windows application
+	using Visual C++ 2010 Express or later.
+
+lodepng by Lode Vandevenne
+https://github.com/lvandeve/lodepng
+
+stb_image by Sean Barrett
+https://github.com/nothings/stb/blob/master/stb_image.h
+
 
 How to install:
-	1) Install Microsoft Visual C++ 2013 Redistributable (x86) if not installed:
+	1) Install Microsoft Visual C++ Redistributable (x86), if not installed.
+	Select the runtime library version:
+
+		Microsoft Visual C++ 2010 Redistributable (msvcp/msvcr100)
+		https://www.microsoft.com/en-eg/download/details.aspx?id=5555
+
+		Microsoft Visual C++ 2013 Redistributable (msvcp/msvcr120)
 		https://www.microsoft.com/en-us/download/details.aspx?id=40784
+
 	2) Download FFmpeg for Windows from:
 		https://ffmpeg.org/download.html
+
 	3) Open Paint++ and paste the path to the extracted FFmpeg executables into the command window.
 
 How to use:
