@@ -28,7 +28,7 @@ int				identify_attr_wnd(HWND hWnd, HWND *hWndArray, int start, int count)
 	return kWnd;
 }
 
-//FONT OPTIONS
+//FONT OPTIONS GUI
 WNDPROC			FontComboboxProc=nullptr, FontSizeCbProc=nullptr;
 long			__stdcall FontComboboxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
 {
@@ -68,6 +68,80 @@ long			__stdcall RotateBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wPar
 }
 
 //STRETCHSKEW OPTIONS
+HWND			hStretchSkew[4]={nullptr};
+WNDPROC			stretchskewproc[4]={nullptr};
+long			__stdcall StretchSkewSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+{
+	int kWnd=identify_attr_wnd(hWnd, hStretchSkew, 0, 4);
+	if(kWnd>=4)
+		return 0;
+	switch(message)
+	{
+	case WM_CHAR:
+		switch(wParam)
+		{
+		case 1:
+			SendMessageA(hWnd, EM_SETSEL, 0, -1);
+			return 1;
+		case VK_TAB:
+		case VK_RETURN:
+		case VK_ESCAPE:
+			return 0;
+		}
+		break;
+	case WM_KEYDOWN:
+		switch(wParam)
+		{
+		case VK_TAB:
+			{
+				HWND nextWnd=hStretchSkew[mod(kWnd+1-(kb[VK_SHIFT]<<1), 4)];
+				SendMessageA(nextWnd, EM_SETSEL, 0, -1);
+				HWND prevWnd=SetFocus(nextWnd);
+				SYS_ASSERT(prevWnd);
+			}
+			break;
+		case VK_RETURN:
+			stretchskew();
+		case VK_ESCAPE:
+			replace_colorbarcontents(CS_NONE);
+			break;
+		}
+		kb[wParam]=true;
+		break;
+	case WM_KEYUP:
+		kb[wParam]=false;
+		break;
+	}
+	return CallWindowProcA(stretchskewproc[kWnd], hWnd, message, wParam, lParam);
+}
+void			create_stretchskew()
+{
+	HFONT hfDefault=(HFONT)GetStockObject(DEFAULT_GUI_FONT);	GEN_ASSERT(hfDefault);
+	for(int k=0;k<4;++k)
+	{
+		hStretchSkew[k]=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)(IDM_STRETCH_H_BOX+k), ghInstance, nullptr);
+		SYS_ASSERT(hStretchSkew[k]);
+
+		SendMessageW(hStretchSkew[k], WM_SETFONT, (WPARAM)hfDefault, 0);
+		SYS_CHECK();
+
+		stretchskewproc[k]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[k], GWLP_WNDPROC, (long)StretchSkewSubclass);
+		SYS_ASSERT(stretchskewproc[k]);
+	}
+	//hStretchSkew[0]=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_H_BOX,	ghInstance, nullptr);	SYS_ASSERT(hStretchSkew[0]);
+	//hStretchSkew[1]=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_V_BOX,	ghInstance, nullptr);	SYS_ASSERT(hStretchSkew[1]);
+	//hStretchSkew[2]=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_H_BOX,		ghInstance, nullptr);	SYS_ASSERT(hStretchSkew[2]);
+	//hStretchSkew[3]=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_V_BOX,		ghInstance, nullptr);	SYS_ASSERT(hStretchSkew[3]);
+	//SendMessageW(hStretchSkew[0], WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
+	//SendMessageW(hStretchSkew[1], WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
+	//SendMessageW(hStretchSkew[2], WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
+	//SendMessageW(hStretchSkew[3], WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
+	//stretchskewproc[0]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[0], GWLP_WNDPROC, (long)StretchSkewSubclass);	SYS_ASSERT(stretchskewproc[0]);
+	//stretchskewproc[1]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[1], GWLP_WNDPROC, (long)StretchSkewSubclass);	SYS_ASSERT(stretchskewproc[1]);
+	//stretchskewproc[2]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[2], GWLP_WNDPROC, (long)StretchSkewSubclass);	SYS_ASSERT(stretchskewproc[2]);
+	//stretchskewproc[3]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[3], GWLP_WNDPROC, (long)StretchSkewSubclass);	SYS_ASSERT(stretchskewproc[3]);
+}
+#if 0
 WNDPROC			StretchHBoxProc=nullptr, StretchVBoxProc=nullptr, SkewHBoxProc=nullptr, SkewVBoxProc=nullptr;
 long			__stdcall StretchHBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
 {
@@ -113,6 +187,7 @@ long			__stdcall SkewVBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wPara
 		return 0;
 	return CallWindowProcA(SkewVBoxProc, hWnd, message, wParam, lParam);
 }
+#endif
 
 //MASK WINDOW
 const int		xpad=10, ypad=10,
@@ -140,7 +215,7 @@ long			__stdcall WndProcMask(HWND__ *hWnd, unsigned message, unsigned wParam, lo
 			HFONT hFont=(HFONT)GetStockObject(DEFAULT_GUI_FONT);
 			for(int k=0;k<5;++k)
 			{
-				hMaskEdit[k]=CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, nullptr, WS_CHILD|WS_VISIBLE|(WS_GROUP&-(k==0))|WS_TABSTOP|ES_CENTER, x, y, boxw, boxh, hWnd, (HMENU)(ID_BOX_ALL+(k<<1)), ghInstance, nullptr);
+				hMaskEdit[k]=CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, nullptr, WS_CHILD|WS_VISIBLE|ES_CENTER, x, y, boxw, boxh, hWnd, (HMENU)(ID_BOX_ALL+(k<<1)), ghInstance, nullptr);
 				SYS_ASSERT(hMaskEdit[k]);
 				SendMessageA(hMaskEdit[k], WM_SETFONT, (WPARAM)hFont, 0);	SYS_CHECK();
 				y+=rowh+(ypad<<int(k==0));
@@ -348,7 +423,7 @@ long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wPar
 				y+=attr_row_h;
 			}
 
-			for(int k=1;k<5;++k)//subclass
+			for(int k=1;k<ATTR_NCONTROLS;++k)//subclass
 			{
 				AttrProc[k]=(WNDPROC)SetWindowLongPtrA(hAttr[k], GWLP_WNDPROC, (long)WndSubclassAttributes);
 				SYS_ASSERT(AttrProc[k]);

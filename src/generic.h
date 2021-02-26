@@ -218,6 +218,7 @@ typedef unsigned short wchar_t;
 
 	//memory
 	void			memfill(void *dst, const void *src, int dstbytes, int srcbytes);//repeating pattern
+	void			cycle_image(int *image, int iw, int ih, int dx, int dy);//lossless
 
 	//string
 	long long		acme_wtoll(const wchar_t *str, int *ret_advance);

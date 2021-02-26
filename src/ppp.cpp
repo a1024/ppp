@@ -99,8 +99,8 @@ HINSTANCE		ghInstance=0;
 HWND			ghWnd=nullptr;
 //HWND			hFontbar=nullptr;
 HWND			hFontcombobox=nullptr, hFontsizecb=nullptr, hTextbox=nullptr,
-				hRotatebox=nullptr,
-				hStretchHbox=nullptr, hStretchVbox=nullptr, hSkewHbox=nullptr, hSkewVbox=nullptr;
+				hRotatebox=nullptr;
+//				hStretchHbox=nullptr, hStretchVbox=nullptr, hSkewHbox=nullptr, hSkewVbox=nullptr;
 //HWND			gToolbar=0, gColorBar=0, ghStatusbar=0, hWndPanel=0;
 HDC				ghDC=nullptr, ghMemDC=nullptr;
 HBITMAP			hBitmap=nullptr;
@@ -108,11 +108,12 @@ std::wstring	programpath, FFmpeg_path;//all paths use forward slashes only, and 
 //bool			FFmpeg_path_has_quotes=false, workspace_has_quotes=false;
 std::string		FFmpeg_version;
 std::wstring	filename=L"Untitled", filepath;//opened media file name & path, utf16
+const char		default_title[]="Untitled - Paint++";
 extern const wchar_t doublequote=L'\"';
 char			kb[256]={false},
 //				mb[2]={false},//mouse buttons {0: left, 1: right}
-				drag=0, prev_drag=0,//drag type
-				timer=false;
+				drag=0, prev_drag=0;//drag type
+int				timer=0;
 //bool			hscrollbar=false, vscrollbar=false;
 //int			hscroll_mx_start=0, vscroll_my_start=0,//starting mouse position
 //				hscroll_s0=0, vscroll_s0=0,//initial scrollbar slider start
@@ -127,8 +128,38 @@ int				font_idx=0, font_size=10;
 bool			bold=false, italic=false, underline=false;
 HFONT			hFont=nullptr;
 
-//unsigned long	broken=0;
-//int			broken_line=-1;
+int				scrollbar_init_ms=500, scrollbar_tick_ms=35;
+void			timer_set(int id)
+{
+	GEN_ASSERT(!timer);
+	int elapse=10;
+	switch(id)
+	{
+	case TIMER_AIRBRUSH:
+		elapse=airbrush_timer;
+		break;
+	case TIMER_SCROLLBAR_INIT:
+		elapse=scrollbar_init_ms;
+		break;
+	case TIMER_SCROLLBAR_CONT:
+		elapse=scrollbar_tick_ms;
+		break;
+	}
+	int ret=SetTimer(ghWnd, id, elapse, 0);
+	SYS_ASSERT(ret);
+	timer=id;
+}
+void			timer_kill()
+{
+	if(timer)
+	{
+		int ret=KillTimer(ghWnd, timer);
+		SYS_ASSERT(ret);
+		timer=0;
+	}
+	else
+		LOG_ERROR("KillTimer(), but there is no timer.");//
+}
 void			unimpl(){messagebox(ghWnd, L"Error", L"Not implemented yet.");}
 void			mark_modified()
 {
@@ -136,10 +167,12 @@ void			mark_modified()
 	{
 		modified=true;
 		int size=GetWindowTextW(ghWnd, g_wbuf+1, g_buf_size-1);
+		SYS_ASSERT(size);
 		if(g_wbuf[1]!=L'*')
 		{
 			g_wbuf[0]=L'*', g_wbuf[1+size]=L'\0';
-			SetWindowTextW(ghWnd, g_wbuf);
+			size=SetWindowTextW(ghWnd, g_wbuf);
+			SYS_ASSERT(size);
 		}
 	}
 }
@@ -220,36 +253,6 @@ void			ask_FFmpeg_path()
 }
 
 
-enum			Commands
-{
-	IDM_FONT_COMBOBOX=1, IDM_FONTSIZE_COMBOBOX, IDM_TEXT_EDIT,
-	IDM_ROTATE_BOX,
-	IDM_STRETCH_H_BOX, IDM_STRETCH_V_BOX, IDM_SKEW_H_BOX, IDM_SKEW_V_BOX,
-
-	//menu bar
-	IDM_FILE_NEW, IDM_FILE_OPEN, IDM_FILE_SAVE, IDM_FILE_SAVE_AS, IDM_FILE_QUIT,
-	IDM_EDIT_UNDO, IDM_EDIT_REPEAT, IDM_EDIT_CUT, IDM_EDIT_COPY, IDM_EDIT_PASTE, IDM_EDIT_CLEAR_SELECTION, IDM_EDIT_SELECT_ALL, IDM_EDIT_COPY_TO, IDM_EDIT_PASTE_FROM,
-	IDM_VIEW_TOOLBOX, IDM_VIEW_COLORBOX, IDM_VIEW_STATUSBAR, IDM_VIEW_TEXT_TOOLBAR, IDM_VIEW_ZOOM, IDM_VIEW_VIEWBITMAP,
-		IDSM_ZOOM_IN, IDSM_ZOOM_OUT, IDSM_ZOOM_CUSTOM, IDSM_ZOOM_SHOW_GRID, IDSM_ZOOM_SHOW_THUMBNAIL,
-	IDM_IMAGE_FLIP_ROTATE, IDM_IMAGE_SKETCH_SKEW, IDM_IMAGE_INVERT_COLORS, IDM_IMAGE_ATTRIBUTES, IDM_IMAGE_CLEAR_IMAGE, IDM_IMAGE_CONST_ALPHA, IDM_IMAGE_SET_ALPHA, IDM_IMAGE_SEND_ALPHA, IDM_IMAGE_DRAW_OPAQUE,
-	IDM_COLORS_EDITCOLORS, IDM_COLORS_EDITMASK,
-	IDM_HELP_TOPICS, IDM_HELP_ABOUT,
-//	IDM_TEST_RADIO1, IDM_TEST_RADIO2, IDM_TEST_RADIO3, IDM_TEST_RADIO4, IDM_TEST_RADIO5,
-
-	////toolbar
-	//IDM_FREE_SELECTION, IDM_RECT_SELECTION,
-	//IDM_ERASER, IDM_FILL,
-	//IDM_PICK_COLOR, IDM_MAGNIFIER,
-	//IDM_PENCIL, IDM_BRUSH,
-	//IDM_AIRBRUSH, IDM_TEXT,
-	//IDM_LINE, IDM_CURVE,
-	//IDM_RECTANGLE, IDM_POLYGON,
-	//IDM_ELLIPSE, IDM_ROUNDED_RECT,
-
-	////color bar
-	//IDM_COLOR00, IDM_COLOR01, IDM_COLOR02, IDM_COLOR03, IDM_COLOR04, IDM_COLOR05, IDM_COLOR06, IDM_COLOR07, IDM_COLOR08, IDM_COLOR09, IDM_COLOR10, IDM_COLOR11, IDM_COLOR12, IDM_COLOR13,
-	//IDM_COLOR14, IDM_COLOR15, IDM_COLOR16, IDM_COLOR17, IDM_COLOR18, IDM_COLOR19, IDM_COLOR20, IDM_COLOR21, IDM_COLOR22, IDM_COLOR23, IDM_COLOR24, IDM_COLOR25, IDM_COLOR26, IDM_COLOR27
-};
 enum			MousePosition
 {
 	MP_NONCLIENT,
@@ -260,9 +263,8 @@ enum			MousePosition
 	MP_IMAGE
 };
 int				mousepos=-1;
-//enum			Focus{F_MAIN, F_TEXTBOX};
-//int			focus=F_MAIN;
-HMENU			hMenubar=0,		hMenuFile=0, hMenuEdit=0, hMenuView=0, hMenuZoom=0, hMenuImage=0, hMenuColors=0, hMenuHelp=0, hMenuTest=0;
+HMENU			hMenubar=0,		hMenuFile=0, hMenuEdit=0, hMenuView=0, hMenuZoom=0, hMenuImage=0, hMenuColors=0, hMenuHelp=0;
+//HMENU			hMenuTest=0;
 
 HCURSOR			hcursor_original=(HCURSOR)LoadCursorW(nullptr, IDC_ARROW),
 				hcursor_sizewe=(HCURSOR)LoadCursorW(nullptr, IDC_SIZEWE),
@@ -300,7 +302,7 @@ bool			showgrid=false,
 
 int				currentmode=M_PENCIL, prevmode=M_PENCIL,
 				selection_free=false,//true: free-form selection, false: rectangular selection
-				selection_transparency=TRANSPARENT,//opaque or transparent
+				selection_transparency=TRANSPARENT,//2: opaque or 1: transparent
 				selection_persistent=false,//selection remains after switching to another tool
 				erasertype=ERASER08,
 				magnifier_level=4,//log pixel size {0:1, 1:2, 2:4, 3:8, 4:16, 5:32}		default was 0
@@ -309,15 +311,24 @@ int				currentmode=M_PENCIL, prevmode=M_PENCIL,
 				linewidth=1,//[1, 5]
 				rectangle_type=ST_HOLLOW, polygon_type=ST_HOLLOW, ellipse_type=ST_HOLLOW, roundrect_type=ST_HOLLOW,
 				interpolation_type=I_BILINEAR;
+char			magnification_levels[]=
+{
+	-1, 1,
+	 2, 3,
+	 4, 5
+};
 
-Point			sel_start, sel_end,//selection, image coordinates			//TODO: use struct Rect
-				sel_s1, sel_s2,//ordered screen coordinates for mouse test
-				selpos;//position of top-right corner of selection in image coordinates
-bool			selection_moved=false;
+Rect			selection, sel0;//image coordinates, i: buffer start, f: buffer end (not in order)
+//Point			sel_start, sel_end,//selection (start: fixed, end: moving), image coordinates			//TODO: use struct Rect
+//				sel_s1, sel_s2,//ordered screen coordinates for mouse test
+//				selpos,//position of top-left corner of selection in image coordinates
+//				selid;//selection image dimensions
+//bool			selection_moved=false;//deprecated
 
-Point			text_start, text_end,//static point -> moving point, image coordinates
-				text_s1, text_s2,//ordered screen coordinates
-				textpos;//position of top-right corner of textbox in image coordinates
+Rect			textrect;//image coordinates, sorted
+//Point			text_start, text_end,//static point -> moving point, image coordinates
+//				text_s1, text_s2,//ordered screen coordinates
+//				textpos;//position of top-right corner of textbox in image coordinates
 
 #include		"ppp_inline_check.h"
 int				pick_color_mouse(int *buffer, int x0, int y0)
@@ -328,6 +339,165 @@ int				pick_color_mouse(int *buffer, int x0, int y0)
 		return buffer[iw*iy+ix];
 	return 0xFFFFFF;
 }
+
+extern const char anchors[]=//anchor: -1: resize from start, 0: no resize, 1: resize from end
+{//	 x   y
+	-1, -1,//TL
+	 0, -1,//top
+	 1, -1,//TR
+	-1,  0,//left
+	 1,  0,//right
+	-1,  1,//BL
+	 0,  1,//bottom
+	 1,  1,//BR
+};
+void			imresize_setparams(char anchor, int delta, int oldsize, int &newsize, int &srcstart, int &dststart, int &copysize)
+{
+	if(anchor==-1)//resize from start
+	{
+		newsize=oldsize-conditional_negate(delta, kb[VK_SHIFT]);
+		//newsize=oldsize-conditional_negate(imouse, kb[VK_SHIFT]);
+		if(newsize<1)
+			newsize=1;
+		int dx=newsize-oldsize;
+		srcstart=-dx&-(dx<0), dststart=dx&-(dx>0), copysize=oldsize-srcstart;
+		//if(dx>0)
+		//	srcstart=0, dststart=dx, copysize=oldsize;
+		//else if(!dx)
+		//	srcstart=0, dststart=0, copysize=oldsize;
+		//else//dx<0
+		//	srcstart=-dx, dststart=0, copysize=oldsize+dx;
+	}
+	else if(!anchor)//no resizing of dimension
+	{
+		newsize=oldsize;
+		srcstart=0, dststart=0, copysize=oldsize;
+	}
+	else//resize from end
+	{
+		newsize=oldsize+delta;
+		//newsize=imouse;
+		if(newsize<1)
+			newsize=1;
+		srcstart=0, dststart=0, copysize=minimum(newsize, oldsize);
+	}
+}
+void			imresize_setparams(Point &newsize, Point &srcstart, Point &dststart, Point &copysize)
+{
+	char xanchor=anchors[(drag-D_RESIZE_TL)<<1], yanchor=anchors[(drag-D_RESIZE_TL)<<1|1];//-1: resize from start, 0: original, 1: resize from end
+	Point mouse(mx, my), prevmouse(start_mx, start_my);//mouse coordinates
+	mouse.screen2image_rounded();
+	prevmouse.screen2image_rounded();
+	imresize_setparams(xanchor, mouse.x-prevmouse.x, iw, newsize.x, srcstart.x, dststart.x, copysize.x);
+	imresize_setparams(yanchor, mouse.y-prevmouse.y, ih, newsize.y, srcstart.y, dststart.y, copysize.y);
+}
+void			imresize(int *im2, Point const &newsize, int const *im, Point const &oldsize, Point const &srcstart, Point const &dststart, Point const &copysize)
+{
+	Point dstend=dststart+copysize;
+	if(newsize.x*dststart.y>2)
+		memset(im2, 0xFF, newsize.x*dststart.y<<2);
+	for(int ky=0;ky<copysize.y;++ky)
+	{
+		int *dst=im2+newsize.x*(dststart.y+ky);
+		if(dststart.x>0)
+			memset(dst, 0xFF, dststart.x<<2);
+		if(copysize.x>0)
+			memcpy(dst+dststart.x, im+oldsize.x*(srcstart.y+ky)+srcstart.x, copysize.x<<2);
+		if(newsize.x-dstend.x>0)
+			memset(dst+dstend.x, 0xFF, (newsize.x-dstend.x)<<2);
+	}
+	if(newsize.y-dstend.y>0)
+		memset(im2+newsize.x*dstend.y, 0xFF, newsize.x*(newsize.y-dstend.y)<<2);
+}
+//void			sort_using_anchor(char anchor, int &start, int &end)
+//{
+//	if(anchor==-1)//resize from start
+//	{
+//		if(start<end)
+//			std::swap(start, end);
+//	}
+//	else if(anchor==1)//resize from end
+//	{
+//		if(start>end)
+//			std::swap(start, end);
+//	}
+//}
+int				assign_using_anchor(char anchor, int &start, int &end, int mouse, int prevmouse)//returns true if flipped
+{
+#if 1
+	int delta=mouse-prevmouse;
+	if(anchor==-1)//resize from least significant side
+	{
+		if(start<end)
+		{
+			start+=delta;
+			return start>end;
+		}
+		else
+		{
+			end+=delta;
+			return start<end;
+		}
+	}
+	else if(anchor==1)//resize from most significant side
+	{
+		int flipped=mouse>end;
+		if(start<end)
+		{
+			end+=delta;
+			return start>end;
+		}
+		else
+		{
+			start+=delta;
+			return start<end;
+		}
+	}
+	return false;
+#endif
+	//int delta=mouse-prevmouse;
+	//if(anchor==-1)
+	//{
+	//	if(start<end)
+	//		start+=delta;
+	//	else
+	//		end+=delta;
+	//}
+	//else if(anchor==1)
+	//{
+	//	if(start<end)
+	//		end+=delta;
+	//	else
+	//		start+=delta;
+	//}
+#if 0
+	if(anchor==1)
+		std::swap(fixed, moving);
+	if(anchor)
+	{
+		if((fixed<moving)!=(fixed<movingprev))//got flipped
+		{
+			if(size>=0)
+				start=maximum(fixed, moving), size=-abs(fixed-moving);
+			else
+				start=minimum(fixed, moving), size=abs(fixed-moving);
+		}
+		else//didn't get flipped
+		{
+			if(size>=0)
+				start=minimum(fixed, moving), size=abs(fixed-moving);
+			else
+				start=maximum(fixed, moving), size=-abs(fixed-moving);
+		}
+	}
+#endif
+	//if(anchor==-1)
+	//	start=moving, size=fixed-moving;
+	//else if(anchor==1)
+	//	start=fixed, size=moving-fixed;
+}
+Point			newsize, srcstart, dststart, copysize;//globals for debugging
+char			xanchor, yanchor;
 
 #if 0//cleartype test
 void			ctt_clear(int x, int y, int dx, int dy, int color)
@@ -550,6 +720,7 @@ void			redrawbounds_dragbrush(Point const &p1, Point const &p2, int halfthicknes
 }
 void			redrawbounds_dragbox(Point const &boxstart, Point const &boxend, Point const &delta, Rect &r)
 {
+	const int rmark_margin=11;
 	if(delta.x>=0)
 		r.i.x=boxstart.x-delta.x, r.f.x=boxend.x;
 	else//delta.x<0
@@ -559,12 +730,18 @@ void			redrawbounds_dragbox(Point const &boxstart, Point const &boxend, Point co
 		r.i.y=boxstart.y-delta.y, r.f.y=boxend.y;
 	else
 		r.i.y=boxstart.y, r.f.y=boxend.y-delta.y;
+
+	r.i.x-=rmark_margin, r.i.y-=rmark_margin;
+	r.f.x+=rmark_margin, r.f.y+=rmark_margin;
+
+	r.i.constraint_TL_zero();
+	r.f.constraint_BR(Point(w, h));
 }
 
 Rect			imagewindow;//image window dimensions on screen, excluding scrollbars
 Point			imageBRcorner,//position of bottom-right corner of visible part of image
 				imagemarks[6];//{m1start, m1end, center-10, center+10, m2start, m2end}
-//struct		LOL_1{int i, b;};
+
 void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 {
 	prof_add("Entry");
@@ -579,6 +756,8 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		memset(rgb, background_grey, rgbn<<2);
 	prof_add("memset");
 	
+	//cycle_image(image, iw, ih, rand()%iw, rand()%ih);
+	//prof_add("cycle");
 	//draw_line_brush(image, iw, ih, BRUSH_LARGE_DISK, 10, 10, 10, 10, 0xFF000000);
 	//draw_line_brush(image, iw, ih, BRUSH_LARGE_SQUARE, 10, 10, 10, 11, 0xFF000000);
 	//draw_line_brush(image, iw, ih, BRUSH_LARGE_SQUARE, 10, 10, 20, 20, 0xFF000000);
@@ -757,7 +936,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				if(x2-x1>850)
 				{
 					int x0=650, y0=h-48;
-					int bkmode=SetBkMode(ghMemDC, TRANSPARENT);
+					//int bkmode=SetBkMode(ghMemDC, TRANSPARENT);
 					int color_sel=0xA0A0A0,//0xFF9933
 						color_text=0x000000;//0xFFFFFF
 					if(bold)
@@ -776,7 +955,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 					GUIPrint(ghMemDC, x0+70, y0+3, "B");
 					GUIPrint(ghMemDC, x0+120+3, y0+3, "I");
 					GUIPrint(ghMemDC, x0+170, y0+3, "U");
-					SetBkMode(ghMemDC, bkmode);
+					//SetBkMode(ghMemDC, bkmode);
 				}
 				break;
 			case CS_FLIPROTATE:
@@ -892,6 +1071,259 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 	}//end toolbox
 	prof_add("toolbox");
 #endif
+	//draw tool type selection box below the toolbox
+#if 1
+	const int color_selection=0x3399FF;
+	if(redraw.toolbar&&showtoolbox)
+	{
+		switch(currentmode)
+		{
+		case M_FREE_SELECTION:
+		case M_RECT_SELECTION:
+		case M_TEXT:
+			{
+				const int cw=36, ch=23, size=cw*ch<<1;
+				static bool icons_packed=true;
+				if(icons_packed)//extract 'selection type' icons
+				{
+					icons_packed=false;
+					icons_seltype=(int*)malloc(size<<2);
+					const unsigned char levels[]={0, 0x80, 0xC0, 0xFF};
+					for(int k=0;k<size;++k)
+					{
+						auto &c=resources::selection_transparency[k];
+						auto &c2=icons_seltype[k];
+						unsigned char alpha=c>>6;
+						if(alpha)
+							c2=0xFF<<24|levels[c>>4&3]<<16|levels[c>>2&3]<<8|levels[c&3];
+						else
+							c2=0;
+					}
+				}
+				int *icon=icons_seltype+(selection_transparency==TRANSPARENT)*(size>>1);
+				for(int ky=0;ky<ch;++ky)
+				{
+					for(int kx=0;kx<cw;++kx)
+					{
+						auto &c=icon[cw*ky+kx];
+						if(c&0xFF000000)
+							rgb[w*(215+ky)+9+kx]=c&0x00FFFFFF;
+					}
+				}
+				draw_icon(icons+(M_RECT_SELECTION<<8), 15+4, 246+3);
+				if(selection_persistent)
+					draw_icon(icons+(M_PENCIL<<8), 19+4, 242+3);
+			}
+			break;
+		case M_ERASER:
+			if(showtoolbox)
+			{
+				const int selsize=14;
+				for(int k=0;k<4;++k)
+				{
+					auto b=resources::brushes+ERASER04+k;
+					int xstart=21, ystart=212+(k<<4);
+					int color_in;
+					if(ERASER04+k==erasertype)
+					{
+						for(int ky=0;ky<selsize;++ky)
+							for(int kx=0;kx<selsize;++kx)
+								rgb[w*(ystart+ky)+xstart+kx]=color_selection;
+						color_in=0xFFFFFF;
+					}
+					else
+						color_in=0;
+					xstart+=7, ystart+=7;
+					for(int ky=0;ky<b->ysize;++ky)
+						for(int kx=b->bounds[ky<<1], kxEnd=b->bounds[ky<<1|1];kx<=kxEnd;++kx)
+							rgb[w*(ystart+b->yoffset+ky)+xstart+kx]=color_in;
+				}
+			}
+			break;
+		case M_MAGNIFIER:
+			if(showtoolbox)
+			{
+				static const char *zoomlevels[]=
+				{
+					"0.5x", "2x",
+				//	"1x", "2x",
+					"4x", "8x",
+					"16x", "32x",
+				};
+				enum CharIdx
+				{
+					IDX_0, IDX_1, IDX_2, IDX_3, IDX_4, IDX_5, IDX_6,
+					IDX_8,
+					IDX_PERIOD, IDX_X,
+				};
+				static const char chars[]=//active high, LSB is on left: LSB->MSB (rows are reversed)
+				{
+					14, 17, 19, 21, 25, 17, 17, 14,//0<<4:	0	new
+						4,  7,  4,  4,  4,  4,  4,  4,//1<<3:	1
+					14, 17, 16,  8,  4,  2,  1, 31,//2<<3:	2
+					14, 17, 16, 12, 16, 16, 17, 14,//3<<3:	3
+						8, 12, 10,  9,  9, 31,  8,  8,//4<<3:	4
+					31,  1,  1, 15, 16, 16, 17, 14,//5<<4:	5	new
+					14, 17,  1, 15, 17, 17, 17, 14,//6<<3:	6
+					14, 17, 17, 14, 17, 17, 17, 14,//7<<3:	8
+						0,  0,  0,  0,  0,  0,  3,  3,//8<<3:	.	new
+						0,  0,  9,  9,  6,  6,  9,  9,//9<<3:	x
+				};
+				static const char widths[]={5, 4, 5, 5, 5, 5, 5, 5, 2, 4};
+				for(int k=0;k<6;++k)
+				{
+					int x0=7+21*(k&1)+1, y0=210+22*(k>>1)+1;
+					const char *zoomlevel=zoomlevels[k];
+					int size=0, length=0;
+					for(int kc=0;zoomlevel[kc];++kc)//calculate text length
+					{
+						int idx=0;
+						switch(zoomlevel[kc])
+						{
+						case '0':idx=IDX_0;break;
+						case '1':idx=IDX_1;break;
+						case '2':idx=IDX_2;break;
+						case '3':idx=IDX_3;break;
+						case '4':idx=IDX_4;break;
+						case '5':idx=IDX_5;break;
+						case '6':idx=IDX_6;break;
+						case '8':idx=IDX_8;break;
+						case '.':idx=IDX_PERIOD;break;
+						case 'x':idx=IDX_X;break;
+						}
+						size+=widths[idx];
+						++length;
+					}
+					size+=length-1;
+					int color_in;
+					if(magnification_levels[k]==magnifier_level)//select color & fill highlight
+					{
+						for(int ky=0;ky<20;++ky)
+							memfill(rgb+w*(y0+ky)+x0, &color_selection, 19<<2, 1<<2);
+							//for(int kx=0;kx<19;++kx)
+							//	rgb[w*(y0+ky)+x0+kx]=color_selection;
+						color_in=0xFFFFFF;
+					}
+					else
+						color_in=0;
+					x0+=10-(size>>1)-!k, y0+=11-4;
+				//	int offset=11-(size>>1);
+					for(int kc=0;zoomlevel[kc];++kc)
+					{
+						int idx=0;
+						switch(zoomlevel[kc])
+						{
+						case '0':idx=IDX_0;break;
+						case '1':idx=IDX_1;break;
+						case '2':idx=IDX_2;break;
+						case '3':idx=IDX_3;break;
+						case '4':idx=IDX_4;break;
+						case '5':idx=IDX_5;break;
+						case '6':idx=IDX_6;break;
+						case '8':idx=IDX_8;break;
+						case '.':idx=IDX_PERIOD;break;
+						case 'x':idx=IDX_X;break;
+						}
+						int width=widths[idx];
+						for(int ky=0;ky<8;++ky)
+						{
+							char row=chars[idx<<3|ky];
+							for(int kx=0;kx<width;++kx)
+								if(row>>kx&1)
+									rgb[w*(y0+ky)+x0+kx]=color_in;
+						}
+						x0+=width+1;
+					}
+				}
+			}
+			break;
+		case M_BRUSH:
+			if(showtoolbox)
+			{
+				const int
+					xoffsets[]={2, 2, 2,  2, 2, 2,  2, 2, 2,  2, 2, 2},
+					yoffsets[]={5, 6, 5,  6, 5, 6,  6, 5, 6,  6, 5, 6},
+					seldx	[]={4, 5, 4,  5, 4, 5,  5, 4, 5,  5, 4, 5},//selection dx
+					seldy	[]={11, 12, 11,  12, 11, 12,  12, 11, 12,  12, 11, 12};
+				for(int k=0;k<12;++k)
+				{
+					auto b=resources::brushes+BRUSH_LARGE_DISK+k;
+					int xstart=12+k%3*13, ystart=213+k/3*16;
+					int color_in;
+					if(BRUSH_LARGE_DISK+k==brushtype)
+					{
+						for(int ky=0;ky<seldy[k];++ky)
+							for(int kx=0;kx<seldx[k];++kx)
+								rgb[w*(ystart+ky)+xstart+kx]=color_selection;
+						color_in=0xFFFFFF;
+					}
+					else
+						color_in=0;
+					for(int ky=0;ky<b->ysize;++ky)
+						for(int kx=b->bounds[ky<<1], kxEnd=b->bounds[ky<<1|1];kx<=kxEnd;++kx)
+							rgb[w*(ystart+yoffsets[k]+b->yoffset+ky)+xstart+xoffsets[k]+kx]=color_in;
+				}
+			}
+			break;
+		case M_AIRBRUSH:
+			break;
+		case M_LINE:case M_CURVE:
+			if(showtoolbox)
+			{
+				const int yoffsets[]={4, 4, 3, 3, 2};
+				for(int k=0;k<5;++k)
+				{
+					int xstart=10, ystart=214+12*k;
+					int color_in;
+					if(k+1==linewidth)
+					{
+						for(int ky=0;ky<10;++ky)
+							for(int kx=0;kx<36;++kx)
+								rgb[w*(ystart+ky)+xstart+kx]=color_selection;
+						color_in=0xFFFFFF;
+					}
+					else
+						color_in=0;
+					for(int ky=0;ky<=k;++ky)
+						for(int kx=0;kx<28;++kx)
+							rgb[w*(ystart+yoffsets[k]+ky)+14+kx]=color_in;
+				}
+			}
+			break;
+		case M_RECTANGLE:case M_POLYGON:case M_ELLIPSE:case M_ROUNDED_RECT:
+			if(showtoolbox)
+			{
+				//10,214 20 36x18
+				int shape_type=0;
+				switch(currentmode)
+				{
+				case M_RECTANGLE:	shape_type=rectangle_type;break;
+				case M_POLYGON:		shape_type=polygon_type;break;
+				case M_ELLIPSE:		shape_type=ellipse_type;break;
+				case M_ROUNDED_RECT:shape_type=roundrect_type;break;
+				}
+				rectangle(10, 10+36, 214+20*shape_type, 214+18+20*shape_type, color_selection);
+				int color_solid=0xA0A0A0;
+
+				int color_line=shape_type==0?0xFFFFFF:0;//hollow option
+				h_line(14, 42, 218, color_line);
+				h_line(14, 42, 227, color_line);
+				v_line(14, 219, 227, color_line);
+				v_line(41, 219, 227, color_line);
+
+				color_line=shape_type==1?0xFFFFFF:0;//full option
+				rectangle(15, 41, 239, 247, color_solid);
+				h_line(14, 42, 238, color_line);
+				h_line(14, 42, 247, color_line);
+				v_line(14, 239, 247, color_line);
+				v_line(41, 239, 247, color_line);
+
+				rectangle(14, 42, 258, 268, color_solid);//fill (solid) option
+			}
+			break;
+		}//end switch
+	}//end if
+#endif
 	int use_temp_buffer0=0;
 	if(!image)
 	{
@@ -962,243 +1394,6 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		//if(!prev_drag)
 			start_mx=prev_mx=mx, start_my=prev_my=my;
 
-		//draw tool type selection box below the toolbox
-#if 1
-		const int color_selection=0x3399FF;
-		if(redraw.toolbar)
-		{
-			switch(currentmode)
-			{
-			case M_FREE_SELECTION:
-			case M_RECT_SELECTION:
-			case M_TEXT:
-				{
-					const int cw=36, ch=23, size=cw*ch<<1;
-					static bool icons_packed=true;
-					if(icons_packed)//extract 'selection type' icons
-					{
-						icons_packed=false;
-						icons_seltype=(int*)malloc(size<<2);
-						const unsigned char levels[]={0, 0x80, 0xC0, 0xFF};
-						for(int k=0;k<size;++k)
-						{
-							auto &c=resources::selection_transparency[k];
-							auto &c2=icons_seltype[k];
-							unsigned char alpha=c>>6;
-							if(alpha)
-								c2=0xFF<<24|levels[c>>4&3]<<16|levels[c>>2&3]<<8|levels[c&3];
-							else
-								c2=0;
-						}
-					}
-					int *icon=icons_seltype+(selection_transparency==TRANSPARENT)*(size>>1);
-					for(int ky=0;ky<ch;++ky)
-					{
-						for(int kx=0;kx<cw;++kx)
-						{
-							auto &c=icon[cw*ky+kx];
-							if(c&0xFF000000)
-								rgb[w*(215+ky)+9+kx]=c&0x00FFFFFF;
-						}
-					}
-					draw_icon(icons+(M_RECT_SELECTION<<8), 15+4, 246+3);
-					if(selection_persistent)
-						draw_icon(icons+(M_PENCIL<<8), 19+4, 242+3);
-				}
-				break;
-			case M_ERASER:
-				if(showtoolbox)
-				{
-					const int selsize=14;
-					for(int k=0;k<4;++k)
-					{
-						auto b=resources::brushes+ERASER04+k;
-						int xstart=21, ystart=212+(k<<4);
-						int color_in;
-						if(ERASER04+k==erasertype)
-						{
-							for(int ky=0;ky<selsize;++ky)
-								for(int kx=0;kx<selsize;++kx)
-									rgb[w*(ystart+ky)+xstart+kx]=color_selection;
-							color_in=0xFFFFFF;
-						}
-						else
-							color_in=0;
-						xstart+=7, ystart+=7;
-						for(int ky=0;ky<b->ysize;++ky)
-							for(int kx=b->bounds[ky<<1], kxEnd=b->bounds[ky<<1|1];kx<=kxEnd;++kx)
-								rgb[w*(ystart+b->yoffset+ky)+xstart+kx]=color_in;
-					}
-				}
-				break;
-			case M_MAGNIFIER:
-				if(showtoolbox)
-				{
-					static const char *zoomlevels[]=
-					{
-						"1x", "2x",
-						"4x", "8x",
-						"16x", "32x",
-					};
-					static const char chars[]=
-					{
-						 4,  7,  4,  4,  4,  4,  4,  4,//0<<3:	1
-						14, 17, 16,  8,  4,  2,  1, 31,//1<<3:	2
-						14, 17, 16, 12, 16, 16, 17, 14,//2<<3:	3
-						 8, 12, 10,  9,  9, 31,  8,  8,//3<<3:	4
-						14, 17,  1, 15, 17, 17, 17, 14,//4<<3:	6
-						14, 17, 17, 14, 17, 17, 17, 14,//5<<3:	8
-						 0,  0,  9,  9,  6,  6,  9,  9,//6<<3:	x
-					};
-					static const char widths[]={4, 5, 5, 5, 5, 5, 4};
-					for(int k=0;k<6;++k)
-					{
-						int x0=7+21*(k&1)+1, y0=210+22*(k>>1)+1;
-						const char *zoomlevel=zoomlevels[k];
-						int size=0, length=0;
-						for(int kc=0;zoomlevel[kc];++kc)
-						{
-							int idx=0;
-							switch(zoomlevel[kc])
-							{
-							case '1':idx=0;break;
-							case '2':idx=1;break;
-							case '3':idx=2;break;
-							case '4':idx=3;break;
-							case '6':idx=4;break;
-							case '8':idx=5;break;
-							case 'x':idx=6;break;
-							}
-							size+=widths[idx];
-							++length;
-						}
-						size+=length-1;
-						int color_in;
-						if(k==magnifier_level)
-						{
-							for(int ky=0;ky<20;++ky)
-								for(int kx=0;kx<19;++kx)
-									rgb[w*(y0+ky)+x0+kx]=color_selection;
-							color_in=0xFFFFFF;
-						}
-						else
-							color_in=0;
-						x0+=10-(size>>1), y0+=11-4;
-					//	int offset=11-(size>>1);
-						for(int kc=0;zoomlevel[kc];++kc)
-						{
-							int idx=0;
-							switch(zoomlevel[kc])
-							{
-							case '1':idx=0;break;
-							case '2':idx=1;break;
-							case '3':idx=2;break;
-							case '4':idx=3;break;
-							case '6':idx=4;break;
-							case '8':idx=5;break;
-							case 'x':idx=6;break;
-							}
-							int width=widths[idx];
-							for(int ky=0;ky<8;++ky)
-							{
-								char row=chars[idx<<3|ky];
-								for(int kx=0;kx<width;++kx)
-									if(row>>kx&1)
-										rgb[w*(y0+ky)+x0+kx]=color_in;
-							}
-							x0+=width+1;
-						}
-					}
-				}
-				break;
-			case M_BRUSH:
-				if(showtoolbox)
-				{
-					const int
-						xoffsets[]={2, 2, 2,  2, 2, 2,  2, 2, 2,  2, 2, 2},
-						yoffsets[]={5, 6, 5,  6, 5, 6,  6, 5, 6,  6, 5, 6},
-						seldx	[]={4, 5, 4,  5, 4, 5,  5, 4, 5,  5, 4, 5},//selection dx
-						seldy	[]={11, 12, 11,  12, 11, 12,  12, 11, 12,  12, 11, 12};
-					for(int k=0;k<12;++k)
-					{
-						auto b=resources::brushes+BRUSH_LARGE_DISK+k;
-						int xstart=12+k%3*13, ystart=213+k/3*16;
-						int color_in;
-						if(BRUSH_LARGE_DISK+k==brushtype)
-						{
-							for(int ky=0;ky<seldy[k];++ky)
-								for(int kx=0;kx<seldx[k];++kx)
-									rgb[w*(ystart+ky)+xstart+kx]=color_selection;
-							color_in=0xFFFFFF;
-						}
-						else
-							color_in=0;
-						for(int ky=0;ky<b->ysize;++ky)
-							for(int kx=b->bounds[ky<<1], kxEnd=b->bounds[ky<<1|1];kx<=kxEnd;++kx)
-								rgb[w*(ystart+yoffsets[k]+b->yoffset+ky)+xstart+xoffsets[k]+kx]=color_in;
-					}
-				}
-				break;
-			case M_AIRBRUSH:
-				break;
-			case M_LINE:case M_CURVE:
-				if(showtoolbox)
-				{
-					const int yoffsets[]={4, 4, 3, 3, 2};
-					for(int k=0;k<5;++k)
-					{
-						int xstart=10, ystart=214+12*k;
-						int color_in;
-						if(k+1==linewidth)
-						{
-							for(int ky=0;ky<10;++ky)
-								for(int kx=0;kx<36;++kx)
-									rgb[w*(ystart+ky)+xstart+kx]=color_selection;
-							color_in=0xFFFFFF;
-						}
-						else
-							color_in=0;
-						for(int ky=0;ky<=k;++ky)
-							for(int kx=0;kx<28;++kx)
-								rgb[w*(ystart+yoffsets[k]+ky)+14+kx]=color_in;
-					}
-				}
-				break;
-			case M_RECTANGLE:case M_POLYGON:case M_ELLIPSE:case M_ROUNDED_RECT:
-				if(showtoolbox)
-				{
-					//10,214 20 36x18
-					int shape_type=0;
-					switch(currentmode)
-					{
-					case M_RECTANGLE:	shape_type=rectangle_type;break;
-					case M_POLYGON:		shape_type=polygon_type;break;
-					case M_ELLIPSE:		shape_type=ellipse_type;break;
-					case M_ROUNDED_RECT:shape_type=roundrect_type;break;
-					}
-					rectangle(10, 10+36, 214+20*shape_type, 214+18+20*shape_type, color_selection);
-					int color_solid=0xA0A0A0;
-
-					int color_line=shape_type==0?0xFFFFFF:0;//hollow option
-					h_line(14, 42, 218, color_line);
-					h_line(14, 42, 227, color_line);
-					v_line(14, 219, 227, color_line);
-					v_line(41, 219, 227, color_line);
-
-					color_line=shape_type==1?0xFFFFFF:0;//full option
-					rectangle(15, 41, 239, 247, color_solid);
-					h_line(14, 42, 238, color_line);
-					h_line(14, 42, 247, color_line);
-					v_line(14, 239, 247, color_line);
-					v_line(41, 239, 247, color_line);
-
-					rectangle(14, 42, 258, 268, color_solid);//fill (solid) option
-				}
-				break;
-			}//end switch
-		}//end if
-#endif
-
 		//drag actions
 #if 1
 		if(drag==D_DRAW||drag==D_SELECTION)
@@ -1224,83 +1419,55 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 						auto &p1=freesel[k-1], &p2=freesel[k];
 						draw_line_brush(temp_buffer, iw, ih, LINE3, p1.x, p1.y, p2.x, p2.y, 0, true, imask);
 					}
+					//std::swap(temp_buffer, imask);//
 					free(imask);
-					if(redraw.all==REDRAW_IMAGE_PARTIAL&&nv>1)//redraw: drag brush t/2=2
-						redrawbounds_dragbrush(freesel[nv-2], freesel[nv-1], 2, redrawrect);
-					//{
-					//	auto &p1=freesel[nv-2], &p2=freesel[nv-1];
-					//	if(p1.x<=p2.x)
-					//		rx1=p1.x-2, rx2=p2.x+2;
-					//	else
-					//		rx1=p2.x-2, rx2=p1.x+2;
-					//	if(p1.y<=p2.y)
-					//		ry1=p1.y-2, rx2=p2.y+2;
-					//	else
-					//		ry1=p2.y-2, rx2=p1.y+2;
-					//
-					//	//int padx=((p2.x>=p1.x)-(p2.x<p1.x))<<1;//not true sgn
-					//	//int pady=((p2.x>=p1.x)-(p2.x<p1.x))<<1;
-					//}
-
-					//bool *imask=(bool*)malloc(image_size);
-					//memset(imask, 0, image_size);
-					//for(int k=1, nv=freesel.size();k<nv;++k)
-					//{
-					//	auto &p1=freesel[k-1], &p2=freesel[k];
-					//	draw_line_brush(temp_buffer, iw, ih, LINE3, p1.x, p1.y, p2.x, p2.y, 0, true, imask);
-					//}
-					//free(imask);
+					//if(redraw.all==REDRAW_IMAGE_PARTIAL&&nv>1)//redraw: drag brush t/2=2
+					//	redrawbounds_dragbrush(freesel[nv-2], freesel[nv-1], 2, redrawrect);
 				}
 				else if(drag==D_SELECTION)//drag selection
 				{
 					selection_move_mouse(prev_mx, prev_my, mx, my);
 					if(redraw.all==REDRAW_IMAGE_PARTIAL)//redraw: drag-box
-						redrawbounds_dragbox(sel_s1, sel_s2, Point(mx-prev_mx, my-prev_my), redrawrect);
-					//{
-					//	if(prev_mx<=mx)
-					//		rx1=sel_s1.x+prev_mx-mx, rx2=sel_s2.x;
-					//	else//mx<prev_mx
-					//		rx1=sel_s1.x, rx2=sel_s2.x+prev_mx-mx;
-					//
-					//	if(prev_my<=my)
-					//		ry1=sel_s1.y+prev_my-my, ry2=sel_s2.y;
-					//	else
-					//		ry1=sel_s1.y, ry2=sel_s2.y+prev_my-my;
-					//}
+					{
+						Rect sr=selection, delta={Point(prev_mx, prev_my), Point(mx, my)};
+						sr.sort_coords();
+						sr.image2screen();
+						delta.screen2image();
+						delta.image2screen();
+						redrawbounds_dragbox(sr.i, sr.f, delta.f-delta.i, redrawrect);
+					}
+					if(kb[VK_SHIFT])
+						selection_stamp(false);
 				}
 				break;
 			case M_RECT_SELECTION:
 				if(drag==D_DRAW)//select with mouse
-					screen2image(mx, my, sel_end.x, sel_end.y);
+				{
+					//int half=shift(1, logzoom-1);
+					//screen2image(mx+half, my+half, sel_end.x, sel_end.y);
+					screen2image_rounded(mx, my, selection.f.x, selection.f.y);
+					//screen2image_rounded(mx, my, sel_end.x, sel_end.y);
+					selection.f.clamp(0, iw, 0, ih);
+					//Point start(0, 0), end(iw, ih);
+					//sel_end.x=clamp(start.x, sel_end.x, end.x);
+					//sel_end.y=clamp(start.y, sel_end.y, end.y);
+				}
 				else if(drag==D_SELECTION)//drag selection
 				{
 					selection_move_mouse(prev_mx, prev_my, mx, my);
 					if(redraw.all==REDRAW_IMAGE_PARTIAL)//redraw: drag-box
-						redrawbounds_dragbox(sel_s1, sel_s2, Point(mx-prev_mx, my-prev_my), redrawrect);
-				/*	{
-						if(prev_mx<=mx)
-							rx1=sel_s1.x+prev_mx-mx, rx2=sel_s2.x;
-						else//mx<prev_mx
-							rx1=sel_s1.x, rx2=sel_s2.x+prev_mx-mx;
-
-						if(prev_my<=my)
-							ry1=sel_s1.y+prev_my-my, ry2=sel_s2.y;
-						else
-							ry1=sel_s1.y, ry2=sel_s2.y+prev_my-my;
-
-						//int dx=shift(sw, logzoom), dy=shift(sh, logzoom);
-						//if(prev_mx<=mx)
-						//	rx1=prev_mx-2, rx2=mx+2;
-						//else
-						//	rx1=mx-2, rx2=prev_mx+2;
-						//if(prev_my<=my)
-						//	ry1=prev_my-2, rx2=my+2;
-						//else
-						//	ry1=my-2, rx2=prev_my+2;
-
-						//rx1=minimum(prev_mx, mx), rx2=rx1+shift(sw, logzoom)+abs(mx-prev_mx);
-						//ry1=minimum(prev_my, my), ry2=ry1+shift(sh, logzoom)+abs(my-prev_my);
-					}//*/
+					{
+						Rect sr=selection, delta={Point(prev_mx, prev_my), Point(mx, my)};
+						sr.sort_coords();
+						sr.image2screen();
+						delta.screen2image();
+						delta.image2screen();
+						if(delta.f.x!=delta.i.x)
+							int LOL_1=0;
+						redrawbounds_dragbox(sr.i, sr.f, delta.f-delta.i, redrawrect);
+					}
+					if(kb[VK_SHIFT])
+						selection_stamp(false);
 				}
 				break;
 			case M_ERASER:
@@ -1309,21 +1476,6 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				draw_line_brush_mouse(image, erasertype, prev_mx, prev_my, mx, my, color2);
 				if(redraw.all==REDRAW_IMAGE_PARTIAL)
 					redrawbounds_dragbrush(Point(prev_mx, prev_my), Point(mx, my), 5, redrawrect);
-			/*	{
-					if(prev_mx<=mx)
-						rx1=prev_mx-4, rx2=mx+4;
-					else
-						rx1=mx-4, rx2=prev_mx+4;
-
-					if(prev_my<=my)
-						ry1=prev_my-4, ry2=my+4;
-					else
-						ry1=my-4, ry2=prev_my+4;
-					//int absd=abs(mx-prev_mx), pad=((p2.x>=p1.x)-(p2.x<p1.x))<<2;//not true sgn
-					//rx1=(mx+prev_mx-absd)>>1, rx2=rx1+absd+pad, rx1-=pad;
-					//absd=abs(my-prev_my), pad=((p2.y>=p1.y)-(p2.y<p1.y))<<2;
-					//ry1=(my+prev_my-absd)>>1, ry2=ry1+absd+pad, ry1-=pad;
-				}//*/
 				break;
 		//	case M_FILL:			break;//done
 			case M_PICK_COLOR:
@@ -1355,7 +1507,9 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			case M_TEXT:
 				if(drag==D_DRAW)//define textbox with mouse
 				{
-					screen2image(mx, my, text_end.x, text_end.y);
+					textrect.f.x+=mx-prev_mx;//works because zoom=1 in text mode
+					textrect.f.y+=my-prev_my;
+					//screen2image(mx, my, text_end.x, text_end.y);
 					if(redraw.all==REDRAW_IMAGE_PARTIAL)
 						redrawrect.set(0, 0, w, h);//TODO: correct image coordinates
 				}
@@ -1364,18 +1518,40 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 					Point m, prev_m;
 					screen2image(mx, my, m.x, m.y);
 					screen2image(prev_mx, prev_my, prev_m.x, prev_m.y);
-					Point d=m-prev_m;
-					textpos+=d;
-					text_start+=d, text_end+=d, text_s1+=d, text_s2+=d;
+					Point delta=m-prev_m;
+					textrect.i+=delta;
+					textrect.f+=delta;
+					//textpos+=delta;
+					//text_start+=delta, text_end+=delta, text_s1+=delta, text_s2+=delta;
 					move_textbox();
 					if(redraw.all==REDRAW_IMAGE_PARTIAL)
-						redrawbounds_dragbox(text_s1, text_s2, d, redrawrect);
+					{
+						Rect sr=textrect, delta={Point(prev_mx, prev_my), Point(mx, my)};
+						sr.sort_coords();
+						sr.image2screen();
+						delta.screen2image();
+						delta.image2screen();
+						redrawbounds_dragbox(sr.i, sr.f, delta.f-delta.i, redrawrect);
+
+						//Rect tr2=textrect;
+						//tr2.image2screen();
+						//redrawbounds_dragbox(tr2.i, tr2.f, delta, redrawrect);
+					}
 				}
 				break;
 			case M_LINE:
 				memcpy(temp_buffer, image, image_size<<2);
-			//	memset(temp_buffer, 0, image_size<<2);
 				use_temp_buffer=true;
+
+				//{//
+				//	int *imask=(int*)malloc(image_size<<2);//
+				//	memset(imask, 0, image_size<<2);
+				//	Point p1(start_mx, start_my), p2(mx, my);
+				//	p1.screen2image();
+				//	p2.screen2image();
+				//	draw_line_brush(temp_buffer, iw, ih, LINE5, p1.x, p1.y, p2.x, p2.y, 0, true, imask);
+				//	free(imask);
+				//}
 				draw_line_mouse(temp_buffer, start_mx, start_my, mx, my, (0xFF000000&~-kb['D'])|color, color2);
 				if(redraw.all==REDRAW_IMAGE_PARTIAL)
 					redrawrect.set(x1, y1, x2, y2);//whole image
@@ -1451,8 +1627,187 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				break;
 			}
 		}
+		else if(drag>D_RESIZE_SEL_START&&drag<D_RESIZE_END)
+		{
+			int xflip, yflip;
+			selection=sel0;
+			selection_resize_mouse(selection, mx, my, start_mx, start_my, &xflip, &yflip);
+			//xanchor=anchors[(drag-D_SEL_RESIZE_TL)<<1], yanchor=anchors[(drag-D_SEL_RESIZE_TL)<<1|1];
+			//Point mouse(mx, my), prevmouse(prev_mx, prev_my);
+			//mouse.screen2image_rounded();
+			//prevmouse.screen2image_rounded();
+			//int xflip=assign_using_anchor(xanchor, sr.i.x, sr.f.x, mouse.x, prevmouse.x);
+			//int yflip=assign_using_anchor(yanchor, sr.i.y, sr.f.y, mouse.y, prevmouse.y);
+			char drag2=drag;
+			if(xflip)
+			{
+				switch(drag2)
+				{
+				case D_SEL_RESIZE_TL:	drag2=D_SEL_RESIZE_TR;		break;
+				case D_SEL_RESIZE_TOP:								break;
+				case D_SEL_RESIZE_TR:	drag2=D_SEL_RESIZE_TL;		break;
+				case D_SEL_RESIZE_LEFT:	drag2=D_SEL_RESIZE_RIGHT;	break;
+				case D_SEL_RESIZE_RIGHT:drag2=D_SEL_RESIZE_LEFT;	break;
+				case D_SEL_RESIZE_BL:	drag2=D_SEL_RESIZE_BR;		break;
+				case D_SEL_RESIZE_BOTTOM:							break;
+				case D_SEL_RESIZE_BR:	drag2=D_SEL_RESIZE_BL;		break;
+				}
+			}
+			if(yflip)
+			{
+				switch(drag2)
+				{
+				case D_SEL_RESIZE_TL:		drag2=D_SEL_RESIZE_BL;		break;
+				case D_SEL_RESIZE_TOP:		drag2=D_SEL_RESIZE_BOTTOM;	break;
+				case D_SEL_RESIZE_TR:		drag2=D_SEL_RESIZE_BR;		break;
+				case D_SEL_RESIZE_LEFT:									break;
+				case D_SEL_RESIZE_RIGHT:								break;
+				case D_SEL_RESIZE_BL:		drag2=D_SEL_RESIZE_TL;		break;
+				case D_SEL_RESIZE_BOTTOM:	drag2=D_SEL_RESIZE_TOP;		break;
+				case D_SEL_RESIZE_BR:		drag2=D_SEL_RESIZE_TR;		break;
+				}
+			}
+			if(xflip||yflip)
+			{
+				switch(drag2)
+				{
+				case D_SEL_RESIZE_TL:		hcursor=hcursor_sizenwse;	break;
+				case D_SEL_RESIZE_TOP:		hcursor=hcursor_sizens;		break;
+				case D_SEL_RESIZE_TR:		hcursor=hcursor_sizenesw;	break;
+				case D_SEL_RESIZE_LEFT:		hcursor=hcursor_sizewe;		break;
+				case D_SEL_RESIZE_RIGHT:	hcursor=hcursor_sizewe;		break;
+				case D_SEL_RESIZE_BL:		hcursor=hcursor_sizenesw;	break;
+				case D_SEL_RESIZE_BOTTOM:	hcursor=hcursor_sizens;		break;
+				case D_SEL_RESIZE_BR:		hcursor=hcursor_sizenwse;	break;
+				}
+				SetCursor(hcursor);
+			}
+			//Point delta=mouse-prevmouse;
+			//if(xanchor==-1)
+			//{
+			//	if(sr.i.x<sr.f.x)
+			//		sr.i.x+=delta.x;
+			//	else
+			//		sr.f.x+=delta.x;
+			//}
+			//else if(xanchor==1)
+			//{
+			//	if(sr.i.x<sr.f.x)
+			//		sr.f.x+=delta.x;
+			//	else
+			//		sr.i.x+=delta.x;
+			//}
+		}
+	/*	else if(drag>D_RESIZE_SEL_START&&drag<D_RESIZE_END)
+		{
+			xanchor=anchors[(drag-D_SEL_RESIZE_TL)<<1], yanchor=anchors[(drag-D_SEL_RESIZE_TL)<<1|1];
+			Point mouse(mx, my), prevmouse(prev_mx, prev_my);
+			mouse.screen2image_rounded();
+			prevmouse.screen2image_rounded();
+			
+			//int half=shift(1, logzoom-1);
+			//Point mouse(mx+half, my+half);
+			//mouse.screen2image();
+
+			//sel_end.set(mx, my);
+			//sel_end.screen2image();
+			//selection_assign();
+			int xflip=assign_using_anchor(xanchor, selection.i.x, selection.f.x, mouse.x, prevmouse.x);
+			int yflip=assign_using_anchor(yanchor, selection.i.y, selection.f.y, mouse.y, prevmouse.y);
+			if(xflip)
+			{
+				switch(drag)
+				{
+				case D_SEL_RESIZE_TL:	drag=D_SEL_RESIZE_TR;	break;
+				case D_SEL_RESIZE_TOP:							break;
+				case D_SEL_RESIZE_TR:	drag=D_SEL_RESIZE_TL;	break;
+				case D_SEL_RESIZE_LEFT:	drag=D_SEL_RESIZE_RIGHT;break;
+				case D_SEL_RESIZE_RIGHT:drag=D_SEL_RESIZE_LEFT;	break;
+				case D_SEL_RESIZE_BL:	drag=D_SEL_RESIZE_BR;	break;
+				case D_SEL_RESIZE_BOTTOM:						break;
+				case D_SEL_RESIZE_BR:	drag=D_SEL_RESIZE_BL;	break;
+				}
+			}
+			if(yflip)
+			{
+				switch(drag)
+				{
+				case D_SEL_RESIZE_TL:		drag=D_SEL_RESIZE_BL;		break;
+				case D_SEL_RESIZE_TOP:		drag=D_SEL_RESIZE_BOTTOM;	break;
+				case D_SEL_RESIZE_TR:		drag=D_SEL_RESIZE_BR;		break;
+				case D_SEL_RESIZE_LEFT:									break;
+				case D_SEL_RESIZE_RIGHT:								break;
+				case D_SEL_RESIZE_BL:		drag=D_SEL_RESIZE_TL;		break;
+				case D_SEL_RESIZE_BOTTOM:	drag=D_SEL_RESIZE_TOP;		break;
+				case D_SEL_RESIZE_BR:		drag=D_SEL_RESIZE_TR;		break;
+				}
+			}
+			if(xflip||yflip)
+			{
+				switch(drag)
+				{
+				case D_SEL_RESIZE_TL:		hcursor=hcursor_sizenwse;	break;
+				case D_SEL_RESIZE_TOP:		hcursor=hcursor_sizens;		break;
+				case D_SEL_RESIZE_TR:		hcursor=hcursor_sizenesw;	break;
+				case D_SEL_RESIZE_LEFT:		hcursor=hcursor_sizewe;		break;
+				case D_SEL_RESIZE_RIGHT:	hcursor=hcursor_sizewe;		break;
+				case D_SEL_RESIZE_BL:		hcursor=hcursor_sizenesw;	break;
+				case D_SEL_RESIZE_BOTTOM:	hcursor=hcursor_sizens;		break;
+				case D_SEL_RESIZE_BR:		hcursor=hcursor_sizenwse;	break;
+				}
+				SetCursor(hcursor);
+			}
+			//if(xanchor==-1)//resize from start of view
+			//{
+			//	if(selection.i.x<selection.f.x)
+			//		selection.i.x=mouse.x;
+			//	else
+			//		selection.f.x=mouse.x;
+			//}
+			//else if(xanchor==1)//resize from end of view
+			//{
+			//	if(selection.i.x<selection.f.x)
+			//		selection.f.x=mouse.x;
+			//	else
+			//		selection.i.x=mouse.x;
+			//}
+			//if(xanchor)
+			//	sel_end.x=mouse.x;
+			//if(yanchor)
+			//	sel_end.y=mouse.y;
+			//assign_using_anchor(xanchor, selpos.x, selid.x, sel_start.x, sel_end.x, prevmouse.x);
+			//assign_using_anchor(yanchor, selpos.y, selid.y, sel_start.y, sel_end.y, prevmouse.y);
+
+			//Point p1, p2;
+			//selection_sortNbound(sel_start, sel_end, p1, p2);
+			//image2screen(p1.x, p1.y, sel_s1.x, sel_s1.y);
+			//image2screen(p2.x, p2.y, sel_s2.x, sel_s2.y);
+			//selection_assign();
+
+			//Point mouse(mx, my);
+			//mouse.screen2image();
+			//switch(drag)
+			//{
+			//case D_SEL_RESIZE_TL:
+			//	break;
+			//case D_SEL_RESIZE_TOP:
+			//	break;
+			//case D_SEL_RESIZE_TR:
+			//	break;
+			//case D_SEL_RESIZE_LEFT:
+			//	break;
+			//case D_SEL_RESIZE_RIGHT:
+			//	break;
+			//case D_SEL_RESIZE_BL:
+			//	break;
+			//case D_SEL_RESIZE_BOTTOM:
+			//	break;
+			//case D_SEL_RESIZE_BR:
+			//	break;
+			//}
+		}//*/
 #endif
-		prof_add("draw");
+		prof_add("action");
 
 		int x2s=hscroll.dwidth?w-vscroll.dwidth:x1+shift(iw-spx, logzoom),
 			y2s=vscroll.dwidth?h-74-hscroll.dwidth:y1+shift(ih-spy, logzoom);
@@ -1477,6 +1832,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			//if(y2s<y2)
 			//	for(int ky=y2s;ky<y2;++ky)
 			//		memset(rgb+w*ky+x1, background_grey, (x2-x1)<<2);
+			prof_add("bk");
 		}
 		if((currentmode==M_ERASER||currentmode==M_BRUSH)&&!use_temp_buffer)//draw brush preview at cursor
 		{
@@ -1499,7 +1855,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 					redrawbounds_dragbrush(Point(prev_mx, prev_my), Point(mx, my), 5, redrawrect);
 			}
 		}
-		int bx1, bx2, by1, by2;
+		int bx1, bx2, by1, by2;//blend rect
 		if(redraw.all==REDRAW_IMAGE_PARTIAL)
 		{
 			bx1=redrawrect.i.x=maximum(x1, redrawrect.i.x);
@@ -1507,9 +1863,11 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			by1=redrawrect.i.y=maximum(y1, redrawrect.i.y);
 			by2=redrawrect.f.y=minimum(y2s, redrawrect.f.y);
 		}
-		else//redraw rect can be bigger
+		else//redraw rect can be bigger than blend rect
 			bx1=x1, bx2=x2s, by1=y1, by2=y2s;
 		use_temp_buffer0=use_temp_buffer;
+		//if(*image==0xFF000000)
+		//	int LOL_1=0;
 		if(bx1<bx2&&by1<by2)
 			blend_with_checkboard_zoomed(use_temp_buffer?temp_buffer:image, x1, y1, bx1, bx2, by1, by2, 0, 0);
 		//{
@@ -1522,78 +1880,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		if(currentmode!=M_CURVE&&currentmode!=M_POLYGON)
 			use_temp_buffer=false;
 
-		if(sel_start!=sel_end&&drag!=D_DRAW)//draw selection buffer
-		{
-			int ix1=selpos.x, iy1=selpos.y, ix2=selpos.x+sw, iy2=selpos.y+sh;//image coordinates
-			if(ix1<0)
-				ix1=0;
-			if(iy1<0)
-				iy1=0;
-			if(ix2>iw)
-				ix2=iw;
-			if(iy2>ih)
-				iy2=ih;
-			int sx1, sy1, sx2, sy2;//screen coordinates
-			image2screen(ix1, iy1, sx1, sy1);
-			image2screen(ix2, iy2, sx2, sy2);
-			if(sy1<0)//avoid CRASH
-				sy1=0;//
-			if(sx1<0)//
-				sx1=0;//
-			if(sy1<y1)//avoid drawing over toolbox
-				sy1=y1;
-			if(sx1<x1)//avoid drawing over toolbox
-				sx1=x1;
-			if(sx2>x2)
-				sx2=x2;
-			if(sy2>y2)
-				sy2=y2;
-			if(selection_free)
-			{
-				bool opaque=selection_transparency!=TRANSPARENT;
-				for(int ky=sy1;ky<sy2;++ky)
-				{
-					for(int kx=sx1;kx<sx2;++kx)
-					{
-						int ix=spx-selpos.x+shift(kx-x1, -logzoom), iy=spy-selpos.y+shift(ky-y1, -logzoom);
-						int sel_idx=sw*iy+ix;
-						auto &src=sel_buffer[sel_idx];
-						if(sel_mask[sel_idx]&&(opaque||src!=secondarycolor))
-							rgb[w*ky+kx]=src;
-					}
-				}
-			}
-			else
-			{
-				if(selection_transparency==TRANSPARENT)
-				{
-					for(int ky=sy1;ky<sy2;++ky)
-					{
-						for(int kx=sx1;kx<sx2;++kx)
-						{
-							int ix=spx-selpos.x+shift(kx-x1, -logzoom), iy=spy-selpos.y+shift(ky-y1, -logzoom);
-							auto &src=sel_buffer[sw*iy+ix];
-							if(src!=secondarycolor)
-								rgb[w*ky+kx]=src;
-						}
-					}
-				}
-				else//opaque selection
-				{
-					for(int ky=sy1;ky<sy2;++ky)
-					{
-						for(int kx=sx1;kx<sx2;++kx)
-						{
-							int ix=spx-selpos.x+shift(kx-x1, -logzoom), iy=spy-selpos.y+shift(ky-y1, -logzoom);
-							rgb[w*ky+kx]=sel_buffer[sw*iy+ix];
-						}
-					}
-				}
-			}
-			prof_add("selection buffer");
-		}
-
-		if(showgrid&&logzoom>=2)//show grid, at pixel size 4+
+		if(showgrid&&logzoom>=2)//draw grid, at pixel size 4+
 		{
 			int gridcolors[]={0x808080, 0xC0C0C0}, pxsize=1<<logzoom;
 			for(int ky=y1;ky<y2s;ky+=pxsize)//draw horizontal grid lines
@@ -1604,34 +1891,68 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				for(int kx=x1;kx<x2s;kx+=pxsize)
 					rgb[w*ky+kx]=color;
 			}
-			//for(int ky=y1;ky<y2s;ky+=pxsize)//draw horizontal grid lines
-			//	h_line_alt(x1, x2s, ky, gridcolors);
-			//for(int kx=x1;kx<x2s;kx+=pxsize)//draw vertical grid lines
-			//	v_line_alt(kx, y1, y2s, gridcolors);
 			prof_add("pixel grid");
 		}
+
+		if(selection.nonzero()&&drag!=D_DRAW)//draw selection buffer, on top of grid
+		{
+			stretch_blit(sel_buffer, sw, sh, selection, x1, y1, bx1, bx2, by1, by2, selection_free?sel_mask:nullptr, selection_transparency==TRANSPARENT, secondarycolor);
+			prof_add("selection buffer");
+		}
+
 		if(currentmode==M_TEXT)
-			draw_selection_rectangle(text_start, text_end, text_s1, text_s2, x1, x2, y1, y2, 2);//X can't see selection edges
-		draw_selection_rectangle(sel_start, sel_end, sel_s1, sel_s2, x1, x2, y1, y2, 0);
+			draw_selection_rectangle(textrect, x1, x2, y1, y2, 2);//X can't see selection edges
+		draw_selection_rectangle(selection, x1, x2, y1, y2, 0);
 		prof_add("selection box");
 
-		//blue resize marks
-		if(redraw.image)
+		//resize UI
+#if 1
+		if(redraw.image)//blue resize marks
 		{
-			int markcolor=0x0000FF;
+			int markcolor;
 			Point marksize(10, 10),
 				marksize_TL(4, 4);
 			//	marksize_TL(3, 3);
-			imagemarks[0].set(x1-(marksize_TL.x&-!spx), y1-(marksize_TL.y&-!spy));
-			imagemarks[1].set(x1, y1);
-			Point imcenter, oddity(iw&1, ih&1);
-			image2screen(iw>>1, ih>>1, imcenter.x, imcenter.y);//image center
+
+			Point ip1, ip2;//start & end points in image coordinates
+			int isfull=-(selection.iszero()|(drag==D_DRAW));//resize marks are on the full image rather than on selection
+			if(isfull)//resize marks on full image
+				ip1.setzero(), ip2.set(iw, ih), markcolor=0x0000FF;
+			else//resize marks on selection
+			{
+				ip1=selection.i, ip2=selection.f;
+				if(ip1.x>ip2.x)
+					std::swap(ip1.x, ip2.x);
+				if(ip1.y>ip2.y)
+					std::swap(ip1.y, ip2.y);
+				markcolor=0xFF8000;
+			}
+
+			Point delta=ip2-ip1, oddity(delta.x&1, delta.y&1);
+			Point imstart=ip1;
+			imstart.image2screen();
+			if(isfull)
+				imagemarks[0]=imstart-marksize_TL;
+			else
+				imagemarks[0]=imstart-marksize;
+			imagemarks[1]=imstart;
+			imagemarks[0].constraint_TL(Point(x1-marksize_TL.x, y1-marksize_TL.y)), imagemarks[0].constraint_BR(Point(x2, y2));
+			imagemarks[1].constraint_TL(Point(x1, y1)), imagemarks[1].constraint_BR(Point(x2, y2));
+			//imagemarks[0].set(x1-(marksize_TL.x&-!spx), y1-(marksize_TL.y&-!spy));
+			//imagemarks[1].set(x1, y1);
+			Point imcenter;
+			image2screen(ip1.x+(delta.x>>1), ip1.y+(delta.y>>1), imcenter.x, imcenter.y);//image center
+			if(logzoom>0)
+			{
+				int halfpx=1<<(logzoom-1);
+				imcenter.x+=halfpx&-oddity.x, imcenter.y+=halfpx&-oddity.y;
+			}
 			imagemarks[2]=imcenter-marksize;
 			imagemarks[3]=imcenter+marksize+oddity;
 			imagemarks[2].constraint_TL(Point(x1, y1)), imagemarks[2].constraint_BR(Point(x2, y2));
 			imagemarks[3].constraint_TL(Point(x1, y1)), imagemarks[3].constraint_BR(Point(x2, y2));
 			Point spoint;
-			image2screen(iw, ih, spoint.x, spoint.y);//bottom right corner
+			image2screen(ip2.x, ip2.y, spoint.x, spoint.y);//bottom right corner
 			imagemarks[4]=spoint;
 			imagemarks[5]=spoint+marksize;
 			imagemarks[4].constraint_TL(Point(x1, y1)), imagemarks[4].constraint_BR(Point(x2, y2));
@@ -1672,62 +1993,129 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			
 			//bottom right
 			stamp_mask(nullptr, marksize.x, marksize.y, 0, 0, imagemarks[4].x, imagemarks[5].x, imagemarks[4].y, imagemarks[5].y, markcolor);
-
-		/*	for(int ky=imagemarks[0].y;ky<imagemarks[1].y;++ky)
-			{
-				int *row=rgb+w*ky;
-				memfill(row+imagemarks[0].x, &markcolor, (imagemarks[1].x-imagemarks[0].x)<<2, 1<<2);//TL
-
-				int tr_offset=imagemarks[1].y-1-ky;
-				memfill(row+imagemarks[2].x, &markcolor, (imcenter.x-tr_offset-imagemarks[2].x)<<2, 1<<2);//top
-				memfill(row+imcenter.x+tr_offset, &markcolor, (imagemarks[3].x-(imcenter.x+tr_offset))<<2, 1<<2);
-
-				memfill(row+imagemarks[4].x, &markcolor, (imagemarks[5].x-imagemarks[4].x)<<2, 1<<2);//TR
-			}
-			if(imagemarks[0].x<imagemarks[1].x)
-			{
-				for(int ky=imagemarks[2].y;ky<imagemarks[3].y;++ky)
-				{
-					int *row=rgb+w*ky;
-					memfill(row+maximum(imagemarks[0].x, imagemarks[1].x-(
-				}
-			}//*/
+			prof_add("res. marks");
 		}
-		Point cTL(x1, y1), cBR(x2, y2);
-		switch(drag)
+		if(drag>D_RESIZE_START&&drag<D_RESIZE_SEL_START)//draw resize lines (only for image resize)
+		//if(drag>D_RESIZE_START&&drag<D_RESIZE_END)
 		{
-		case D_RESIZE_TL:
-			v_line_comp_dots(mx, my, y2s, cTL, cBR);
-			h_line_comp_dots(mx, x2s, my, cTL, cBR);
-			break;
-		case D_RESIZE_TOP:
-			h_line_comp_dots(x1, x2s, my, cTL, cBR);
-			break;
-		case D_RESIZE_TR:
-			v_line_comp_dots(mx, my, y2s, cTL, cBR);
-			h_line_comp_dots(x1, mx, my, cTL, cBR);
-			break;
-		case D_RESIZE_LEFT:
-			v_line_comp_dots(mx, y1, y2s, cTL, cBR);
-			break;
-		case D_RESIZE_RIGHT:
-			v_line_comp_dots(mx, y1, y2s, cTL, cBR);
-			break;
-		case D_RESIZE_BL:
-			v_line_comp_dots(mx, y1, my, cTL, cBR);
-			h_line_comp_dots(mx, x2s, my, cTL, cBR);
-			break;
-		case D_RESIZE_BOTTOM:
-			h_line_comp_dots(x1, x2s, my, cTL, cBR);
-			break;
-		case D_RESIZE_BR:
-			v_line_comp_dots(mx, y1, my, cTL, cBR);
-			h_line_comp_dots(x1, mx, my, cTL, cBR);
-			break;
+			Point cTL(x1, y1), cBR(x2, y2);
+			Point mouse(mx, my), prevmouse(start_mx, start_my), delta, point,
+				sp1, sp2;
+			if(logzoom>0)//snap to grid
+			{
+				//int halfnum=1<<(logzoom-1);//round instead of truncation
+				//mouse.x+=halfnum, mouse.y+=halfnum;
+				mouse.screen2image_rounded();//accounts for toolbox width & gui offsets
+				mouse.image2screen();
+				prevmouse.screen2image_rounded();
+				prevmouse.image2screen();
+			}
+			delta=mouse-prevmouse;
+			if(drag<D_RESIZE_SEL_START)
+				sp1.set(x1, y1), sp2.set(x2s, y2s);
+			else
+			{
+				Rect r=selection;
+				r.sort_coords();
+				sp1=r.i, sp2=r.f;
+			}
+			switch(drag)
+			{
+			case D_RESIZE_TL:
+			case D_SEL_RESIZE_TL:
+				point.set(0, 0);
+				point.image2screen();
+				point+=delta;
+				v_line_comp_dots(point.x, point.y, sp2.y, cTL, cBR);
+				h_line_comp_dots(point.x, sp2.x, point.y, cTL, cBR);
+				break;
+			case D_RESIZE_TOP:
+			case D_SEL_RESIZE_TOP:
+				point.set(0, 0);
+				point.image2screen();
+				point+=delta;
+				h_line_comp_dots(sp1.x, sp2.x, point.y, cTL, cBR);
+				break;
+			case D_RESIZE_TR:
+			case D_SEL_RESIZE_TR:
+				point.set(iw, 0);
+				point.image2screen();
+				point+=delta;
+				v_line_comp_dots(point.x, point.y, sp2.y, cTL, cBR);
+				h_line_comp_dots(sp1.x, point.x, point.y, cTL, cBR);
+				break;
+			case D_RESIZE_LEFT:
+			case D_SEL_RESIZE_LEFT:
+				point.set(0, 0);
+				point.image2screen();
+				point+=delta;
+				v_line_comp_dots(point.x, sp1.y, sp2.y, cTL, cBR);
+				break;
+			case D_RESIZE_RIGHT:
+			case D_SEL_RESIZE_RIGHT:
+				point.set(iw, 0);
+				point.image2screen();
+				point+=delta;
+				v_line_comp_dots(point.x, sp1.y, sp2.y, cTL, cBR);
+				break;
+			case D_RESIZE_BL:
+			case D_SEL_RESIZE_BL:
+				point.set(0, ih);
+				point.image2screen();
+				point+=delta;
+				v_line_comp_dots(point.x, sp1.y, point.y, cTL, cBR);
+				h_line_comp_dots(point.x, sp2.x, point.y, cTL, cBR);
+				break;
+			case D_RESIZE_BOTTOM:
+			case D_SEL_RESIZE_BOTTOM:
+				point.set(0, ih);
+				point.image2screen();
+				point+=delta;
+				h_line_comp_dots(sp1.x, sp2.x, point.y, cTL, cBR);
+				break;
+			case D_RESIZE_BR:
+			case D_SEL_RESIZE_BR:
+				point.set(iw, ih);
+				point.image2screen();
+				point+=delta;
+				v_line_comp_dots(point.x, sp1.y, point.y, cTL, cBR);
+				h_line_comp_dots(sp1.x, point.x, point.y, cTL, cBR);
+				break;
+			}
+			prof_add("res. lines");
 		}
+#endif
 
 		if(currentmode==M_MAGNIFIER)//draw magnifier highlight
 		{
+			if(mousepos==MP_IMAGE)
+			{
+				int wndx=x2-x1, wndy=y2-y1;
+				//int wx2=x2-vscroll.dwidth, wndx=wx2-x1,
+				//	wy2=y2-hscroll.dwidth, wndy=wy2-y1;
+				int mag_action=magnifier_level&-(logzoom!=magnifier_level);//if mlevel==zoom: set zoom, otherwise reset zoom 1:1
+				int rx=shift(wndx, logzoom-(mag_action+1)),
+					ry=shift(wndy, logzoom-(mag_action+1));
+				int roundmask=-1<<(logzoom&-(logzoom>0));
+				//int roundmask=~(shift(1, logzoom)-1);
+				//Point mouse(x1+((mx-x1)&roundmask), y1+((my-y1)&roundmask));
+				//Point mouse(mx, my);
+				//mouse.screen2image();//takes into account GUI window offsets
+				//mouse.image2screen();
+				int x0=x1+((mx-rx-x1)&roundmask)+rx,
+					y0=y1+((my-ry-y1)&roundmask)+ry;
+				x0=clamp(x1+rx, x0, x2-rx);
+				y0=clamp(y1+ry, y0, y2-ry);
+				int hx1=clamp(x1, x0-rx, x2-1),
+					hx2=clamp(x1, x0+rx, x2-1),
+					hy1=clamp(y1, y0-ry, y2-1),
+					hy2=clamp(y1, y0+ry, y2-1);
+				h_line_add(hx1, hx2+1, hy1, 128);
+				h_line_add(hx1, hx2+1, hy2, 128);
+				v_line_add(hx1, hy1+1, hy2, 128);
+				v_line_add(hx2, hy1+1, hy2, 128);
+			}
+#if 0
 			int xend=minimum(x1+iw, x2), yend=minimum(y1+ih, y2);
 		//	if(mx>=x1&&mx<x2&&my>=y1&&my<y2)
 			if(!logzoom&&magnifier_level&&mx>=x1&&mx<xend&&my>=y1&&my<yend)//TODO: magnifier rectangle for arbitrary zoom
@@ -1757,6 +2145,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				v_line_add(hx1, hy1+1, hy2, 128);
 				v_line_add(hx2, hy1+1, hy2, 128);
 			}
+#endif
 			prof_add("magnification box");
 		}
 		imageBRcorner.set(x2s, y2s);
@@ -1783,6 +2172,9 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		hFont=(HFONT)SelectObject(ghMemDC, hFont);
 	}
 #endif
+//	draw_line_v3(rgb, w, h, 0, 0, 8, 1, 0x000000);
+//	draw_line_v3(rgb, w, h, 8, 1+10, 1, 8+10, 0x000000);
+//	draw_line_brush(rgb, w, h, BRUSH_LARGE_RIGHT45, 4, 4, 4+8, 4+1, 0x000000);
 //	draw_line_brush(rgb, w, h, BRUSH_LARGE_SQUARE, 10, 10, 20, 20, 0x000000);
 //	draw_line_brush(rgb, w, h, BRUSH_LARGE_RIGHT45, 10, 10, 20, 20, 0x000000);
 //	draw_line_v2(rgb, w, h, 1, 0, 0, 2, 0x000000);
@@ -1820,9 +2212,11 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		BitBlt(ghDC, 0, 0, w, h, ghMemDC, 0, 0, SRCCOPY);
 		prof_add("BitBlt");
 		
+		static int frame_count=-1;
+		++frame_count;
 		//GUITPrint(ghDC, w>>1, (h>>1)-16*3, "m(%d, %d)prev", prev_mx, prev_my);//
 		//GUITPrint(ghDC, w>>1, (h>>1)-16*2, "m(%d, %d)current", mx, my);//
-		GUITPrint(ghDC, w>>1, (h>>1)-16, "DEBUG %08X(%d, %d), (%d, %d), temp=%d\t\t", redrawtype, redrawrect.i.x, redrawrect.i.y, redrawrect.f.x, redrawrect.f.y, (int)use_temp_buffer0);
+		GUITPrint(ghDC, w>>1, (h>>1)-16, "DEBUG %08X(%d, %d), (%d, %d), temp=%d, %d\t\t", redrawtype, redrawrect.i.x, redrawrect.i.y, redrawrect.f.x, redrawrect.f.y, (int)use_temp_buffer0, frame_count);
 		//MoveToEx(ghDC, prev_mx, prev_my, 0), LineTo(ghDC, mx, my);//hMemDC ruins rgb
 		if(redrawrect.i.x<redrawrect.f.x&&redrawrect.i.y<redrawrect.f.y)
 		{
@@ -2034,8 +2428,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 #else
 #define			DEBUG(format, ...)
 #endif
-	//if(focus==F_TEXTBOX&&message!=WM_CLOSE&&message!=WM_NCLBUTTONDOWN&&message!=WM_MOVE)
-	//	SendMessageW(hTextbox, message, wParam, lParam);
 	switch(message)
 	{
 	case WM_CREATE:
@@ -2054,7 +2446,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			CREATE_MENU(hMenuImage);
 			CREATE_MENU(hMenuColors);
 			CREATE_MENU(hMenuHelp);
-			CREATE_MENU(hMenuTest);
+			//CREATE_MENU(hMenuTest);
 #undef		CREATE_MENU
 			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_NEW, L"&New\tCtrl+N");					SYS_ASSERT(success);		//[F]ILE
 			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_OPEN, L"&Open...\tCtrl+O");				SYS_ASSERT(success);
@@ -2064,50 +2456,56 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_QUIT, L"E&xit\tAlt+F4");					SYS_ASSERT(success);
 			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuFile, L"&File");						SYS_ASSERT(success);
 
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_UNDO, L"&Undo\tCrtl+Z");						SYS_ASSERT(success);		//[E]DIT
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_REPEAT, L"&Repeat\tCrtl+Y");					SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CUT, L"Cu&t\tCrtl+X");						SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY, L"&Copy\tCrtl+C");						SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE, L"&Paste\tCrtl+V");					SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CLEAR_SELECTION, L"C&lear Selection\tDel");	SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_SELECT_ALL, L"Select &All\tCtrl+A");			SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY_TO, L"C&opy To...");					SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE_FROM, L"Paste &From...");				SYS_ASSERT(success);
-			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuEdit, L"&Edit");							SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_UNDO, L"&Undo\tCrtl+Z");							SYS_ASSERT(success);		//[E]DIT
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_REPEAT, L"&Repeat\tCrtl+Y");						SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);													SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CUT, L"Cu&t\tCrtl+X");							SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY, L"&Copy\tCrtl+C");							SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE, L"&Paste\tCrtl+V");						SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CLEAR_SELECTION, L"C&lear Selection\tDel");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_SELECT_ALL, L"Select &All\tCtrl+A");				SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_RESET_SEL_SCALE, L"Reset Selection Scale\tE");	SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);													SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY_TO, L"C&opy To...");						SYS_ASSERT(success);//TODO
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE_FROM, L"Paste &From...");					SYS_ASSERT(success);//TODO
+			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuEdit, L"&Edit");								SYS_ASSERT(success);
 
-			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TOOLBOX, L"&Tool Box\tCtrl+T");		SYS_ASSERT(success);	//[V]IEW
-			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_COLORBOX, L"&Color Box\tCtrl+L");	SYS_ASSERT(success);
-			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_STATUSBAR, L"&Status Bar");			SYS_ASSERT(success);
-			success=CheckMenuItem(hMenuView, IDM_VIEW_STATUSBAR, MF_CHECKED);						SYS_ASSERT(success);//deprecated
-			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TEXT_TOOLBAR, L"T&ext Toolbar");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TOOLBOX, L"&Tool Box\tCtrl+T");		SYS_ASSERT(success);//?	//[V]IEW
+			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_COLORBOX, L"&Color Box\tCtrl+L");	SYS_ASSERT(success);//?
+			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_STATUSBAR, L"&Status Bar");			SYS_ASSERT(success);//?
+			success=CheckMenuItem(hMenuView, IDM_VIEW_STATUSBAR, MF_CHECKED);						SYS_ASSERT(success);
+		//	success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TEXT_TOOLBAR, L"T&ext Toolbar");		SYS_ASSERT(success);//not needed
 			success=AppendMenuW(hMenuView, MF_SEPARATOR, 0, 0);										SYS_ASSERT(success);
 		//	success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_ZOOM, L"&Zoom");						SYS_ASSERT(success);
-			success=AppendMenuW(hMenuView, MF_STRING | MF_POPUP, (unsigned)hMenuZoom, L"&Zoom");	SYS_ASSERT(success);
+			success=AppendMenuW(hMenuView, MF_STRING|MF_POPUP, (unsigned)hMenuZoom, L"&Zoom");		SYS_ASSERT(success);
 			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_VIEWBITMAP, L"&View Bitmap\tCtrl+F");SYS_ASSERT(success);
 			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuView, L"&View");					SYS_ASSERT(success);
 
-			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_IN, L"&Zoom Out\tCtrl+PgUp");		SYS_ASSERT(success);		//VIEW/[Z]OOM
-			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_OUT, L"&Zoom In\tCtrl+PgDn");		SYS_ASSERT(success);
-			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_CUSTOM, L"C&ustom...");				SYS_ASSERT(success);
+			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_IN, L"&Zoom Out\tCtrl +");			SYS_ASSERT(success);		//VIEW/[Z]OOM
+			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_OUT, L"&Zoom In\tCtrl -");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_CUSTOM, L"C&ustom...");				SYS_ASSERT(success);//?
 			success=AppendMenuW(hMenuZoom, MF_SEPARATOR, 0, 0);										SYS_ASSERT(success);
 			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_GRID, L"Show &Grid\tCtrl+G");	SYS_ASSERT(success);
-			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_THUMBNAIL, L"Show T&humbnail");SYS_ASSERT(success);
+			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_THUMBNAIL, L"Show T&humbnail");SYS_ASSERT(success);//TODO
 
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_FLIP_ROTATE, L"&Flip/Rotate...\tCtrl+R");			SYS_ASSERT(success);	//IMAGE
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SKETCH_SKEW, L"&Sketch/Skew...\tCtrl+W");			SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_INVERT_COLORS, L"&Invert Colors\tCtrl+I");			SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ATTRIBUTES, L"&Attributes...\tCtrl+E");			SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CLEAR_IMAGE, L"&Clear Image\tCtrl+Shift+N");		SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CONST_ALPHA, L"Set Co&nstant Alpha\tCtrl+Shift+A");SYS_ASSERT(success);//new
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SET_ALPHA, L"Set Alpha from a C&hannel");			SYS_ASSERT(success);//new
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SEND_ALPHA, L"Send Alpha to &Layer");				SYS_ASSERT(success);//new
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_DRAW_OPAQUE, L"&Draw Opaque");						SYS_ASSERT(success);
-			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuImage, L"&Image");								SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_FLIP_ROTATE, L"&Flip/Rotate...\tCtrl+R");		SYS_ASSERT(success);	//IMAGE
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SKETCH_SKEW, L"&Sketch/Skew...\tCtrl+W");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_INVERT_COLORS, L"&Invert Colors\tCtrl+I");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ATTRIBUTES, L"&Attributes...\tCtrl+E");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CLEAR_IMAGE, L"&Clear Image\tCtrl+Shift+N");	SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CLEAR_ALPHA, L"Clear Al&pha\tA");				SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SET_CHANNEL, L"Set Cha&nnel");					SYS_ASSERT(success);//new
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ASSIGN_CHANNEL, L"Assi&gn Channel...\tC");		SYS_ASSERT(success);//new
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_EXPORT_CHANNEL, L"&Export Channel...");		SYS_ASSERT(success);//new
+			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_DRAW_OPAQUE, L"&Draw Opaque");					SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_LINEAR, L"&Linear Interpolation");				SYS_ASSERT(success);
+			success=CheckMenuItem(hMenuImage, IDM_IMAGE_LINEAR, interpolation_type?MF_CHECKED:MF_UNCHECKED);	SYS_ASSERT(success);
+			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuImage, L"&Image");							SYS_ASSERT(success);
 
 			success=AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITCOLORS, L"&Edit Colors...");		SYS_ASSERT(success);	//COLORS
-			success=AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITMASK, L"Edit &Mask...\tCtrl+M");	SYS_ASSERT(success);
+		//	success=AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITMASK, L"Edit &Mask...\tCtrl+M");	SYS_ASSERT(success);//?
 			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuColors, L"&Colors");					SYS_ASSERT(success);
 
 		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO1, L".&BMP");									SYS_CHECK(success);			//TEST
@@ -2119,7 +2517,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		//	success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuTest, L"&Temp Format");							SYS_CHECK(success);
 
 			success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_TOPICS, L"&Help\tF1");		SYS_ASSERT(success);		//HELP
-		//	success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_TOPICS, L"&Help Topics");	SYS_ASSERT(success);
+		//	success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_TOPICS, L"&Help Topics");	SYS_ASSERT(success);//?
 			success=AppendMenuW(hMenuHelp, MF_SEPARATOR, 0, 0);								SYS_ASSERT(success);
 			success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, L"&About Paint++");	SYS_ASSERT(success);
 			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuHelp, L"&Help");			SYS_ASSERT(success);
@@ -2186,10 +2584,53 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		//if(currentmode==M_TEXT)
 		//	move_textbox();
 		break;
-	case WM_PAINT:
 	case WM_TIMER:
-		if(w==1440)
-			int LOL_1=0;
+		{
+			int redrawtype=0;
+			switch(wParam)
+			{
+			case TIMER_AIRBRUSH:
+				redrawtype=REDRAW_IMAGE_PARTIAL;
+				break;
+			case TIMER_SCROLLBAR_INIT:
+				timer_kill();
+				timer_set(TIMER_SCROLLBAR_CONT);
+			case TIMER_SCROLLBAR_CONT:
+				switch(drag)
+				{
+				case D_HSCROLL_BACK:
+					--spx;
+					redrawtype=REDRAW_IMAGEWINDOW;
+					break;
+				case D_HSCROLL_FORWARD:
+					++spx;
+					redrawtype=REDRAW_IMAGEWINDOW;
+					break;
+
+				case D_VSCROLL_BACK:
+					--spy;
+					redrawtype=REDRAW_IMAGEWINDOW;
+					break;
+				case D_VSCROLL_FORWARD:
+					++spy;
+					redrawtype=REDRAW_IMAGEWINDOW;
+					break;
+
+				case D_THBOX_VSCROLL_BACK:
+					thbox_posy-=10+16+th_h;
+					redrawtype=REDRAW_ALL;
+					break;
+				case D_THBOX_VSCROLL_FORWARD:
+					thbox_posy+=10+16+th_h;
+					redrawtype=REDRAW_ALL;
+					break;
+				}
+				break;
+			}
+			render(redrawtype, 0, w, 0, h);
+		}
+		break;
+	case WM_PAINT:
 		render(REDRAW_ALL, 0, w, 0, h);
 		break;
 	case WM_GETICON:
@@ -2228,15 +2669,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 #if 1
 		{
 			int wp_hi=((short*)&wParam)[1], wp_lo=(short&)wParam;
-			//if(wp_hi==EN_CHANGE&&(HWND)lParam==hTextbox)
-			//{
-			//	//RedrawWindow(hTextbox, nullptr, nullptr, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE);
-			//	//ShowWindow(hTextbox, SW_HIDE);
-			//	//ShowWindow(hTextbox, SW_SHOWNORMAL);
-			////	focus=F_TEXTBOX;
-			////	SetFocus(hTextbox);
-			//}
-			//else
 			switch(wp_lo)
 			{
 			case IDM_FONT_COMBOBOX://font selection combobox
@@ -2401,7 +2833,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				editpaste();
 				break;
 			case IDM_EDIT_CLEAR_SELECTION:
-				if(sel_start!=sel_end)
+				if(selection.nonzero())
 				{
 					memset(sel_buffer, 0xFF, sw*sh<<2);
 					render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
@@ -2410,6 +2842,13 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			case IDM_EDIT_SELECT_ALL:
 				selection_selectall();
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+				break;
+			case IDM_EDIT_RESET_SEL_SCALE:
+				if(selection.nonzero())
+				{
+					selection_resetscale();
+					render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+				}
 				break;
 			case IDM_EDIT_COPY_TO:			unimpl();break;
 			case IDM_EDIT_PASTE_FROM:		unimpl();break;
@@ -2473,19 +2912,29 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				memset(image, 0xFF, image_size<<2);
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 				break;
-			case IDM_IMAGE_CONST_ALPHA:
+			case IDM_IMAGE_CLEAR_ALPHA:
+				clear_alpha();
+				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+				break;
+			case IDM_IMAGE_SET_CHANNEL:
 				unimpl();
 				break;
-			case IDM_IMAGE_SET_ALPHA:
+			case IDM_IMAGE_ASSIGN_CHANNEL:
 				unimpl();
 				break;
-			case IDM_IMAGE_SEND_ALPHA:
+			case IDM_IMAGE_EXPORT_CHANNEL:
 				unimpl();
 				break;
 			case IDM_IMAGE_DRAW_OPAQUE:
-				selection_transparency=!selection_transparency;
-				CheckMenuItem(hMenuImage, IDM_IMAGE_DRAW_OPAQUE, selection_transparency?MF_UNCHECKED:MF_CHECKED);//deprecated
+				selection_transparency=1<<int(selection_transparency==TRANSPARENT);
+				//selection_transparency=selection_transparency==OPAQUE?TRANSPARENT:OPAQUE;
+				CheckMenuItem(hMenuImage, IDM_IMAGE_DRAW_OPAQUE, selection_transparency==OPAQUE?MF_CHECKED:MF_UNCHECKED);//deprecated
 				render(REDRAW_TOOLBAR, 0, w, 0, h);
+				break;
+			case IDM_IMAGE_LINEAR:
+				interpolation_type=!interpolation_type;
+				CheckMenuItem(hMenuImage, IDM_IMAGE_LINEAR, interpolation_type?MF_CHECKED:MF_UNCHECKED);//deprecated
+				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 				break;
 
 				//colors menu
@@ -2625,8 +3074,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 #endif
 		break;
 	case WM_SETCURSOR://0x0020
-		//if(mousepos!=MP_NONCLIENT)
-		//{
+		if(mousepos!=MP_NONCLIENT)
+		{
 			switch(mousepos)
 			{
 			case MP_RESIZE_TL:		hcursor=hcursor_sizenwse;	break;
@@ -2643,7 +3092,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			SetCursor(hcursor);
 			//SetCursor(mousepos==MP_IMAGE?hcursor:hcursor_original);//TODO: other tool cursors
 			ret=true, handled=true;
-		//}
+		}
 		break;
 	//case WM_NCMOUSEMOVE://0x00A0: mouse on border
 	//	break;
@@ -2691,6 +3140,14 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			case D_RESIZE_BL:
 			case D_RESIZE_BOTTOM:
 			case D_RESIZE_BR:
+			case D_SEL_RESIZE_TL:
+			case D_SEL_RESIZE_TOP:
+			case D_SEL_RESIZE_TR:
+			case D_SEL_RESIZE_LEFT:
+			case D_SEL_RESIZE_RIGHT:
+			case D_SEL_RESIZE_BL:
+			case D_SEL_RESIZE_BOTTOM:
+			case D_SEL_RESIZE_BR:
 				redrawtype=REDRAW_IMAGEWINDOW;
 				break;
 			default:
@@ -2712,9 +3169,6 @@ skip_render:;
 	case WM_LBUTTONDOWN://left click
 	case WM_LBUTTONDBLCLK:
 #if 1
-		//if(focus==F_TEXTBOX)
-		//	SendMessageW(hTextbox, message, wParam, lParam);
-		//else
 		{
 			kb[VK_LBUTTON]=true;
 			const int scrollbarwidth=17;
@@ -2724,11 +3178,11 @@ skip_render:;
 				if(thbox_vscroll.dwidth&&mx>=w-scrollbarwidth)//thbox vscrollbar
 				{
 					if(my>h-74*showcolorbar-scrollbarwidth)//down arrow
-						thbox_posy+=10+16+th_h;
+						thbox_posy+=10+16+th_h, drag=D_THBOX_VSCROLL_FORWARD, timer_set(TIMER_SCROLLBAR_INIT);
 					else if(my>scrollbarwidth)//slider
 						drag=D_THBOX_VSCROLL, thbox_vscroll.m_start=my, thbox_vscroll.s0=thbox_vscroll.start;
 					else//up arrow
-						thbox_posy-=10+16+th_h;
+						thbox_posy-=10+16+th_h, drag=D_THBOX_VSCROLL_BACK, timer_set(TIMER_SCROLLBAR_INIT);
 				}
 				else//click on thumbnail
 				{
@@ -2813,7 +3267,7 @@ skip_render:;
 						currentmode=prevmode;
 					if(prevmode<=M_RECT_SELECTION&&currentmode>M_RECT_SELECTION&&!selection_persistent)//switch away from selection
 					{
-						selection_deselect();
+						selection_stamp(true);
 						selection_remove();
 					}
 					if(currentmode0!=M_TEXT&&currentmode==M_TEXT)//switch to text mode
@@ -2842,8 +3296,8 @@ skip_render:;
 						//polygon_draw(image, c3, c4);
 						use_temp_buffer=false;
 					}
-					if(currentmode==M_MAGNIFIER&&prevmode!=M_MAGNIFIER&&logzoom>0)
-						magnifier_level=clamp(0, logzoom, 5);
+					//if(currentmode==M_MAGNIFIER&&prevmode!=M_MAGNIFIER&&logzoom>0)
+					//	magnifier_level=clamp(0, logzoom, 5);
 					if(currentmode!=M_PICK_COLOR&&currentmode!=M_MAGNIFIER&&currentmode!=M_TEXT)
 						prevmode=currentmode;
 				}
@@ -2856,7 +3310,8 @@ skip_render:;
 					case M_TEXT:
 						if(my<243)
 						{
-							selection_transparency=selection_transparency==OPAQUE?TRANSPARENT:OPAQUE;
+							selection_transparency=1<<int(selection_transparency==TRANSPARENT);
+							//selection_transparency=selection_transparency==OPAQUE?TRANSPARENT:OPAQUE;
 							if(currentmode==M_TEXT)
 								RedrawWindow(hTextbox, nullptr, nullptr, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE);
 						}
@@ -2871,7 +3326,7 @@ skip_render:;
 							erasertype=ERASER10;
 						break;
 					case M_MAGNIFIER:
-						magnifier_level=(my-210)/22<<1|(mx-7)/21;
+						magnifier_level=magnification_levels[(my-210)/22<<1|(mx-7)/21];
 						break;
 					case M_BRUSH:
 						brushtype=BRUSH_LARGE_DISK+(my-210)/16*3+(mx-7)/14;
@@ -2902,11 +3357,11 @@ skip_render:;
 				//	if(dy<=0)
 				//		dy=1;
 					if(my>=p2.y-scrollbarwidth-hscroll.dwidth)//down arrow
-						++spy;
+						++spy, drag=D_VSCROLL_FORWARD, timer_set(TIMER_SCROLLBAR_INIT);
 					else if(my>=p1.y+scrollbarwidth)//vertical slider
 						drag=D_VSCROLL, vscroll.m_start=my, vscroll.s0=vscroll.start;
 					else//up arrow
-						--spy;
+						--spy, drag=D_VSCROLL_BACK, timer_set(TIMER_SCROLLBAR_INIT);
 				//}
 				break;
 			case MP_HSCROLL://image horizontal scrollbar
@@ -2915,11 +3370,11 @@ skip_render:;
 				//	if(dx<=0)
 				//		dx=1;
 					if(mx>=p2.x-scrollbarwidth-vscroll.dwidth)//right arrow
-						++spx;
+						++spx, drag=D_HSCROLL_FORWARD, timer_set(TIMER_SCROLLBAR_INIT);
 					else if(mx>=p1.x+scrollbarwidth)//horizontal slider
 						drag=D_HSCROLL, hscroll.m_start=mx, hscroll.s0=hscroll.start;
 					else//left arrow
-						--spx;
+						--spx, drag=D_HSCROLL_BACK, timer_set(TIMER_SCROLLBAR_INIT);
 				//}
 				break;
 			case MP_RESIZE_TL:
@@ -2930,7 +3385,16 @@ skip_render:;
 			case MP_RESIZE_BL:
 			case MP_RESIZE_BOTTOM:
 			case MP_RESIZE_BR:
-				drag=mousepos-MP_RESIZE_TL+D_RESIZE_TL;
+				if(selection.nonzero())//resize selection
+				{
+					drag=mousepos-MP_RESIZE_TL+D_SEL_RESIZE_TL;
+					sel0=selection;
+					//xanchor=anchors[(drag-D_SEL_RESIZE_TL)<<1], yanchor=anchors[(drag-D_SEL_RESIZE_TL)<<1|1];
+					//sort_using_anchor(xanchor, sel_start.x, sel_end.x);
+					//sort_using_anchor(yanchor, sel_start.y, sel_end.y);
+				}
+				else//resize image
+					drag=mousepos-MP_RESIZE_TL+D_RESIZE_TL;
 				break;
 			case MP_IMAGEWINDOW:														//click on IMAGE WINDOW
 			case MP_IMAGE:
@@ -2938,15 +3402,34 @@ skip_render:;
 				{
 				case M_FREE_SELECTION:
 				case M_RECT_SELECTION:
-					if(mx>=sel_s1.x&&mx<sel_s2.x&&my>=sel_s1.y&&my<sel_s2.y)//drag selection
-						drag=D_SELECTION;
-					else
 					{
-						selection_deselect();
-						screen2image(mx, my, sel_start.x, sel_start.y);
-						sel_end=sel_start;
-						selection_assign();
-						drag=D_DRAW;
+						Rect r=selection;
+						r.image2screen();
+						if(r.mousetest_orderless(mx, my))//drag selection
+						//if(mx>=sel_s1.x&&mx<sel_s2.x&&my>=sel_s1.y&&my<sel_s2.y)
+						{
+							if(kb[VK_CONTROL]||kb[VK_SHIFT])
+								selection_stamp(true);
+							drag=D_SELECTION;
+						}
+						else//new selection
+						{
+							selection_stamp(true);
+
+							selection.i.set(mx, my);
+							selection.i.screen2image_rounded();
+							selection.i.clamp(0, iw, 0, ih);
+							selection.f=selection.i;
+						//	screen2image_rounded(mx, my, sel_start.x, sel_start.y);
+						//	//screen2image(mx, my, sel_start.x, sel_start.y);
+						//	Point start(0, 0), end(iw, ih);
+						//	sel_start.x=clamp(start.x, sel_start.x, end.x);
+						//	sel_start.y=clamp(start.y, sel_start.y, end.y);
+						//	sel_end=sel_start;
+						//	selection_assign();
+
+							drag=D_DRAW;
+						}
 					}
 					break;
 				case M_FILL:
@@ -2960,7 +3443,9 @@ skip_render:;
 						screen2image(mx, my, imx, imy);
 						logzoom=magnifier_level, zoom=1<<magnifier_level;
 						int dx=w-(61*showtoolbox+17), dy=h-(5+17+73*showcolorbar), idx, idy;
-						screen2image(dx, dy, idx, idy);
+						idx=shift(dx, -logzoom);
+						idy=shift(dy, -logzoom);
+						//screen2image(dx, dy, idx, idy);
 						spx=imx-(idx>>1), spy=imy-(idy>>1);
 					}
 					else
@@ -2969,22 +3454,27 @@ skip_render:;
 					break;
 				case M_AIRBRUSH:
 					drag=D_DRAW;
-					if(!timer)
-						SetTimer(ghWnd, 0, airbrush_timer, 0), timer=true;
+					timer_set(TIMER_AIRBRUSH);
+					//if(!timer)
+					//	SetTimer(ghWnd, 0, airbrush_timer, 0), timer=true;
 					break;
 				case M_TEXT:
 					{
 						int padding=2;
-						if(mx>=text_s1.x-padding&&mx<text_s2.x+padding&&my>=text_s1.y-padding&&my<text_s2.y+padding)//drag textbox
+						Rect tr2=textrect;
+						tr2.image2screen();
+						if(tr2.mousetest(mx, my, padding))//drag textbox
+					//	if(mx>=text_s1.x-padding&&mx<text_s2.x+padding&&my>=text_s1.y-padding&&my<text_s2.y+padding)
 					//	if(mx>=text_s1.x&&mx<text_s2.x&&my>=text_s1.y&&my<text_s2.y)
 							drag=D_SELECTION;
 						else//define new textbox
 						{
-						//	focus=F_MAIN;
-						//	SetFocus(ghWnd);
 							print_text();
-							screen2image(mx, my, text_start.x, text_start.y);
-							text_end=text_start;
+							textrect.i.set(mx, my);
+							textrect.i.screen2image();
+							textrect.f=textrect.i;
+							//screen2image(mx, my, text_start.x, text_start.y);
+							//text_end=text_start;
 							drag=D_DRAW;
 						}
 					}
@@ -3030,9 +3520,14 @@ skip_render:;
 				break;
 			case M_RECT_SELECTION:
 				{
-					Point p1, p2;//sorted-bounded image coordinates
-					selection_assign_mouse(start_mx, start_my, mx, my, sel_start, sel_end, p1, p2);
-					selection_select(p1, p2);
+					selection.f.set(mx, my);
+					selection.f.screen2image_rounded();
+					selection_select(selection);
+
+					//Point p1, p2;//sorted-bounded image coordinates
+					//selection_assign_mouse(start_mx, start_my, mx, my, sel_start, sel_end, p1, p2);
+					//selection_select(p1, p2);
+					//selid=p2-p1;
 				}
 				break;
 			case M_PICK_COLOR:
@@ -3046,10 +3541,10 @@ skip_render:;
 				break;
 			case M_TEXT:
 				{
-					Point p1, p2;
-					image2screen(text_start.x, text_start.y, p1.x, p1.y);
-					image2screen(text_end.x, text_end.y, p2.x, p2.y);
-					selection_sort(p1, p2, text_s1, text_s2);
+					//Point p1, p2;
+					//image2screen(text_start.x, text_start.y, p1.x, p1.y);
+					//image2screen(text_end.x, text_end.y, p2.x, p2.y);
+					//selection_sort(p1, p2, text_s1, text_s2);
 
 					move_textbox();
 					int prevshow=ShowWindow(hTextbox, SW_SHOWNA);
@@ -3090,7 +3585,15 @@ skip_render:;
 				break;
 			}
 			break;
-#if 1
+		case D_HSCROLL_BACK:
+		case D_HSCROLL_FORWARD:
+		case D_VSCROLL_BACK:
+		case D_VSCROLL_FORWARD:
+		case D_THBOX_VSCROLL_BACK:
+		case D_THBOX_VSCROLL_FORWARD:
+			if(timer==TIMER_SCROLLBAR_INIT||timer==TIMER_SCROLLBAR_CONT)
+				timer_kill();
+			break;
 		case D_RESIZE_TL:
 		case D_RESIZE_TOP:
 		case D_RESIZE_TR:
@@ -3100,126 +3603,37 @@ skip_render:;
 		case D_RESIZE_BOTTOM:
 		case D_RESIZE_BR:
 			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				switch(drag)
+				imresize_setparams(newsize, srcstart, dststart, copysize);
+				//xanchor=anchors[(drag-D_RESIZE_TL)<<1], yanchor=anchors[(drag-D_RESIZE_TL)<<1|1];//-1: resize from start, 0: original, 1: resize from end
+				//newsize.set(mx, my);//mouse coordinates
+				////if(logzoom>0)
+				////{
+				////	int halfnum=1<<(logzoom-1);//round instead of truncation
+				////	newsize.x+=halfnum, newsize.y+=halfnum;
+				////}
+				//newsize.screen2image_rounded();
+				//imresize_setparams(xanchor, newsize.x, iw, newsize.x, srcstart.x, dststart.x, copysize.x);
+				//imresize_setparams(yanchor, newsize.y, ih, newsize.y, srcstart.y, dststart.y, copysize.y);
+				if(newsize.x!=iw||newsize.y!=ih)
 				{
-				case D_RESIZE_TL:
-					if(kb[VK_SHIFT])
-						mouse.x=iw+mouse.x, mouse.y=ih+mouse.y;
-					else
-						mouse.x=iw-mouse.x, mouse.y=ih-mouse.y;
-					break;
-				case D_RESIZE_TOP:
-					if(kb[VK_SHIFT])
-						mouse.y=ih+mouse.y;
-					else
-						mouse.y=ih-mouse.y;
-					mouse.x=iw;
-					break;
-				case D_RESIZE_TR:
-					if(kb[VK_SHIFT])
-						mouse.y=ih+mouse.y;
-					else
-						mouse.y=ih-mouse.y;
-					break;
-				case D_RESIZE_LEFT:
-					if(kb[VK_SHIFT])
-						mouse.x=iw+mouse.x;
-					else
-						mouse.x=iw-mouse.x;
-					mouse.y=ih;
-					break;
-				case D_RESIZE_RIGHT:
-					mouse.y=ih;
-					break;
-				case D_RESIZE_BL:
-					if(kb[VK_SHIFT])
-						mouse.x=iw+mouse.x;
-					else
-						mouse.x=iw-mouse.x;
-					break;
-				case D_RESIZE_BOTTOM:
-					mouse.x=iw;
-					break;
-				case D_RESIZE_BR:
-					break;
+					int count=newsize.x*newsize.y;
+					int *image2=(int*)malloc(count<<2);
+					imresize(image2, newsize, image, Point(iw, ih), srcstart, dststart, copysize);
+					hist_postmodify(image2, newsize.x, newsize.y);
 				}
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, mouse.x, mouse.y);
 			}
 			break;
-#else
-		case D_RESIZE_TL:
-			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				mouse.x+=iw, mouse.y+=ih;
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, mouse.x, mouse.y);
-			}
+		case D_SEL_RESIZE_TL:
+		case D_SEL_RESIZE_TOP:
+		case D_SEL_RESIZE_TR:
+		case D_SEL_RESIZE_LEFT:
+		case D_SEL_RESIZE_RIGHT:
+		case D_SEL_RESIZE_BL:
+		case D_SEL_RESIZE_BOTTOM:
+		case D_SEL_RESIZE_BR:
+			selection=sel0;
+			selection_resize_mouse(selection, mx, my, start_mx, start_my);
 			break;
-		case D_RESIZE_TOP:
-			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				mouse.x+=iw, mouse.y+=ih;
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, iw, mouse.y);
-			}
-			break;
-		case D_RESIZE_TR:
-			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				mouse.y+=ih;
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, mouse.x, mouse.y);
-			}
-			break;
-		case D_RESIZE_LEFT:
-			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				mouse.x+=iw, mouse.y+=ih;
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, mouse.x, ih);
-			}
-			break;
-		case D_RESIZE_RIGHT:
-			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, mouse.x, ih);
-			}
-			break;
-		case D_RESIZE_BL:
-			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				mouse.x+=iw;
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, mouse.x, mouse.y);
-			}
-			break;
-		case D_RESIZE_BOTTOM:
-			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, iw, mouse.y);
-			}
-			break;
-		case D_RESIZE_BR:
-			{
-				Point mouse(mx, my);
-				mouse.screen2image();
-				mouse.constraint_TL(Point(1, 1));
-				hist_premodify(image, mouse.x, mouse.y);
-			}
-			break;
-#endif
 		}
 		kb[VK_LBUTTON]=false, prev_drag=drag=D_NONE;
 		render(REDRAW_ALL, 0, w, 0, h);
@@ -3227,9 +3641,6 @@ skip_render:;
 		break;
 	case WM_RBUTTONDOWN://right click
 	case WM_RBUTTONDBLCLK:
-		//if(focus==F_TEXTBOX)
-		//	SendMessageW(hTextbox, message, wParam, lParam);
-		//else
 		{
 			kb[VK_RBUTTON]=true;
 			const int scrollbarwidth=17;
@@ -3242,14 +3653,6 @@ skip_render:;
 				{
 					int kx=(mx-31)>>4, ky=(my-(h-65))>>4, idx=kx<<1|ky;
 					pickcolor_palette(message, secondarycolor, colorpalette[idx], secondary_alpha);
-					//if(message==WM_RBUTTONDBLCLK)//show color picker
-					//{
-					//	CHOOSECOLOR cc={sizeof(CHOOSECOLOR), ghWnd, (HWND)ghInstance, swap_rb(secondarycolor), (unsigned long*)ext_colorpalette, CC_FULLOPEN|CC_RGBINIT, 0, nullptr, nullptr};
-					//	if(ChooseColorW(&cc))
-					//		secondarycolor=colorpalette[idx]=swap_rb(cc.rgbResult), assign_alpha(secondarycolor, secondary_alpha);
-					//}
-					//else
-					//	secondarycolor=colorpalette[idx], assign_alpha(secondarycolor, secondary_alpha);
 					if(currentmode==M_TEXT)
 						RedrawWindow(hTextbox, nullptr, nullptr, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE);
 				}
@@ -3409,10 +3812,30 @@ skip_render:;
 			}
 			else//scroll image
 			{
-				if(vscroll.dwidth)
-					spy+=(!mw_forward-mw_forward)*(ih>>4);
+				const int scroll_divisor=5;//scroll by 1/5th of screen
+				Point delta(0, 0);
+				if(vscroll.dwidth&&!kb[VK_SHIFT])
+				{
+					Point new_sp=imagewindow.i;
+					new_sp.y+=conditional_negate(maximum(1, imagewindow.dy()/scroll_divisor), mw_forward);
+					new_sp.screen2image();
+					delta.y=new_sp.y-spy;
+					spy=new_sp.y;
+				}
 				else if(hscroll.dwidth)
-					spx+=(!mw_forward-mw_forward)*(iw>>4);
+				{
+					Point new_sp=imagewindow.i;
+					new_sp.x+=conditional_negate(maximum(1, imagewindow.dx()/scroll_divisor), mw_forward);
+					new_sp.screen2image();
+					delta.x=new_sp.x-spx;
+					spx=new_sp.x;
+				}
+				if(currentmode==M_TEXT)
+				{
+					textrect.i+=delta;
+					textrect.f+=delta;
+					move_textbox();
+				}
 				render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
 			}
 			//if(currentmode==M_TEXT)
@@ -3464,6 +3887,21 @@ skip_render:;
 				render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
 			}
 			break;
+		case VK_HOME:
+			spx=0;
+			if(kb[VK_CONTROL])//ctrl home
+				spy=0;
+			render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
+			break;
+		case VK_END:
+			{
+				Point delta(imagewindow.dx(), imagewindow.dy());
+				spx=iw-shift(delta.x, -logzoom);
+				if(kb[VK_CONTROL])//ctrl end
+					spy=ih-shift(delta.y, -logzoom);
+				render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
+			}
+			break;
 		case 'O':
 			if(kb[VK_CONTROL])//open
 				open_media();
@@ -3487,11 +3925,21 @@ skip_render:;
 			{
 				int prevshow=ShowWindow(hWndAttributes, SW_SHOWDEFAULT);
 			}
+			else if(selection.nonzero())
+			{
+				selection_resetscale();
+				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+			}
 			break;
 		case 'A':
 			if(kb[VK_CONTROL])//select all
 			{
 				selection_selectall();
+				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+			}
+			else//clear alpha
+			{
+				clear_alpha();
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 			}
 			break;
@@ -3515,9 +3963,9 @@ skip_render:;
 			}
 			break;
 		case VK_ESCAPE:
-			if(sel_start!=sel_end)//deselect
+			if(selection.nonzero())//deselect
 			{
-				selection_deselect();
+				selection_stamp(true);
 				selection_remove();
 			}
 			else if(currentmode==M_TEXT)
@@ -3533,7 +3981,7 @@ skip_render:;
 			render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 			break;
 		case VK_DELETE:
-			if(sel_start!=sel_end)//delete selection
+			if(selection.nonzero())//delete selection
 			{
 				selection_remove();
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
@@ -3565,7 +4013,7 @@ skip_render:;
 			if(kb[VK_CONTROL])//invert color, leave alpha
 			{
 				hist_premodify(image, iw, ih);
-				if(sel_start!=sel_end)
+				if(selection.nonzero())
 					invertcolor(sel_buffer, sw, sh, true);
 				else
 					invertcolor(image, iw, ih);
@@ -3581,11 +4029,27 @@ skip_render:;
 					memset(image, 0xFF, image_size<<2);
 					render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 				}
-				else//new image
+				else if(modified)//new image
 				{
-					image=hist_start(iw, ih);				//TODO: save question
-					memset(image, 0xFF, image_size<<2);
-					render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+					int result=ask_to_save();
+					switch(result)
+					{
+					case IDYES:
+						if(!save_media_as())
+							break;
+					case IDNO:
+						{
+							int success=SetWindowTextA(ghWnd, default_title);
+							SYS_ASSERT(success);
+
+							image=hist_start(iw, ih);
+							memset(image, 0xFF, image_size<<2);
+							render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+						}
+						break;
+					case IDCANCEL:
+						break;
+					}
 				}
 			}
 			else//fill with noise
@@ -3697,11 +4161,26 @@ skip_render:;
 		Rectangle(ghDC, -1, h-17, w+1, h+1);
 	//	Rectangle(ghDC, 0, h-16, w, h);
 		int size=0;
-		for(int k=0, nv=history.size();k<nv;++k)
+		for(int k=0, nv=history.size();k<nv;++k)//determine history size in pixels
 			size+=history[k].iw*history[k].ih;
 	//	GUIPrint(ghDC, w-200, h-16, "x%g, %d/%d, %.2lfMB", zoom, histpos, history.size(), float(size<<2)/1048576);//
-		GUIPrint(ghDC, w-200, h-16, "%d/%d, %.2lfMB", histpos, history.size(), float(size<<2)/1048576);//
-		GUIPrint(ghDC, w>>1, h-16, "x%g", zoom);
+		GUIPrint(ghDC, w-200, h-16, "%d/%d, %.2lfMB", histpos+1, history.size(), float(size<<2)/1048576);//
+		int iw2, ih2;
+		if(drag>D_RESIZE_START&&drag<D_RESIZE_SEL_START)//resize image
+		{
+			Point newsize, srcstart, dststart, copysize;
+			imresize_setparams(newsize, srcstart, dststart, copysize);
+			iw2=newsize.x, ih2=newsize.y;
+		}
+		else
+			iw2=iw, ih2=ih;
+		if(selection.nonzero())
+		{
+			int selw=abs(selection.dx()), selh=abs(selection.dy());
+			GUIPrint(ghDC, w>>1, h-16, "w=%d, h=%d, zoom: x%g, sel: %dx%d", iw2, ih2, zoom, selw, selh);
+		}
+		else
+			GUIPrint(ghDC, w>>1, h-16, "w=%d, h=%d, zoom: x%g", iw2, ih2, zoom);
 		if(mousepos==MP_IMAGE)
 		{
 			Point pm;
@@ -3709,8 +4188,18 @@ skip_render:;
 			if(!icheck(pm.x, pm.y))
 			{
 				auto p=(byte*)(image+iw*pm.y+pm.x);
+				int color=swap_rb(*(int*)p);//DIB: 0xAARRGGBB -> 0xAABBGGRR
 				int a=p[3], r=p[2], g=p[1], b=p[0];
-				GUITPrint(ghDC, 0, h-16, "XY=(%d, %d),\tARGB=(%d, %d, %d, %d)\t=0x%02X%02X%02X%02X", pm.x, pm.y, a, r, g, b, a, r, g, b);
+				if(drag==D_DRAW)
+				{
+					Point sm;
+					screen2image(start_mx, start_my, sm.x, sm.y);
+					GUITPrint(ghDC, 0, h-16, "XY=(%d, %d), %dx%d,\tRGBA=(%d, %d, %d, %d)\t=0x%08X", pm.x, pm.y, pm.x-sm.x, pm.y-sm.y, r, g, b, a, color);
+					//GUITPrint(ghDC, 0, h-16, "XY=(%d, %d), %dx%d,\tARGB=(%d, %d, %d, %d)\t=0x%02X%02X%02X%02X", pm.x, pm.y, pm.x-sm.x, pm.y-sm.y, a, r, g, b, a, r, g, b);
+				}
+				else
+					GUITPrint(ghDC, 0, h-16, "XY=(%d, %d),\tRGBA=(%d, %d, %d, %d)\t=0x%08X", pm.x, pm.y, r, g, b, a, color);
+					//GUITPrint(ghDC, 0, h-16, "XY=(%d, %d),\tARGB=(%d, %d, %d, %d)\t=0x%02X%02X%02X%02X", pm.x, pm.y, a, r, g, b, a, r, g, b);
 			}
 		}
 		else if(mousepos==MP_COLORBAR)
@@ -3750,14 +4239,14 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 		0, "New format", 0
 	};
 	short success=RegisterClassExA(&wndClassEx);	SYS_ASSERT(success);
-	ghWnd=CreateWindowExA(WS_EX_ACCEPTFILES, wndClassEx.lpszClassName, "Untitled - Paint++", WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);	SYS_ASSERT(ghWnd);//2020-06-02
+	ghWnd=CreateWindowExA(WS_EX_ACCEPTFILES, wndClassEx.lpszClassName, default_title, WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);	SYS_ASSERT(ghWnd);//2020-06-02
 	
 	HFONT hfDefault=(HFONT)GetStockObject(DEFAULT_GUI_FONT);	GEN_ASSERT(hfDefault);
 	
-	hFontcombobox	=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_VISIBLE|WS_VSCROLL|WS_TABSTOP | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONT_COMBOBOX, hInstance, nullptr);SYS_ASSERT(hFontcombobox);
+	hFontcombobox	=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONT_COMBOBOX, hInstance, nullptr);SYS_ASSERT(hFontcombobox);
 	SendMessageW(hFontcombobox, WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
 
-	hFontsizecb		=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_VISIBLE|WS_VSCROLL|WS_TABSTOP | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONTSIZE_COMBOBOX, hInstance, nullptr);	SYS_ASSERT(hFontsizecb);
+	hFontsizecb		=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONTSIZE_COMBOBOX, hInstance, nullptr);	SYS_ASSERT(hFontsizecb);
 	SendMessageW(hFontsizecb, WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
 	FontComboboxProc=(WNDPROC)SetWindowLongPtrA(hFontcombobox	, GWLP_WNDPROC, (long)FontComboboxSubclass);	SYS_ASSERT(FontComboboxProc);
 	FontSizeCbProc	=(WNDPROC)SetWindowLongPtrA(hFontsizecb		, GWLP_WNDPROC, (long)FontSizeCbSubclass);		SYS_ASSERT(FontSizeCbProc);
@@ -3765,23 +4254,12 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 	hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_TEXT_EDIT, hInstance, nullptr);	SYS_ASSERT(hTextbox);
 	oldEditProc=(WNDPROC)SetWindowLongW(hTextbox, GWLP_WNDPROC, (long)EditProc);	SYS_ASSERT(oldEditProc);
 
-	hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_ROTATE_BOX,	hInstance, nullptr);	SYS_ASSERT(hRotatebox);
-	hStretchHbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_H_BOX,	hInstance, nullptr);SYS_ASSERT(hStretchHbox);
-	hStretchVbox=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_V_BOX,	hInstance, nullptr);SYS_ASSERT(hStretchVbox);
-	hSkewHbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_H_BOX,	hInstance, nullptr);	SYS_ASSERT(hSkewHbox);
-	hSkewVbox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE|WS_TABSTOP | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_SKEW_V_BOX,	hInstance, nullptr);	SYS_ASSERT(hSkewVbox);
+	create_stretchskew();
+	hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_ROTATE_BOX,	hInstance, nullptr);	SYS_ASSERT(hRotatebox);
 	
-	SendMessageW(hRotatebox		, WM_SETFONT, (WPARAM)hfDefault, 0);
-	SendMessageW(hStretchHbox	, WM_SETFONT, (WPARAM)hfDefault, 0);
-	SendMessageW(hStretchVbox	, WM_SETFONT, (WPARAM)hfDefault, 0);
-	SendMessageW(hSkewHbox		, WM_SETFONT, (WPARAM)hfDefault, 0);
-	SendMessageW(hSkewVbox		, WM_SETFONT, (WPARAM)hfDefault, 0);
+	SendMessageW(hRotatebox		, WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
 
 	RotateBoxProc	=(WNDPROC)SetWindowLongPtrA(hRotatebox	, GWLP_WNDPROC, (long)RotateBoxSubclass);	SYS_ASSERT(RotateBoxProc);
-	StretchHBoxProc	=(WNDPROC)SetWindowLongPtrA(hStretchHbox, GWLP_WNDPROC, (long)StretchHBoxSubclass);	SYS_ASSERT(StretchHBoxProc);
-	StretchVBoxProc	=(WNDPROC)SetWindowLongPtrA(hStretchVbox, GWLP_WNDPROC, (long)StretchVBoxSubclass);	SYS_ASSERT(StretchVBoxProc);
-	SkewHBoxProc	=(WNDPROC)SetWindowLongPtrA(hSkewHbox	, GWLP_WNDPROC, (long)SkewHBoxSubclass);	SYS_ASSERT(SkewHBoxProc);
-	SkewVBoxProc	=(WNDPROC)SetWindowLongPtrA(hSkewVbox	, GWLP_WNDPROC, (long)SkewVBoxSubclass);	SYS_ASSERT(SkewVBoxProc);
 
 
 	ShowWindow(ghWnd, nCmdShow);
@@ -3884,8 +4362,11 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 		std::sort(fonts.begin(), fonts.end());
 		for(int k=0, nfonts=fonts.size();k<nfonts;++k)
 			SendMessageW(hFontcombobox, CB_ADDSTRING, 0, (LPARAM)fonts[k].lf.lfFaceName);
-		font_idx=SendMessageW(hFontcombobox, CB_SETCURSEL, 0, 0);
-		font_size=20;
+		if(font_idx>=(int)fonts.size())
+			font_idx=fonts.size();
+		SendMessageW(hFontcombobox, CB_SETCURSEL, font_idx, 0);
+		//font_idx=SendMessageW(hFontcombobox, CB_SETCURSEL, 0, 0);
+		//font_size=20;
 		set_sizescombobox(font_idx);
 
 	tagMSG msg;

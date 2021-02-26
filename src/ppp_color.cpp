@@ -28,38 +28,64 @@ void			swap_rb(int *dstimage, const int *srcimage, int pxcount)
 }
 void			invertcolor(int *buffer, int bw, int bh, bool selection)
 {
+	//const __m128i ones=_mm_set1_epi32(-1);
+	//const __m128i alphamask=_mm_set1_epi32(0xFF000000);
+	const __m128i colormask=_mm_set1_epi32(0x00FFFFFF);
+	int xround=bw&~3;
 	if(selection&&selection_free)
 	{
 		for(int ky=0;ky<bh;++ky)
 		{
-			for(int kx=0;kx<bw;++kx)
+			int *row=buffer+bw*ky, *mrow=sel_mask+bw*ky;
+			int kx=0;
+			for(;kx<xround;kx+=4)
 			{
-				int idx=bw*ky+kx;
-				if(sel_mask[idx])
+				__m128i px=_mm_loadu_si128((__m128i*)(row+kx));
+				__m128i m_smask=_mm_loadu_si128((__m128i*)(mrow+kx));
+				m_smask=_mm_and_si128(colormask, m_smask);
+				px=_mm_xor_si128(px, m_smask);
+				_mm_storeu_si128((__m128i*)(row+kx), px);
+			}
+			for(;kx<bw;++kx)
+			{
+				if(mrow[kx])
 				{
-					auto &c=buffer[idx];
+					auto &c=row[kx];
 					c=c&0xFF000000|~c&0x00FFFFFF;
 				}
 			}
 		}
+		//for(int ky=0;ky<bh;++ky)
+		//{
+		//	for(int kx=0;kx<bw;++kx)
+		//	{
+		//		int idx=bw*ky+kx;
+		//		if(sel_mask[idx])
+		//		{
+		//			auto &c=buffer[idx];
+		//			c=c&0xFF000000|~c&0x00FFFFFF;
+		//		}
+		//	}
+		//}
 	}
 	else
 	{
-		const __m128i ones=_mm_set1_epi32(-1);
-		const __m128i alphamask=_mm_set1_epi32(0xFF000000), colormask=_mm_set1_epi32(0x00FFFFFF);
-		int wround=bw&~3;
 		for(int ky=0;ky<bh;++ky)
 		{
 			int *row=buffer+bw*ky;
 			int kx=0;
-			for(;kx<wround;++kx)
+			for(;kx<xround;kx+=4)
 			{
 				__m128i px=_mm_loadu_si128((__m128i*)(row+kx));
-				__m128i a=_mm_and_si128(px, alphamask);
-				px=_mm_xor_si128(px, ones);
-				__m128i c=_mm_and_si128(px, colormask);
-				c=_mm_or_si128(c, a);
-				_mm_storeu_si128((__m128i*)(row+kx), c);
+
+				px=_mm_xor_si128(px, colormask);
+				_mm_storeu_si128((__m128i*)(row+kx), px);
+
+				//__m128i a=_mm_and_si128(px, alphamask);
+				//px=_mm_xor_si128(px, ones);
+				//__m128i c=_mm_and_si128(px, colormask);
+				//c=_mm_or_si128(c, a);
+				//_mm_storeu_si128((__m128i*)(row+kx), c);
 			}
 			for(;kx<bw;++kx)
 			{
@@ -77,4 +103,10 @@ void			invertcolor(int *buffer, int bw, int bh, bool selection)
 		//	}
 		//}
 	}
+}
+void			clear_alpha()
+{
+	hist_premodify(image, iw, ih);
+	for(int k=0;k<image_size;++k)
+		image[k]|=0xFF000000;
 }

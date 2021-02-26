@@ -56,7 +56,7 @@ void			hist_undo(int *&buffer)
 	{
 		--histpos;
 		auto &chf=history[histpos];//current history frame
-		buffer=chf.buffer, iw=chf.iw, ih=chf.ih;
+		buffer=chf.buffer, iw=chf.iw, ih=chf.ih, image_size=iw*ih;
 	}
 }
 void			hist_redo(int *&buffer)
@@ -65,6 +65,6 @@ void			hist_redo(int *&buffer)
 	{
 		++histpos;
 		auto &chf=history[histpos];//current history frame
-		buffer=chf.buffer, iw=chf.iw, ih=chf.ih;
+		buffer=chf.buffer, iw=chf.iw, ih=chf.ih, image_size=iw*ih;
 	}
 }

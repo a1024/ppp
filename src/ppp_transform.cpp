@@ -111,7 +111,7 @@ void			fliprotate(int *buffer, int bw, int bh, int *&b2, int &w2, int &h2, int f
 void			fliprotate(int fr)
 {
 	int *b2=nullptr, w2=0, h2=0;
-	if(sel_start!=sel_end)
+	if(selection.nonzero())
 	{
 		if(selection_free)
 		{
@@ -125,12 +125,15 @@ void			fliprotate(int fr)
 			fliprotate(sel_buffer, sw, sh, b2, w2, h2, fr, secondarycolor);
 		free(sel_buffer);
 		sel_buffer=b2, sw=w2, sh=h2;
-		if(sel_start.x>sel_end.x)
-			std::swap(sel_start.x, sel_end.x);
-		if(sel_start.y>sel_end.y)
-			std::swap(sel_start.y, sel_end.y);
-		sel_end=sel_start+Point(sw, sh);
-		selection_assign();
+
+		selection.sort_coords();
+		selection.f=selection.i+Point(sw, sh);
+		//if(sel_start.x>sel_end.x)
+		//	std::swap(sel_start.x, sel_end.x);
+		//if(sel_start.y>sel_end.y)
+		//	std::swap(sel_start.y, sel_end.y);
+		//sel_end=sel_start+Point(sw, sh);
+		//selection_assign();
 	}
 	else
 	{
@@ -216,14 +219,14 @@ void			stretchskew(int *buffer, int bw, int bh, int *&b2, int &w2, int &h2, doub
 void			stretchskew()
 {
 	double
-		stretchH=getwindowdouble(hStretchHbox)*0.01,
-		stretchV=getwindowdouble(hStretchVbox)*0.01,
-		skewH=getwindowdouble(hSkewHbox)*torad,
-		skewV=getwindowdouble(hSkewVbox)*torad;
+		stretchH=getwindowdouble(hStretchSkew[SS_STRETCH_H])*0.01,
+		stretchV=getwindowdouble(hStretchSkew[SS_STRETCH_V])*0.01,
+		skewH=getwindowdouble(hStretchSkew[SS_SKEW_H])*torad,
+		skewV=getwindowdouble(hStretchSkew[SS_SKEW_V])*torad;
 	if(stretchH!=1||stretchV!=1||skewH||skewV)
 	{
 		int *b2=nullptr, w2=0, h2=0;
-		if(sel_start!=sel_end)
+		if(selection.nonzero())
 		{
 			if(selection_free)
 			{
@@ -237,12 +240,15 @@ void			stretchskew()
 				stretchskew(sel_buffer, sw, sh, b2, w2, h2, stretchH, stretchV, skewH, skewV, secondarycolor);
 			free(sel_buffer);
 			sel_buffer=b2, sw=w2, sh=h2;
-			if(sel_start.x>sel_end.x)
-				std::swap(sel_start.x, sel_end.x);
-			if(sel_start.y>sel_end.y)
-				std::swap(sel_start.y, sel_end.y);
-			sel_end=sel_start+Point(sw, sh);
-			selection_assign();
+
+			selection.sort_coords();
+			selection.f=selection.i+Point(sw, sh);
+			//if(sel_start.x>sel_end.x)
+			//	std::swap(sel_start.x, sel_end.x);
+			//if(sel_start.y>sel_end.y)
+			//	std::swap(sel_start.y, sel_end.y);
+			//sel_end=sel_start+Point(sw, sh);
+			//selection_assign();
 		}
 		else
 		{

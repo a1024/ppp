@@ -84,6 +84,7 @@ void			prof_print(PROF_PRINT_ARGS)
 		double framedelay=ELAPSED_FN(frametime), fps=1000./framedelay;
 
 #ifdef PROFILER_SCREEN
+		const double px_per_ms=2;//0.2 in G2
 		const int fontH=16;//18
 		//int xpos=w-400, xpos2=w-200;
 		GUIPrint(hDC, xlabels, 0, "fps=%lf, T=%lfms", fps, framedelay);
@@ -94,6 +95,10 @@ void			prof_print(PROF_PRINT_ARGS)
 			GUIPrint(hDC, xlabels, ypos, p.first.c_str());
 			GUIPrint(hDC, xnumbers, ypos, "%lf", p.second);
 		//	GUIPrint(hDC, xnumbers, ypos, "%g", p.second);
+
+			int xstart=xlabels-10, ymiddle=ypos+8;
+			MoveToEx(hDC, xstart, ymiddle, 0);
+			LineTo(hDC, int(xstart-px_per_ms*p.second), ymiddle);
 		}
 #elif defined PROFILER_TITLE
 		int len=0;

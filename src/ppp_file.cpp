@@ -289,15 +289,18 @@ void			read_settings()
 			if(skip_whitespace(text, k))
 				break;
 
-			bold|=acme_tolower(text[k])==L'b';
+			bold=acme_tolower(text[k])==L'b';
+			k+=bold;
 			if(skip_whitespace(text, k))
 				break;
 
-			italic|=acme_tolower(text[k])==L'i';
+			italic=acme_tolower(text[k])==L'i';
+			k+=italic;
 			if(skip_whitespace(text, k))
 				break;
 
-			underline|=acme_tolower(text[k])==L'u';
+			underline=acme_tolower(text[k])==L'u';
+			k+=underline;
 			if(skip_whitespace(text, k))
 				break;
 			continue;
@@ -341,7 +344,7 @@ void			write_settings()
 	LOL_1<<L"Canvas(w x h): "<<iw<<L'x'<<ih<<L'\n';
 	LOL_1<<L"Font: "<<font_idx<<L' '<<font_size;
 	if(bold)
-		LOL_1<<L"B";
+		LOL_1<<L" B";
 	if(italic)
 		LOL_1<<L"I";
 	if(underline)

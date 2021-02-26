@@ -3,6 +3,9 @@
 #include		"ppp_xmm_clamp.h"
 #include		"generic.h"
 #include		<algorithm>
+
+//	#define			LINE_AA_SHOW_BOX
+
 void			draw_h_line(int *buffer, int x1, int x2, int y, int color)//x2 exclusive
 {
 	if(!ichecky(y))
@@ -893,7 +896,7 @@ void			draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double
 		p[1].set(int(x1-tx+ty), int(y1-ty-tx));
 		p[2].set(int(x2+tx+ty), int(y2+ty-tx));
 		p[3].set(int(x2+tx-ty), int(y2+ty+tx));
-#ifdef _DEBUG
+#if defined _DEBUG && defined LINE_AA_SHOW_BOX
 		draw_line_v2(buffer, bw, bh, p[0].x, p[0].y, p[1].x, p[1].y, color);//
 		draw_line_v2(buffer, bw, bh, p[1].x, p[1].y, p[2].x, p[2].y, color);//
 		draw_line_v2(buffer, bw, bh, p[2].x, p[2].y, p[3].x, p[3].y, color);//
@@ -908,7 +911,7 @@ void			draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double
 		p[1].set(int(x1-linewidth), int(y1+linewidth));
 		p[2].set(int(x1+linewidth), int(y1+linewidth));
 		p[3].set(int(x1+linewidth), int(y1-linewidth));
-#ifdef _DEBUG
+#if defined _DEBUG && defined LINE_AA_SHOW_BOX
 		draw_line_v2(buffer, bw, bh, p[0].x, p[0].y, p[1].x, p[1].y, color);//
 		draw_line_v2(buffer, bw, bh, p[1].x, p[1].y, p[2].x, p[2].y, color);//
 		draw_line_v2(buffer, bw, bh, p[2].x, p[2].y, p[3].x, p[3].y, color);//
@@ -1028,11 +1031,15 @@ __m128i			cb_invert_color(__m128i const &kx, __m128i const &ky, void *params, in
 	auto ici=(InvertColorInfo*)params;
 	__m128i dst=_mm_loadu_si128((__m128i*)(ici->buffer+idx));
 	__m128i mask=_mm_loadu_si128((__m128i*)(ici->imask+idx));
-	__m128i c1=_mm_and_si128(dst, mask);//dst&mask
-	mask=_mm_xor_si128(mask, m_onesmask);
-	__m128i c2=_mm_and_si128(dst, mask);//dst&~mask
-	c2=_mm_xor_si128(c2, m_colormask);
-	dst=_mm_or_si128(c1, c2);
+	if(mask.m128i_i32[0]!=mask.m128i_i32[1]||mask.m128i_i32[0]!=mask.m128i_i32[2]||mask.m128i_i32[0]!=mask.m128i_i32[3])//
+		int LOL_1=0;//
+	__m128i comp_pixels=_mm_xor_si128(mask, m_onesmask);
+	comp_pixels=_mm_and_si128(comp_pixels, m_colormask);
+	dst=_mm_xor_si128(dst, comp_pixels);
+	//__m128i c1=_mm_and_si128(dst, mask);//dst&mask
+	//__m128i c2=_mm_and_si128(dst, _mm_xor_si128(mask, m_onesmask));//dst&~mask
+	//c2=_mm_xor_si128(c2, m_colormask);
+	//dst=_mm_or_si128(c1, c2);//dst&mask|(colorcomp^dst&~mask)
 
 	__m128i newmask=ici->mcomp[count];
 	newmask=_mm_or_si128(newmask, mask);
@@ -1080,6 +1087,8 @@ void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, i
 			auto &p=points[kv];
 			p.x+=x1, p.y+=y1;
 		}
+		//if(dx*dx+dy*dy>10*10)//
+		//	int LOL_1=0;//
 		if(invert_color)
 		{
 			__m128i mcomp[]=
@@ -1549,6 +1558,7 @@ void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int colo
 		draw_line_aa_v2(buffer, iw, ih, x1, y1, x2a, y2a, linewidth, color);
 	else
 		draw_line_brush(buffer, iw, ih, linewidth, (int)x1, (int)y1, (int)x2a, (int)y2a, color);
+		//draw_line_brush(buffer, iw, ih, BRUSH_LARGE_RIGHT45, (int)x1, (int)y1, (int)x2a, (int)y2a, color);
 }
 
 void			draw_line_d(int *buffer, double x1, double y1, double x2, double y2, int color)

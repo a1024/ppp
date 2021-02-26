@@ -17,8 +17,18 @@ inline double	minimum(double a, double b, double c, double d)
 }
 inline int		clamp(int lo, int x, int hi)
 {
-	int lo2=lo<<1, min=x+hi-abs(x-hi);
-	return (lo2+min+abs(lo2-min))>>2;
+	if(lo>hi)
+	{
+		x=(lo+hi)>>1;
+		return x;
+	}
+	if(x<lo)
+		x=lo;
+	if(x>hi)
+		x=hi;
+	return x;
+	//int lo2=lo<<1, min=x+hi-abs(x-hi);
+	//return (lo2+min+abs(lo2-min))>>2;
 //	return maximum(lo, minimum(x, hi));
 }
 inline double	clamp01(double x)
@@ -32,4 +42,5 @@ inline double	clamp01(double x)
 	//return (min+abs(min))*0.25;
 }
 inline int		shift(int x, int sh){return sh>=0?x<<sh:x>>-sh;}//signed shift left
+inline int		conditional_negate(int x, int flag){return (x^-flag)+flag;}
 #endif

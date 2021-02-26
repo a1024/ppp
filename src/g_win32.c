@@ -3,6 +3,18 @@
 #include		<stdio.h>
 #include		<strsafe.h>
 static const char file[]=__FILE__;
+static int		sys_check(const char *file, int line)
+{
+	char *messageBuffer=0;
+	int error=GetLastError();
+	if(error)
+	{
+		size_t size=FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+		messageboxa(0, "Error", "%s(%d):\n%s", file, line, messageBuffer);
+		LocalFree(messageBuffer);
+	}
+	return 0;
+}
 int				GUINPrint(HDC hDC, int x, int y, int w, int h, const char *a, ...)
 {
 	int length=vsprintf_s(g_buf, g_buf_size, a, (char*)(&a+1));
@@ -24,7 +36,10 @@ void			GUIPrint(HDC hDC, int x, int y, const char *a, ...)
 {
 	int length=vsprintf_s(g_buf, g_buf_size, a, (char*)(&a+1)), success;
 	if(length>0)
+	{
 		success=TextOutA(hDC, x, y, g_buf, length);
+		((void)((success)!=0||sys_check(file, __LINE__)));
+	}
 }
 //void			GUIPrint(HDC hDC, int x, int y, int value)
 //{

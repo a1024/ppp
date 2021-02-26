@@ -43,7 +43,7 @@ extern int		*rgb, w, h, rgbn,
 				*sel_buffer,	sw, sh,	//selection buffer, has alpha
 				*sel_mask,		//selection mask, used only in free-form selection, inside selection polygon if true, same dimensions as sel_buffer
 				logzoom,//log2(pixel size)
-				spx, spy;
+				spx, spy;//position of top left corner of the window in image coordinates
 extern double	zoom;//a power of 2
 extern bool		use_temp_buffer,
 				modified;
@@ -67,6 +67,21 @@ extern std::wstring	filename, filepath;//opened media file name & path, utf16
 extern const wchar_t doublequote;
 
 //GUI
+enum			Commands
+{
+	IDM_FONT_COMBOBOX=1, IDM_FONTSIZE_COMBOBOX, IDM_TEXT_EDIT,
+	IDM_ROTATE_BOX,
+	IDM_STRETCH_H_BOX, IDM_STRETCH_V_BOX, IDM_SKEW_H_BOX, IDM_SKEW_V_BOX,
+
+	//menu bar
+	IDM_FILE_NEW, IDM_FILE_OPEN, IDM_FILE_SAVE, IDM_FILE_SAVE_AS, IDM_FILE_QUIT,
+	IDM_EDIT_UNDO, IDM_EDIT_REPEAT, IDM_EDIT_CUT, IDM_EDIT_COPY, IDM_EDIT_PASTE, IDM_EDIT_CLEAR_SELECTION, IDM_EDIT_SELECT_ALL, IDM_EDIT_RESET_SEL_SCALE, IDM_EDIT_COPY_TO, IDM_EDIT_PASTE_FROM,
+	IDM_VIEW_TOOLBOX, IDM_VIEW_COLORBOX, IDM_VIEW_STATUSBAR, IDM_VIEW_TEXT_TOOLBAR, IDM_VIEW_ZOOM, IDM_VIEW_VIEWBITMAP,
+		IDSM_ZOOM_IN, IDSM_ZOOM_OUT, IDSM_ZOOM_CUSTOM, IDSM_ZOOM_SHOW_GRID, IDSM_ZOOM_SHOW_THUMBNAIL,
+	IDM_IMAGE_FLIP_ROTATE, IDM_IMAGE_SKETCH_SKEW, IDM_IMAGE_INVERT_COLORS, IDM_IMAGE_ATTRIBUTES, IDM_IMAGE_CLEAR_IMAGE, IDM_IMAGE_CLEAR_ALPHA, IDM_IMAGE_SET_CHANNEL, IDM_IMAGE_ASSIGN_CHANNEL, IDM_IMAGE_EXPORT_CHANNEL, IDM_IMAGE_DRAW_OPAQUE, IDM_IMAGE_LINEAR,
+	IDM_COLORS_EDITCOLORS, IDM_COLORS_EDITMASK,
+	IDM_HELP_TOPICS, IDM_HELP_ABOUT,
+};
 extern int		th_w, th_h,//thumbnail dimensions
 				thbox_h,//thumbnail box internal height
 				thbox_x1,//thumbnail box xstart
@@ -90,8 +105,8 @@ extern tagRECT	R;
 extern HINSTANCE ghInstance;
 extern HWND		ghWnd;
 extern HWND		hFontcombobox, hFontsizecb, hTextbox,
-				hRotatebox,
-				hStretchHbox, hStretchVbox, hSkewHbox, hSkewVbox;
+				hRotatebox;
+//				hStretchHbox, hStretchVbox, hSkewHbox, hSkewVbox;
 extern HDC		ghDC, ghMemDC;
 extern HBITMAP	hBitmap;
 
@@ -100,17 +115,40 @@ enum			DragType
 {
 	D_NONE,
 	D_DRAW,
-	D_SELECTION,
-	D_HSCROLL, D_VSCROLL, D_THBOX_VSCROLL,
+	D_SELECTION,//drag selection
+	D_HSCROLL, D_VSCROLL, D_THBOX_VSCROLL,//scrollbars
+
+		D_ARROWS_START,
+	D_HSCROLL_BACK, D_HSCROLL_FORWARD,
+	D_VSCROLL_BACK, D_VSCROLL_FORWARD,
+	D_THBOX_VSCROLL_BACK, D_THBOX_VSCROLL_FORWARD,
+		D_ARROWS_END,//end of scrollbars
+
 	D_ALPHA1, D_ALPHA2,
+
+		D_RESIZE_START,
 
 	D_RESIZE_TL, D_RESIZE_TOP, D_RESIZE_TR,
 	D_RESIZE_LEFT, D_RESIZE_RIGHT,
 	D_RESIZE_BL, D_RESIZE_BOTTOM, D_RESIZE_BR,
+
+		D_RESIZE_SEL_START,
+
+	D_SEL_RESIZE_TL, D_SEL_RESIZE_TOP, D_SEL_RESIZE_TR,
+	D_SEL_RESIZE_LEFT, D_SEL_RESIZE_RIGHT,
+	D_SEL_RESIZE_BL, D_SEL_RESIZE_BOTTOM, D_SEL_RESIZE_BR,
+	
+		D_RESIZE_END,
 };
 extern char		kb[256],
-				drag, prev_drag,//drag type
-				timer;
+				drag, prev_drag;//drag type
+enum			TimerID
+{
+	TIMER_AIRBRUSH=1,
+	TIMER_SCROLLBAR_INIT,
+	TIMER_SCROLLBAR_CONT,
+};
+extern int		timer;//0: inactive, otherwise timer id
 
 struct			Font
 {
@@ -262,11 +300,18 @@ extern WNDPROC	RotateBoxProc;
 long			__stdcall RotateBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
 
 //stretch/skew
-extern WNDPROC	StretchHBoxProc, StretchVBoxProc, SkewHBoxProc, SkewVBoxProc;
-long			__stdcall StretchHBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
-long			__stdcall StretchVBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
-long			__stdcall SkewHBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
-long			__stdcall SkewVBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
+enum			StretchSkew
+{
+	SS_STRETCH_H, SS_STRETCH_V,
+	SS_SKEW_H, SS_SKEW_V,
+};
+extern HWND		hStretchSkew[4];
+void			create_stretchskew();
+//extern WNDPROC	StretchHBoxProc, StretchVBoxProc, SkewHBoxProc, SkewVBoxProc;
+//long			__stdcall StretchHBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
+//long			__stdcall StretchVBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
+//long			__stdcall SkewHBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
+//long			__stdcall SkewVBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
 
 //mask
 extern int		brushmask;
@@ -316,6 +361,11 @@ inline void		screen2image(int sx, int sy, int &ix, int &iy)
 	//ix=spx+shift(sx-61, -logzoom);
 	//iy=spy+shift(sy-5, -logzoom);
 }
+inline void		screen2image_rounded(int sx, int sy, int &ix, int &iy)
+{
+	int half=shift(1, logzoom-1);
+	screen2image(sx+half, sy+half, ix, iy);
+}
 inline void		screen2image(int sx, int sy, double &ix, double &iy)
 {
 	ix=spx+(sx-(58*showtoolbox+3))/zoom;
@@ -339,7 +389,13 @@ struct			Point
 	void set(int x, int y){this->x=x, this->y=y;}
 	void setzero(){x=y=0;}
 	bool is_inside(int bw, int bh)const{return (unsigned)x<(unsigned)bw&&(unsigned)y<(unsigned)bh;}
-	Point& operator+=(Point const &b){x+=b.x, y+=b.y;return *this;}
+	Point& operator+=(Point const &p){x+=p.x, y+=p.y;return *this;}
+	Point& operator-=(Point const &p){x-=p.x, y-=p.y;return *this;}
+	void clamp(int x1, int x2, int y1, int y2)
+	{
+		x=::clamp(x1, x, x2);
+		y=::clamp(y1, y, y2);
+	}
 	void constraint_TL_zero()
 	{
 		if(x<0)
@@ -362,7 +418,14 @@ struct			Point
 			y=BR.y;
 	}
 	void image2screen(){::image2screen(x, y, x, y);}
+	Point image2screen_copy()
+	{
+		Point p;
+		::image2screen(x, y, p.x, p.y);
+		return p;
+	}
 	void screen2image(){::screen2image(x, y, x, y);}
+	void screen2image_rounded(){::screen2image_rounded(x, y, x, y);}
 };
 inline Point2d::Point2d(Point const &p):x(p.x), y(p.y){}
 inline Point2d&	Point2d::operator=(Point const &p){x=p.x, y=p.y;return *this;}
@@ -370,10 +433,27 @@ inline Point2d	operator*(Point const &p, double t){return Point2d(p.x*t, p.y*t);
 inline Point2d	operator*(double t, Point const &p){return Point2d(p.x*t, p.y*t);}
 inline Point	operator-(Point const &a, Point const &b){return Point(a.x-b.x, a.y-b.y);}
 inline bool		operator!=(Point const &a, Point const &b){return a.x!=b.x||a.y!=b.y;}
+inline bool		operator==(Point const &a, Point const &b){return a.x==b.x||a.y==b.y;}
 struct			Rect
 {
 	Point i, f;
+	bool iszero()const{return i==f;}
 	bool nonzero()const{return i!=f;}
+	int dx()const{return f.x-i.x;}
+	int dy()const{return f.y-i.y;}
+	char mousetest_orderless(int mx, int my)const
+	{
+		int xhit, yhit;
+		if(i.x<f.x)
+			xhit=mx>=i.x&&mx<f.x;
+		else
+			xhit=mx>=f.x&&mx<i.x;
+		if(i.y<f.y)
+			yhit=my>=i.y&&my<f.y;
+		else
+			yhit=my>=f.y&&my<i.y;
+		return xhit&&yhit;
+	}
 	char mousetest(int mx, int my, int padding=0)const//all points in screen coords
 	{
 		if(mx>=i.x&&mx<f.x&&my>=i.y&&my<f.y)
@@ -381,6 +461,7 @@ struct			Rect
 		return (mx>=i.x-padding&&mx<f.x+padding&&my>=i.y-padding&&my<f.y+padding)<<1;
 	}
 	void set(int x1, int y1, int x2, int y2){i.set(x1, y1), f.set(x2, y2);}
+	void get(int &x1, int &x2, int &y1, int &y2)const{x1=i.x, x2=f.x, y1=i.y, y2=f.y;}
 	void set_mouse(int mx, int my)//start selecting with mouse, converted to image coords		TODO: check for usage/removal of this method
 	{
 		i.set(mx, my);
@@ -411,13 +492,18 @@ struct			Rect
 		i.screen2image();
 		f.screen2image();
 	}
+	void screen2image_rounded()
+	{
+		i.screen2image_rounded();
+		f.screen2image_rounded();
+	}
 	void win32_move_params(Point &pos, Point &size)const//TODO: check for usage/removal of this method
 	{
 		pos=i+Point(1, 1);
 		size=f-i;
 	}
 };
-struct			Selection
+/*struct			Selection
 {
 	Rect image, screen;//selection dimensions in image & screen coordinates
 	Point ipos;//position of top-right corner of selection in image coordinates
@@ -433,7 +519,7 @@ struct			Selection
 	{
 		memset(this, 0, sizeof *this);//this struct is packed
 	}
-};
+};//*/
 
 
 //history
@@ -463,6 +549,7 @@ inline int		swap_rb(int color)
 }
 void			swap_rb(int *dstimage, const int *srcimage, int pxcount);
 void			invertcolor(int *buffer, int bw, int bh, bool selection=false);
+void			clear_alpha();
 
 //globals
 extern int		primarycolor, secondarycolor,//0xAARRGGBB
@@ -501,7 +588,7 @@ enum			ShapeType
 enum			InterpolationType{I_NEAREST, I_BILINEAR};
 extern int		currentmode, prevmode,
 				selection_free,//true: free-form selection, false: rectangular selection
-				selection_transparency,//opaque or transparent
+				selection_transparency,//2: opaque or 1: transparent
 				selection_persistent,//selection remains after switching to another tool
 				erasertype,
 				magnifier_level,//log pixel size {0:1, 1:2, 2:4, 3:8, 4:16, 5:32}
@@ -512,24 +599,32 @@ extern int		currentmode, prevmode,
 				interpolation_type;
 
 //selection
-extern Point	sel_start, sel_end,//selection, image coordinates			//TODO: use struct Rect
-				sel_s1, sel_s2,//ordered screen coordinates for mouse test
-				selpos;//position of top-right corner of selection in image coordinates
-extern bool		selection_moved;
+extern const char anchors[];
+extern Rect		selection,//image coordinates, i: buffer start, f: buffer end (not in order)			//TODO: rename to selrect
+				sel0;//stores original dimensiond during resizing
+//extern Point	sel_start, sel_end,//selection (start: fixed, end: moving), image coordinates
+//				sel_s1, sel_s2,//ordered screen coordinates for mouse test
+//				selpos,//position of top-right corner of selection in image coordinates
+//				selid;//selection screen dimensions
+//extern bool	selection_moved;
 
-extern Point	text_start, text_end,//static point -> moving point, image coordinates
-				text_s1, text_s2,//ordered screen coordinates
-				textpos;//position of top-right corner of textbox in image coordinates
+extern Rect		textrect;//image coordinates, sorted
+//extern Point	text_start, text_end,//static point -> moving point, image coordinates
+//				text_s1, text_s2,//ordered screen coordinates
+//				textpos;//position of top-right corner of textbox in image coordinates
 
+int				assign_using_anchor(char anchor, int &start, int &end, int mouse, int prevmouse);
+void			selection_resize_mouse(Rect &sel, int mx, int my, int prev_mx, int prev_my, int *xflip=nullptr, int *yflip=nullptr);
 void			selection_sort(Point const &sel_start, Point const &sel_end, Point &p1, Point &p2);
 void			selection_sortNbound(Point const &sel_start, Point const &sel_end, Point &p1, Point &p2);
 void			selection_assign_mouse(int start_mx, int start_my, int mx, int my, Point &sel_start, Point &sel_end, Point &p1, Point &p2);
-void			selection_assign();
+//void			selection_assign();
 void			selection_remove();
-void			selection_select(Point const &p1, Point const &p2);//p1, p2: sorted-bounded image coordinates
-void			selection_deselect();
+void			selection_select(Rect const &sel);
+void			selection_stamp(bool modify_hist);
 void			selection_move_mouse(int prev_mx, int prev_my, int mx, int my);
 void			selection_selectall();
+void			selection_resetscale();
 
 extern std::vector<Point> freesel;//free form selection vertices
 void			freesel_add_mouse(int mx, int my);
@@ -551,6 +646,7 @@ void			fill_mouse(int *buffer, int mx0, int my0, int color);
 void			airbrush(int *buffer, int x0, int y0, int color);
 void			airbrush_mouse(int *buffer, int mx0, int my0, int color);
 
+void			draw_line_v3		(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int color);
 typedef __m128i (*FillCallback)(__m128i const &kx, __m128i const &ky, void *params, int idx, int count);
 void			fill_convex_POT	(int *buffer, int bw, int bh, Point const *p, int nv, int nvmask, FillCallback callback, void *params);//uses AND instead of MOD
 void			fill_convex		(int *buffer, int bw, int bh, Point const *points, int nv, FillCallback callback, void *params);
@@ -626,7 +722,7 @@ void			draw_icon_monochrome(const int *ibuffer, int dx, int dy, int xpos, int yp
 void			draw_icon_monochrome_transposed(const int *ibuffer, int dx, int dy, int xpos, int ypos, int color);
 
 void			draw_vscrollbar(int x, int sbwidth, int y1, int y2, int &winpos, int content_h, int vscroll_s0, int vscroll_my_start, double zoom, short &vscroll_start, short &vscroll_size, int dragtype);
-void			draw_selection_rectangle(Point &start, Point &end, Point &s1, Point &s2, int x1, int x2, int y1, int y2, int padding);
+void			draw_selection_rectangle(Rect irect, int x1, int x2, int y1, int y2, int padding);
 
 void			movewindow_c(HWND hWnd, int x, int y, int w, int h, bool repaint);
 
@@ -640,8 +736,13 @@ void			stamp_mask(const int *mask, char mw, char mh, char upsidedown, char trans
 void			v_line_comp_dots(int x, int y1, int y2, Point const &cTL, Point const &cBR);
 void			h_line_comp_dots(int x1, int x2, int y, Point const &cTL, Point const &cBR);
 
+//i0: start on image, id: extent in image, s0: imagewindow start on screen, s1 & s2: draw start & end on screen
+void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int sx0, int sy0,  int sx1, int sx2, int sy1, int sy2,  int *mask, int transparent, int bkcolor);//mask: pass nullptr for rectangular selection
+
 
 //application
+void			timer_set(int id);//TimerID
+void			timer_kill();
 enum			RedrawTypeEnum//use bitfields if c[4] is not enough
 {
 	REDRAW_ALL				=0xFFFFFFFF,

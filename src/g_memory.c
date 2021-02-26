@@ -1,3 +1,4 @@
+#include		"generic.h"
 #include		<string.h>
 //#include		<assert.h>
 static const char file[]=__FILE__;
@@ -69,5 +70,90 @@ void			memfill(void *dst, const void *src, int dstbytes, int srcbytes)//repeatin
 		_mm_storeu_ps((float*)(c2+k), _mm_loadu_ps((float*)(c1+k)));
 	for(k=xround;k<dx;++k)
 		c2[k]=c1[k];
+#endif
+}
+void			mem_shiftback(void *dst, const void *src, int bytesize)//shift left
+{
+	const char *c1=(const char*)src;
+	char *c2=(char*)dst;
+	int k;
+	if(dst!=src)
+		for(k=0;k<bytesize;++k)
+			c2[k]=c1[k];
+}
+void			mem_shiftforward(const void *src, void *dst, int bytesize)//shift right
+{
+	const char *c1=(const char*)src;
+	char *c2=(char*)dst;
+	int k;
+	if(src!=dst)
+		for(k=bytesize-1;k>=0;--k)
+			c2[k]=c1[k];
+}
+void			cycle_image(int *image, int iw, int ih, int dx, int dy)//lossless
+{
+	static int *temp=0, tw=0, th=0;
+	int ky, size=iw*ih, *src, *dst;
+	if(tw!=iw||th!=ih)
+		tw=iw, th=ih, temp=realloc(temp, size<<2);
+	dx=mod(dx, iw);
+	dy=mod(dy, ih);
+	for(ky=0;ky<ih;++ky)
+	{
+		src=image+iw*mod(ky-dy, ih);
+		dst=temp+iw*ky;
+		memcpy(dst, src+iw-dx, dx<<2);
+		memcpy(dst+dx, src, (iw-dx)<<2);
+	}
+	memcpy(image, temp, size<<2);
+}
+void			shift_image(int *image, int iw, int ih, int dx, int dy)//lossy
+{
+	//int xsrc, xdst, xsize, xstep,
+	//	ysrc, ydst, ysize, ystep;
+#if 0
+	if(dy>0)
+	{
+		if(dx>0)
+		{
+			for(int ky=0, yend=ih-dy;ky<yend;++ky)
+			{
+				for(int kx=0, xend=iw-dx;kx<xend;++kx)
+				{
+					rgb[
+				}
+			}
+		}
+		else if(!dx)
+		{
+		}
+		else//dx<0
+		{
+		}
+	}
+	else if(!dy)
+	{
+		if(dx>0)
+		{
+		}
+		else if(!dx)
+		{
+		}
+		else//dx<0
+		{
+		}
+	}
+	else//dy<0
+	{
+		if(dx>0)
+		{
+		}
+		else if(!dx)
+		{
+		}
+		else//dx<0
+		{
+		}
+	}
 #endif
 }

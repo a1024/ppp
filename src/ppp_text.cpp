@@ -3,7 +3,9 @@
 #include		<algorithm>
 void			move_textbox()
 {
-	movewindow_c(hTextbox, text_s1.x+1, text_s1.y+1, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
+	Rect tr2=textrect;
+	tr2.image2screen();
+	movewindow_c(hTextbox, tr2.i.x+1, tr2.i.y+1, tr2.f.x-tr2.i.x, tr2.f.y-tr2.i.y, true);
 	//movewindow(hTextbox, text_s1.x, text_s1.y, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
 //	movewindow(hTextbox, 8+text_s1.x, 50+text_s1.y, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
 //	movewindow(hTextbox, 9+text_s1.x, 51+text_s1.y, text_s2.x-text_s1.x, text_s2.y-text_s1.y, true);
@@ -77,9 +79,10 @@ void			sample_font(int &font_idx, int &font_size)
 }
 void			remove_textbox()
 {
-	text_start.setzero(), text_end.setzero();
-	text_s1.setzero(), text_s2.setzero();
-	textpos.setzero();
+	textrect.set(0, 0, 0, 0);
+	//text_start.setzero(), text_end.setzero();
+	//text_s1.setzero(), text_s2.setzero();
+	//textpos.setzero();
 	ShowWindow(hTextbox, SW_HIDE);
 }
 void			exit_textmode()
@@ -120,10 +123,12 @@ void			print_text()
 		for(int k=0;k<image_size;++k)//set original alpha (reverse alpha)
 			rgb2[k]|=alphamask;
 
-		Point i1, i2;
-		screen2image(text_s1.x, text_s1.y, i1.x, i1.y);
-		screen2image(text_s2.x, text_s2.y, i2.x, i2.y);
-		RECT r={i1.x, i1.y, i2.x, i2.y};//left top right bottom
+		textrect.sort_coords();
+		RECT r={textrect.i.x, textrect.i.y, textrect.f.x, textrect.f.y};//left top right bottom
+		//Point i1, i2;
+		//screen2image(text_s1.x, text_s1.y, i1.x, i1.y);
+		//screen2image(text_s2.x, text_s2.y, i2.x, i2.y);
+		//RECT r={i1.x, i1.y, i2.x, i2.y};
 		//RECT r={i1.x+3, i1.y+3, i2.x+3, i2.y+3};//@Batang
 		int txtcolor=SetTextColor(ghMemDC, swap_rb(primarycolor&colormask)), bkmode=SetBkMode(ghMemDC, selection_transparency), bkcolor=SetBkColor(ghMemDC, swap_rb(secondarycolor&colormask));
 		DrawTextW(ghMemDC, text.c_str(), size, &r, DT_NOCLIP);
@@ -149,9 +154,10 @@ void			print_text()
 		DeleteObject(hBitmap);
 	//	DeleteObject(hFont);
 	}
-	text_start.setzero(), text_end.setzero();
-	text_s1.setzero(), text_s2.setzero();
-	textpos.setzero();
+	textrect.set(-128, -128, -128, -128);
+	//text_start.setzero(), text_end.setzero();
+	//text_s1.setzero(), text_s2.setzero();
+	//textpos.setzero();
 	move_textbox();
 }
 WNDPROC			oldEditProc=nullptr;
@@ -160,18 +166,13 @@ long			__stdcall EditProc(HWND__ *hWnd, unsigned message, unsigned wParam, long 
 	switch(message)
 	{
 	case WM_CHAR://ctrl A: select all
+		render(REDRAW_IMAGE_PARTIAL, 0, w, 0, h);
 		if(wParam==1)
 		{
 			SendMessageW(hWnd, EM_SETSEL, 0, -1);
 			return 1;
 		}
-	//case WM_LBUTTONDOWN:
-	//case WM_RBUTTONDOWN:
-	//case WM_KEYDOWN:case WM_SYSKEYDOWN:
-	//	int result=CallWindowProcW(oldEditProc, hWnd, message, wParam, lParam);
-	//	focus=F_TEXTBOX;
-	//	SetFocus(ghWnd);
-	//	return result;
+		break;
 	}
 	return CallWindowProcW(oldEditProc, hWnd, message, wParam, lParam);
 }

@@ -112,6 +112,61 @@ struct			LineAlgorithm
 		return ret;
 	}
 };
+#if 1
+void			draw_line_v3(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int color)//from ppp_lines.cpp
+{//137~149ms	naive int		raw: 42~60ms
+	int xa, ya, xb, yb;
+	if(y1<y2)
+		xa=x1, ya=y1, xb=x2, yb=y2;
+	else
+		xa=x2, ya=y2, xb=x1, yb=y1;
+	int dx=xb-xa, dy=yb-ya;//dy is always positive
+	if(!dy)
+	{
+		memfill(buffer+bw*ya+minimum(xa, xb), &color, (abs(xb-xa)+1)<<2, 1<<2);
+		return;
+	}
+	int xstart, xend;
+	if(xa<xb)
+		xstart=xa-1, xend=xb+1;
+	//	xstart=xa, xend=xb;
+	else if(xb<xa)
+		xstart=xb-1, xend=xa+1;
+	//	xstart=xb, xend=xa;
+	else
+		xstart=xa, xend=xb;
+	int horizontal=abs(dx)>dy;
+	dx+=((dx>0)-(dx<0))&-horizontal;//add sgn to deltas if <45 degrees
+	dy+=horizontal;
+	int halfden=dy;
+	dx<<=1, dy<<=1;//double num & den
+	int invden=(1<<16)/dy;//dy < 2^16
+	int negative=-(dx<0);
+	//int sdx=(dx>0)-(dx<0);
+	for(int ky=ya, kx=xa, num=(ky+1-ya)*dx+halfden, num2=abs(num)*invden, num2step=abs(dx)*invden, kx2;ky<=yb;++ky, num+=dx, num2+=num2step)
+	{
+		//int num=(ky+1-ya)*dx+halfden;//next kx = line(next ky)
+
+		//kx2=xa+(negative^((short*)&num2)[1])-negative-(num<0);//raw: 45~50ms		128~140ms
+		kx2=xa+(negative^num2>>16)-negative-(num<0);			//raw: 42~60ms
+		//kx2=xa+sdx*(num2>>16)-(num<0);//124~147ms
+		//kx2=xa+(num*invden>>16)-(num<0);//125~135ms
+		//kx2=xa+num/dy-(num<0);//round(num/dy) = floor((num+dy/2)/dy) = trunc((num+dy/2)/dy)-(num+dy/2<0)		raw: 37, 44~50ms
+		if(kx2<xstart||kx2>xend)
+		{
+			if(kx2<xstart)
+				kx2=xstart;
+			if(kx2>xend)
+				kx2=xend;
+			memfill(buffer+bw*ky+minimum(kx, kx2)+(kx2<kx), &color, (abs(kx2-kx)+(kx==kx2))<<2, 1<<2);
+			return;
+		}
+		memfill(buffer+bw*ky+minimum(kx, kx2)+(kx2<kx), &color, (abs(kx2-kx)+(kx==kx2))<<2, 1<<2);
+		//buffer[bw*ky+kx]=color;//
+		kx=kx2;
+	}
+}
+#endif
 void			fill_horizontal(int *buffer, int bw, int bh, Point const *p, int nv, FillCallback callback, void *params)
 {
 	int fillstart=p[0].x, fillend=p[0].x, ky=p[0].y;
@@ -215,7 +270,8 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 			if(Lya>=Lyb)//horizontal or upside-down
 				break;
 			left.init(Lxa, Lya, Lxb, Lyb);
-		//	left.iterate();
+			if(Lkx>Lxa)
+				Lkx=Lxa;
 		}
 		if(ky==Ryb&&p[R2].y<p[Rnext].y||ky>Ryb)
 		{
@@ -226,7 +282,8 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 			if(Rya>=Ryb)
 				break;
 			right.init(Rxa, Rya, Rxb, Ryb);
-		//	right.iterate();
+			if(Rkx<Rxa)
+				Rkx=Rxa;
 		}
 		Lkx2=left.iterate();
 		Rkx2=right.iterate();
@@ -474,6 +531,8 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, Fil
 			if(Lya>=Lyb)//horizontal or upside-down
 				break;
 			left.init(Lxa, Lya, Lxb, Lyb);
+			if(Lkx>Lxa)
+				Lkx=Lxa;
 		}
 		if(ky==Ryb&&p[R2].y<p[Rnext].y||ky>Ryb)
 		{
@@ -484,6 +543,8 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, Fil
 			if(Rya>=Ryb)
 				break;
 			right.init(Rxa, Rya, Rxb, Ryb);
+			if(Rkx<Rxa)
+				Rkx=Rxa;
 		}
 		Lkx2=left.iterate();
 		Rkx2=right.iterate();
