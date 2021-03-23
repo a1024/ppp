@@ -420,10 +420,14 @@ void			editpaste()
 				if(bmi->bmiHeader.biCompression==BI_RGB||bmi->bmiHeader.biCompression==BI_BITFIELDS)//uncompressed
 				{
 					int bw=bmi->bmiHeader.biWidth, bh=abs(bmi->bmiHeader.biHeight);
-				//	int ncolors=bmi->bmiHeader.biClrUsed?bmi->bmiHeader.biClrUsed:1, bitdepth=bmi->bmiHeader.biBitCount;
-					byte *data=(byte*)bmi+size-bmi->bmiHeader.biSizeImage;
-					int data_size=bmi->bmiHeader.biSizeImage?bmi->bmiHeader.biSizeImage:bw*bh<<2;
+					//int ncolors=bmi->bmiHeader.biClrUsed?bmi->bmiHeader.biClrUsed:1, bitdepth=bmi->bmiHeader.biBitCount;
+					int data_size;
+				//	int data_size=bw*bh*bmi->bmiHeader.biBitCount>>3;
 					//int data_size=size-bmi->bmiHeader.biSize;
+					byte *data=(byte*)bmi->bmiColors;
+					//byte *data=(byte*)bmi+size-bmi->bmiHeader.biSizeImage;
+				//	if(bmi->bmiHeader.biSizeImage)//skip palette bits
+				//		data+=bmi->bmiHeader.biSizeImage-data_size;
 					
 					selection_stamp(true);
 					selection.set(spx, spy, spx+bw, spy+bh);
@@ -443,21 +447,31 @@ void			editpaste()
 					switch(bmi->bmiHeader.biBitCount)
 					{
 					case 24:
-						for(int ky=0;ky<bh&&(bw*(ky+1)*3)<=data_size;++ky)
 						{
-							int *dstrow=sel_buffer+sw*ky;
-							byte *srcrow=data+3*bw*(bmi->bmiHeader.biHeight<0?ky:bmi->bmiHeader.biHeight-1-ky);
-							for(int kx=0;kx<bw;++kx)
+							int row_bytes=bw*3;
+							row_bytes+=(4-(row_bytes&3))&3;
+							data_size=row_bytes*bh;
+							if(bmi->bmiHeader.biSizeImage)//skip palette bits
+								data+=bmi->bmiHeader.biSizeImage-data_size;
+							for(int ky=0;ky<bh&&row_bytes*(ky+1)<=data_size;++ky)
 							{
-								auto dst=(byte*)(dstrow+kx), src=(byte*)(srcrow+3*kx);
-								dst[0]=src[0];
-								dst[1]=src[1];
-								dst[2]=src[2];
-								dst[3]=0xFF;
+								int *dstrow=sel_buffer+sw*ky;
+								byte *srcrow=data+row_bytes*(bmi->bmiHeader.biHeight<0?ky:bmi->bmiHeader.biHeight-1-ky);
+								for(int kx=0;kx<bw;++kx)
+								{
+									auto dst=(byte*)(dstrow+kx), src=(byte*)(srcrow+3*kx);
+									dst[0]=src[0];
+									dst[1]=src[1];
+									dst[2]=src[2];
+									dst[3]=0xFF;
+								}
 							}
 						}
 						break;
 					case 32:
+						data_size=bw*bh<<2;
+						if(bmi->bmiHeader.biSizeImage)//skip palette bits
+							data+=bmi->bmiHeader.biSizeImage-data_size;
 						for(int ky=0;ky<bh&&(bw*(ky+1)<<2)<=data_size;++ky)
 							memcpy(sel_buffer+sw*ky, (int*)data+bw*(bmi->bmiHeader.biHeight<0?ky:bmi->bmiHeader.biHeight-1-ky), bw<<2);
 							//for(int kx=0;kx<bw;++kx)

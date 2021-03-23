@@ -641,7 +641,10 @@ void			stretchskew(int *buffer, int bw, int bh, int *&b2, int &w2, int &h2, doub
 void			stretchskew();
 
 //fill
-void			fill(int *buffer, int x0, int y0, int color);
+typedef void (*XFillCallback)(void *data, int x1, int x2, int y);
+char*			fill_v2_init(int *buffer, int bw, int bh, int x0, int y0);//use free() to free the returned mask
+void			fill_v2(int *buffer, int bw, int bh, int x0, int y0, XFillCallback cb, void *data, char *mask);
+void			fill(int *buffer, int bw, int bh, int x0, int y0, int color);
 void			fill_mouse(int *buffer, int mx0, int my0, int color);
 void			airbrush(int *buffer, int x0, int y0, int color);
 void			airbrush_mouse(int *buffer, int mx0, int my0, int color);
@@ -651,7 +654,7 @@ typedef __m128i (*FillCallback)(__m128i const &kx, __m128i const &ky, void *para
 void			fill_convex_POT	(int *buffer, int bw, int bh, Point const *p, int nv, int nvmask, FillCallback callback, void *params);//uses AND instead of MOD
 void			fill_convex		(int *buffer, int bw, int bh, Point const *points, int nv, FillCallback callback, void *params);
 
-void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, double x2, double y2, int c2);
+void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, double x2, double y2, int c2, bool startOver);
 
 //lines
 void			draw_line_v2		(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int color);//int Bresenham
@@ -660,7 +663,14 @@ void			draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double
 void			draw_h_line(int *buffer, int x1, int x2, int y, int color);
 void			draw_v_line(int *buffer, int x, int y1, int y2, int color);
 void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, int x2, int y2, int color, bool invert_color=false, int *imask=nullptr);//invert_color ignores color argument & uses imask which has same dimensions as buffer
-void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int color, int c2grad);
+//enum			DrawLineMode
+//{
+//	DL_DISABLE_GRADIENT,
+//	DL_ENABLE_GRADIENT_STARTOVER,
+//	DL_ENABLE_GRADIENT_CONTINUE,
+//};
+extern bool		draw_line_frame1;
+void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int color, int c2grad, bool enable_gradient);
 void			draw_line_brush_mouse(int *buffer, int brush, int mx1, int my1, int mx2, int my2, int color);
 
 extern std::vector<Point> bezier;

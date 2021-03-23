@@ -1505,7 +1505,8 @@ void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, i
 #endif
 	}//if(brush<BRUSH_LARGE_RIGHT45)/else
 }
-void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int color, int c2grad)
+bool			draw_line_frame1=false;
+void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int color, int c2grad, bool enable_gradient)
 {
 	double x1, y1, x2, y2;
 	screen2image(mx1, my1, x1, y1);
@@ -1548,11 +1549,12 @@ void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int colo
 	}
 	else
 		x2a=x2, y2a=y2;
-	if(kb['D'])
+	if(kb['D']&&enable_gradient)
 	{
 		if(!kb[VK_CONTROL])
 			x1=floor(x1), y1=floor(y1), x2a=floor(x2a), y2a=floor(y2a);
-		draw_gradient(buffer, iw, ih, color, x1, y1, x2a, y2a, c2grad);
+		draw_gradient(buffer, iw, ih, color, x1, y1, x2a, y2a, c2grad, draw_line_frame1);
+		draw_line_frame1=false;
 	}
 	else if(kb[VK_CONTROL])
 		draw_line_aa_v2(buffer, iw, ih, x1, y1, x2a, y2a, linewidth, color);

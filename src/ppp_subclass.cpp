@@ -217,7 +217,7 @@ long			__stdcall WndProcMask(HWND__ *hWnd, unsigned message, unsigned wParam, lo
 			{
 				hMaskEdit[k]=CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, nullptr, WS_CHILD|WS_VISIBLE|ES_CENTER, x, y, boxw, boxh, hWnd, (HMENU)(ID_BOX_ALL+(k<<1)), ghInstance, nullptr);
 				SYS_ASSERT(hMaskEdit[k]);
-				SendMessageA(hMaskEdit[k], WM_SETFONT, (WPARAM)hFont, 0);	SYS_CHECK();
+				SendMessageA(hMaskEdit[k], WM_SETFONT, (WPARAM)hFont, 0);	//SYS_CHECK();
 				y+=rowh+(ypad<<int(k==0));
 			}
 			x+=boxw+xpad, y=ypad;
@@ -229,7 +229,7 @@ long			__stdcall WndProcMask(HWND__ *hWnd, unsigned message, unsigned wParam, lo
 			}
 			y+=ypad;
 			hMaskOK=CreateWindowExA(0, WC_BUTTONA, nullptr, WS_CHILD|WS_VISIBLE, x+sliderw-buttonw, y, buttonw, rowh, hWnd, (HMENU)ID_OK, ghInstance, nullptr);
-			SendMessageA(hMaskOK, WM_SETFONT, (WPARAM)hFont, 0);	SYS_CHECK();
+			SendMessageA(hMaskOK, WM_SETFONT, (WPARAM)hFont, 0);	//SYS_CHECK();
 			SetWindowTextA(hMaskOK, "OK");
 		}
 		break;

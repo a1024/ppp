@@ -3,18 +3,101 @@
 #include		"ppp_xmm_clamp.h"
 #include		"generic.h"
 #include		<queue>
+#include		<stack>
 #include		<assert.h>
-void			fill(int *buffer, int x0, int y0, int color)
+struct			XFillInfo
+{
+	int y, x1, x2;
+	XFillInfo(int y, int x1, int x2):y(y), x1(x1), x2(x2){}
+};
+#define INSIDE(X, Y) mask[bw*(Y)+(X)]
+static void		fill_v2_explore(int bw, int ty, int x1, int x2, std::stack<XFillInfo> &s, char *mask)
+{
+	if(x1<x2)
+	{
+		int tx, xstart=-1;
+		if(INSIDE(x1, ty))
+			for(xstart=x1;xstart-1>=0&&INSIDE(xstart-1, ty);--xstart);
+		for(tx=x1+1;tx<x2;++tx)
+		{
+			if(INSIDE(tx, ty))
+			{
+				if(xstart==-1)
+					xstart=tx;
+			}
+			else if(xstart!=-1)
+			{
+				s.push(XFillInfo(ty, xstart, tx));
+				xstart=-1;
+			}
+		}
+		if(xstart!=-1)
+		{
+			for(tx=x2;tx<bw&&INSIDE(tx, ty);++tx);
+			s.push(XFillInfo(ty, xstart, tx));
+		}
+	}
+}
+char*			fill_v2_init(int *buffer, int bw, int bh, int x0, int y0)
+{
+	int size=bw*bh;
+	char *mask=(char*)malloc(size);
+	int activeColor=buffer[bw*y0+x0];
+	for(int k=0;k<size;++k)
+		mask[k]=buffer[k]==activeColor;
+	return mask;
+}
+void			fill_v2(int *buffer, int bw, int bh, int x0, int y0, XFillCallback callback, void *data, char *mask0)
+{
+	if(x0<0||x0>=bw||y0<0||y0>=bh)
+		return;
+	
+	int size=bw*bh;
+	char *mask;
+	if(mask0)
+	{
+		mask=(char*)malloc(size);
+		memcpy(mask, mask0, size);
+	}
+	else
+		mask=fill_v2_init(buffer, bw, bh, x0, y0);
+
+	std::stack<XFillInfo> s;
+	int y, x1, x2;
+	for(x1=x0;x1-1>=0&&INSIDE(x1-1, y0);--x1);
+	for(x2=x0+1;x2<bw&&INSIDE(x2, y0);++x2);
+	s.push(XFillInfo(y0, x1, x2));
+	while(s.size())
+	{
+		auto &info=s.top();
+		y=info.y, x1=info.x1, x2=info.x2;
+		s.pop();
+
+		callback(data, x1, x2, y);
+		//for(int kx=x1;kx<x2;++kx)
+		//	buffer[bw*y+kx]=0xFF000000|rand()<<15|rand();//
+		memset(mask+bw*y+x1, 0, x2-x1);
+		
+		if(y-1>=0)
+			fill_v2_explore(bw, y-1, x1, x2, s, mask);
+		if(y+1<bh)
+			fill_v2_explore(bw, y+1, x1, x2, s, mask);
+	}
+
+	free(mask);
+}
+#undef	INSIDE
+void			fill(int *buffer, int bw, int bh, int x0, int y0, int color)
 {
 	if(icheck(x0, y0))
 		return;
 	typedef std::pair<int, int> Point;
 	std::queue<Point> q;
 	q.push(Point(x0, y0));
-	int oldcolor=buffer[iw*y0+x0];
+	int oldcolor=buffer[bw*y0+x0];
 	if(color==oldcolor)
 		return;
-	buffer[iw*y0+x0]=color;
+	buffer[bw*y0+x0]=color;
 	while(q.size())
 	{
 		auto f=q.front();
@@ -22,21 +105,34 @@ void			fill(int *buffer, int x0, int y0, int color)
 		if(icheck(x, y))
 			return;
 		q.pop();
-		if(x+1<iw&&buffer[iw*y+x+1]==oldcolor)
-			buffer[iw*y+x+1]=color, q.push(Point(x+1, y));
-		if(x-1>=0&&buffer[iw*y+x-1]==oldcolor)
-			buffer[iw*y+x-1]=color, q.push(Point(x-1, y));
-		if(y+1<ih&&buffer[iw*(y+1)+x]==oldcolor)
-			buffer[iw*(y+1)+x]=color, q.push(Point(x, y+1));
-		if(y-1>=0&&buffer[iw*(y-1)+x]==oldcolor)
-			buffer[iw*(y-1)+x]=color, q.push(Point(x, y-1));
+		if(x+1<bw&&buffer[bw*y+x+1]==oldcolor)
+			buffer[bw*y+x+1]=color, q.push(Point(x+1, y));
+		if(x-1>=0&&buffer[bw*y+x-1]==oldcolor)
+			buffer[bw*y+x-1]=color, q.push(Point(x-1, y));
+		if(y+1<ih&&buffer[bw*(y+1)+x]==oldcolor)
+			buffer[bw*(y+1)+x]=color, q.push(Point(x, y+1));
+		if(y-1>=0&&buffer[bw*(y-1)+x]==oldcolor)
+			buffer[bw*(y-1)+x]=color, q.push(Point(x, y-1));
 	}
+}
+struct			XFillPlain
+{
+	int *buffer, bw, color;
+};
+void			xfill_plain(void *p, int x1, int x2, int y)
+{
+	auto data=(XFillPlain*)p;
+	memfill(data->buffer+data->bw*y+x1, &data->color, (x2-x1)<<2, 1<<2);
 }
 void			fill_mouse(int *buffer, int mx0, int my0, int color)
 {
 	int x0, y0;
 	screen2image(mx0, my0, x0, y0);
-	fill(buffer, x0, y0, color);
+
+	XFillPlain data={buffer, iw, color};
+	fill_v2(buffer, iw, ih, x0, y0, xfill_plain, &data, nullptr);
+
+	//fill(buffer, iw, ih, x0, y0, color);
 }
 
 void			airbrush(int *buffer, int x0, int y0, int color)
@@ -621,6 +717,12 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, Fil
 //#endif
 }
 
+struct			XFillGradient
+{
+	int *buffer, bw;
+	double A, B, C;
+	__m128 *mc1, *dc, *pmA4;
+};
 __forceinline __m128i gen_gradient_sse(__m128 const &z, __m128 const *mc1, __m128 const *dc)
 {
 	__m128 alpha=clamp01(z);
@@ -662,8 +764,48 @@ __forceinline __m128i gen_gradient_sse(__m128 const &z, __m128 const *mc1, __m12
 
 	return color[0];
 }
-void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, double x2, double y2, int c2)
+void			xfill_gradient(void *p, int x1, int x2, int y)
 {
+	auto data=(XFillGradient*)p;
+	int xround=x2-x1, xrem=xround&3;
+	xround&=~3;
+	int *row=data->buffer+data->bw*y+x1;
+
+	float z0[4]={float(data->A*x1+data->B*y+data->C)};
+	z0[1]=float(z0[0]+data->A);
+	z0[2]=float(z0[1]+data->A);
+	z0[3]=float(z0[2]+data->A);
+	__m128 z=_mm_loadu_ps(z0);
+	int kx=0;
+	__m128i colors;
+	for(;kx<xround;kx+=4)
+	{
+		colors=gen_gradient_sse(z, data->mc1, data->dc);
+		_mm_storeu_si128((__m128i*)(row+kx), colors);
+
+		//next z
+		z=_mm_add_ps(z, *data->pmA4);
+	}
+	if(xrem)
+	{
+		colors=gen_gradient_sse(z, data->mc1, data->dc);
+		for(kx=0;kx<xrem;++kx)
+			row[xround+kx]=colors.m128i_i32[kx];
+	}
+	//memfill(data->buffer+data->bw*y+x1, &data->color, (x2-x1)<<2, 1<<2);
+}
+void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, double x2, double y2, int c2, bool startOver)
+{
+	static char *mask=0;
+	static int mw=0, mh=0;
+	if(startOver)
+	{
+		if(mask)
+			free(mask);
+		mask=fill_v2_init(buffer, bw, bh, (int)x1, (int)y1);
+		mw=bw, mh=bh;
+	}
+
 	//p1=(x1, y1, 0)
 	//p2=(x2, y2, 1)
 	//p3=(x1-dy, y1+dx, 0)
@@ -677,8 +819,21 @@ void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, 
 	d2=1/d2;
 	double A=dx*d2, B=dy*d2, C=-(dx*x1+dy*y1)*d2;
 	auto p1=(unsigned char*)&c2, p2=(unsigned char*)&c1;
-
+	
 #if 1
+	__m128 mA4=_mm_set1_ps((float)(A*4));//, mB=_mm_set1_ps((float)B), mC=_mm_set1_ps((float)C);
+	__m128 mc1[]={_mm_set1_ps(p1[0]), _mm_set1_ps(p1[1]), _mm_set1_ps(p1[2]), _mm_set1_ps(p1[3])};
+	__m128 mc2[]={_mm_set1_ps(p2[0]), _mm_set1_ps(p2[1]), _mm_set1_ps(p2[2]), _mm_set1_ps(p2[3])};
+	__m128 dc[]={_mm_sub_ps(mc2[0], mc1[0]), _mm_sub_ps(mc2[1], mc1[1]), _mm_sub_ps(mc2[2], mc1[2]), _mm_sub_ps(mc2[3], mc1[3])};
+	const __m128 half=_mm_set1_ps(0.4999f);
+	mc1[0]=_mm_sub_ps(mc1[0], half);//cvtps_epi32(float) = round(float) = floor(float+0.5)
+	mc1[1]=_mm_sub_ps(mc1[1], half);
+	mc1[2]=_mm_sub_ps(mc1[2], half);
+	mc1[3]=_mm_sub_ps(mc1[3], half);
+	XFillGradient data={buffer, bw, A, B, C, mc1, dc, &mA4};
+	fill_v2(buffer, bw, bh, (int)x1, (int)y1, xfill_gradient, &data, mask);
+#endif
+#if 0
 	__m128 mA4=_mm_set1_ps((float)(A*4));//, mB=_mm_set1_ps((float)B), mC=_mm_set1_ps((float)C);
 	__m128 mc1[]={_mm_set1_ps(p1[0]), _mm_set1_ps(p1[1]), _mm_set1_ps(p1[2]), _mm_set1_ps(p1[3])};
 	__m128 mc2[]={_mm_set1_ps(p2[0]), _mm_set1_ps(p2[1]), _mm_set1_ps(p2[2]), _mm_set1_ps(p2[3])};

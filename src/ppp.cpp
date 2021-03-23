@@ -1486,7 +1486,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			case M_PENCIL:
 				if(!prev_drag)
 					hist_premodify(image, iw, ih);
-				draw_line_mouse(image, prev_mx, prev_my, mx, my, color, color2);
+				draw_line_mouse(image, prev_mx, prev_my, mx, my, color, color2, false);
 				if(redraw.all==REDRAW_IMAGE_PARTIAL)
 					redrawbounds_dragbrush(Point(prev_mx, prev_my), Point(mx, my), 2, redrawrect);
 				break;
@@ -1552,7 +1552,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				//	draw_line_brush(temp_buffer, iw, ih, LINE5, p1.x, p1.y, p2.x, p2.y, 0, true, imask);
 				//	free(imask);
 				//}
-				draw_line_mouse(temp_buffer, start_mx, start_my, mx, my, (0xFF000000&~-kb['D'])|color, color2);
+				draw_line_mouse(temp_buffer, start_mx, start_my, mx, my, (0xFF000000&~-kb['D'])|color, color2, true);
 				if(redraw.all==REDRAW_IMAGE_PARTIAL)
 					redrawrect.set(x1, y1, x2, y2);//whole image
 				break;
@@ -1603,7 +1603,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 					}
 					else
 					{
-						draw_line_mouse(temp_buffer, start_mx, start_my, mx, my, c3, c4);
+						draw_line_mouse(temp_buffer, start_mx, start_my, mx, my, c3, c4, false);
 						if(redraw.all==REDRAW_IMAGE_PARTIAL)
 							redrawbounds_dragbrush(Point(start_mx, start_my), Point(mx, my), 2, redrawrect);
 					}
@@ -3479,6 +3479,10 @@ skip_render:;
 						}
 					}
 					break;
+				case M_LINE:
+					draw_line_frame1=true;
+					drag=D_DRAW;
+					break;
 				case M_CURVE:
 					if(!bezier.size())
 						curve_add_mouse(mx, my);
@@ -3553,7 +3557,7 @@ skip_render:;
 				break;
 			case M_LINE:
 				hist_premodify(image, iw, ih);
-				draw_line_mouse(image, start_mx, start_my, mx, my, primarycolor, secondarycolor);
+				draw_line_mouse(image, start_mx, start_my, mx, my, primarycolor, secondarycolor, true);
 				use_temp_buffer=false;
 				break;
 			case M_CURVE:
@@ -3680,6 +3684,10 @@ skip_render:;
 					if(!timer)
 						SetTimer(ghWnd, 0, airbrush_timer, 0), timer=true;
 					break;
+				case M_LINE:
+					draw_line_frame1=true;
+					drag=D_DRAW;
+					break;
 				case M_CURVE:
 					if(!bezier.size())
 						curve_add_mouse(mx, my);
@@ -3724,7 +3732,7 @@ skip_render:;
 				break;
 			case M_LINE:
 				hist_premodify(image, iw, ih);
-				draw_line_mouse(image, start_mx, start_my, mx, my, secondarycolor, primarycolor);
+				draw_line_mouse(image, start_mx, start_my, mx, my, secondarycolor, primarycolor, true);
 				use_temp_buffer=false;
 				break;
 			case M_CURVE:
