@@ -726,7 +726,7 @@ struct AAInfo
 		third, twothirds,
 		red, green, blue;
 	__m128i alpha;
-	int *buffer;
+	int *buffer, bw;
 };
 inline void		sse2_split_channels(__m128i const &colors, __m128 &red, __m128 &green, __m128 &blue, __m128i &alpha)
 {
@@ -786,15 +786,16 @@ __forceinline __m128 sse2_mixchannel(__m128 const &dst, __m128 const &src, __m12
 	temp=_mm_add_ps(temp, dst);
 	return temp;
 }
-__m128i			cb_aa_line(__m128i const &kx, __m128i const &ky, void *params, int idx, int count)
+__forceinline __m128i cb_aa_line_px(__m128i const &dst, __m128 const &mkx, __m128 const &mky, void *params, int idx, int count)
 {
 	auto aai=(AAInfo*)params;
-	__m128i dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
+	//__m128i dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
 	__m128 d_red, d_green, d_blue;
 	__m128i d_alpha;
 	sse2_split_channels(dst, d_red, d_green, d_blue, d_alpha);//dst alpha is discarded
-
-	__m128 px=_mm_cvtepi32_ps(kx), py=_mm_cvtepi32_ps(ky);//pixel
+	
+	__m128 px=mkx, py=mky;//pixel
+	//__m128 px=_mm_cvtepi32_ps(kx), py=_mm_cvtepi32_ps(ky);
 	__m128 a_red=aa_line_gen_alpha(px, py, aai);
 	px=_mm_add_ps(px, aai->third);
 	__m128 a_green=aa_line_gen_alpha(px, py, aai);
@@ -817,6 +818,60 @@ __m128i			cb_aa_line(__m128i const &kx, __m128i const &ky, void *params, int idx
 	b32=_mm_or_si128(b32, aai->alpha);
 	return b32;
 }
+void			cb_aa_line(void *p, int x1, int x2, int y)
+{
+	auto aai=(AAInfo*)p;
+	int xround=x2-x1, xrem=xround&3;
+	xround&=~3;
+	int idx=aai->bw*y+x1, *row=aai->buffer+idx;
+
+	const __m128 four=_mm_set1_ps(4);
+	__m128 py=_mm_set1_ps((float)y);
+	__m128 px=_mm_set_ps((float)(x1+3), (float)(x1+2), (float)(x1+1), (float)x1);
+	__m128i dst, res;
+	for(int kx=0;kx<xround;kx+=4, idx+=4)
+	{
+		dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
+		res=cb_aa_line_px(dst, px, py, p, idx, 4);
+	/*	__m128i dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
+		__m128 d_red, d_green, d_blue;
+		__m128i d_alpha;
+		sse2_split_channels(dst, d_red, d_green, d_blue, d_alpha);//dst alpha is discarded
+
+		//__m128 px=_mm_cvtepi32_ps(kx), py=_mm_cvtepi32_ps(ky);//pixel
+		__m128 a_red=aa_line_gen_alpha(px, py, aai);
+		px=_mm_add_ps(px, aai->third);
+		__m128 a_green=aa_line_gen_alpha(px, py, aai);
+		px=_mm_add_ps(px, aai->third);
+		__m128 a_blue=aa_line_gen_alpha(px, py, aai);
+
+		d_red	=sse2_mixchannel(d_red,		aai->red,	a_red);
+		d_green	=sse2_mixchannel(d_green,	aai->green,	a_green);
+		d_blue	=sse2_mixchannel(d_blue,	aai->blue,	a_blue);
+	
+		//combine channels
+		__m128i b32=_mm_cvtps_epi32(d_blue);
+		__m128i g32=_mm_cvtps_epi32(d_green);
+		__m128i r32=_mm_cvtps_epi32(d_red);
+		g32=_mm_slli_epi32(g32, 8);
+		r32=_mm_slli_epi32(r32, 16);
+
+		b32=_mm_or_si128(b32, g32);
+		b32=_mm_or_si128(b32, r32);
+		b32=_mm_or_si128(b32, aai->alpha);//*/
+		
+		_mm_storeu_si128((__m128i*)(row+kx), res);
+		px=_mm_add_ps(px, four);
+	}
+	if(xrem)
+	{
+		for(int kx=0;kx<xrem;++kx)
+			dst.m128i_i32[kx]=row[xround+kx];
+		res=cb_aa_line_px(dst, px, py, p, idx, xrem);
+		for(int kx=0;kx<xrem;++kx)
+			row[xround+kx]=res.m128i_i32[kx];
+	}
+}
 __forceinline __m128 aa_point_gen_alpha(__m128 const &px, __m128 const &py, AAInfo *aai)
 {
 	//t = length(p-p1) = sqrt((px-x1)^2+(py-y1)^2)
@@ -834,15 +889,16 @@ __forceinline __m128 aa_point_gen_alpha(__m128 const &px, __m128 const &py, AAIn
 	__m128 alpha=clamp01(prx);
 	return alpha;
 }
-__m128i			cb_aa_point(__m128i const &kx, __m128i const &ky, void *params, int idx, int count)
+__forceinline __m128i cb_aa_point_px(__m128i const &dst, __m128 const &kx, __m128 const &ky, void *params, int idx, int count)
 {
 	auto aai=(AAInfo*)params;
-	__m128i dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
+	//__m128i dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
 	__m128 d_red, d_green, d_blue;
 	__m128i d_alpha;
 	sse2_split_channels(dst, d_red, d_green, d_blue, d_alpha);//dst alpha is discarded
 
-	__m128 px=_mm_cvtepi32_ps(kx), py=_mm_cvtepi32_ps(ky);//pixel
+	__m128 px=kx, py=ky;//pixel
+	//__m128 px=_mm_cvtepi32_ps(kx), py=_mm_cvtepi32_ps(ky);
 	__m128 a_red=aa_point_gen_alpha(px, py, aai);
 	px=_mm_add_ps(px, aai->third);
 	__m128 a_green=aa_point_gen_alpha(px, py, aai);
@@ -864,6 +920,33 @@ __m128i			cb_aa_point(__m128i const &kx, __m128i const &ky, void *params, int id
 	b32=_mm_or_si128(b32, r32);
 	b32=_mm_or_si128(b32, aai->alpha);
 	return b32;
+}
+void			cb_aa_point(void *p, int x1, int x2, int y)
+{
+	auto aai=(AAInfo*)p;
+	int xround=x2-x1, xrem=xround&3;
+	xround&=~3;
+	int idx=aai->bw*y+x1, *row=aai->buffer+idx;
+
+	const __m128 four=_mm_set1_ps(4);
+	__m128 py=_mm_set1_ps((float)y);
+	__m128 px=_mm_set_ps((float)(x1+3), (float)(x1+2), (float)(x1+1), (float)x1);
+	__m128i dst, res;
+	for(int kx=0;kx<xround;kx+=4, idx+=4)
+	{
+		dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
+		res=cb_aa_point_px(dst, px, py, p, idx, 4);
+		_mm_storeu_si128((__m128i*)(row+kx), res);
+		px=_mm_add_ps(px, four);
+	}
+	if(xrem)
+	{
+		for(int kx=0;kx<xrem;++kx)
+			dst.m128i_i32[kx]=row[xround+kx];
+		res=cb_aa_point_px(dst, px, py, p, idx, xrem);
+		for(int kx=0;kx<xrem;++kx)
+			row[xround+kx]=res.m128i_i32[kx];
+	}
 }
 void			draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double x2, double y2, double linewidth, int color)
 {//kalbasa
@@ -888,7 +971,7 @@ void			draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double
 	if(linewidth<3)
 		linewidth=3;
 	sse2_split_channels(c, aai.red, aai.green, aai.blue, aai.alpha);
-	aai.buffer=buffer;
+	aai.buffer=buffer, aai.bw=bw;
 	if(d2)//line
 	{
 		double invd=linewidth/sqrt(d2), tx=dx*invd, ty=dy*invd;
@@ -1015,27 +1098,31 @@ void			draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double
 #endif
 }
 
-__m128i			cb_assign_color(__m128i const &kx, __m128i const &ky, void *params, int idx, int count)
+struct			AssignColorInfo
 {
-	auto color=(__m128i*)params;
-	return *color;
+	int *buffer, bw, color;
+};
+void			cb_assign_color(void *p, int x1, int x2, int y)
+{
+	auto aci=(AssignColorInfo*)p;
+	memfill(aci->buffer+aci->bw*y+x1, &aci->color, (x2-x1)<<2, 1<<2);
+	//auto color=(__m128i*)params;
+	//return *color;
 }
 struct			InvertColorInfo
 {
-	int *buffer, *imask;
+	int *buffer, *imask, bw;
 	__m128i *mcomp;//{0, 1, 2, 3, 4} minus ones
 };
 __m128i			m_colormask=_mm_set1_epi32(0x00FFFFFF);
-__m128i			cb_invert_color(__m128i const &kx, __m128i const &ky, void *params, int idx, int count)
+__forceinline __m128i cb_invert_color_px(__m128i const &dst, __m128i const &mask, __m128i const &kx, __m128i const &ky, void *params, int idx, int count)
 {
 	auto ici=(InvertColorInfo*)params;
-	__m128i dst=_mm_loadu_si128((__m128i*)(ici->buffer+idx));
-	__m128i mask=_mm_loadu_si128((__m128i*)(ici->imask+idx));
-	if(mask.m128i_i32[0]!=mask.m128i_i32[1]||mask.m128i_i32[0]!=mask.m128i_i32[2]||mask.m128i_i32[0]!=mask.m128i_i32[3])//
-		int LOL_1=0;//
+	//if(mask.m128i_i32[0]!=mask.m128i_i32[1]||mask.m128i_i32[0]!=mask.m128i_i32[2]||mask.m128i_i32[0]!=mask.m128i_i32[3])//
+	//	int LOL_1=0;//
 	__m128i comp_pixels=_mm_xor_si128(mask, m_onesmask);
 	comp_pixels=_mm_and_si128(comp_pixels, m_colormask);
-	dst=_mm_xor_si128(dst, comp_pixels);
+	__m128i ret=_mm_xor_si128(dst, comp_pixels);
 	//__m128i c1=_mm_and_si128(dst, mask);//dst&mask
 	//__m128i c2=_mm_and_si128(dst, _mm_xor_si128(mask, m_onesmask));//dst&~mask
 	//c2=_mm_xor_si128(c2, m_colormask);
@@ -1046,7 +1133,38 @@ __m128i			cb_invert_color(__m128i const &kx, __m128i const &ky, void *params, in
 	_mm_storeu_si128((__m128i*)(ici->imask+idx), newmask);
 	//for(int k=0;k<count;++k)
 	//	ici->imask[idx+k]=-1;
-	return dst;
+	return ret;
+}
+void			cb_invert_color(void *p, int x1, int x2, int y)
+{
+	auto ici=(InvertColorInfo*)p;
+
+	int xround=x2-x1, xrem=xround&3;
+	xround&=~3;
+	const __m128i four=_mm_set1_epi32(4);
+	__m128i mky=_mm_set1_epi32(y);
+	__m128i mkx=_mm_set_epi32(x1+3, x1+2, x1+1, x1), res;
+	int idx=ici->bw*y+x1, *row=ici->buffer+idx, *mrow=ici->imask+idx;
+	__m128i dst, mask;
+	for(int kx=0;kx<xround;kx+=4, idx+=4)
+	{
+		dst=_mm_loadu_si128((__m128i*)(row+kx));
+		mask=_mm_loadu_si128((__m128i*)(mrow+kx));
+		res=cb_invert_color_px(dst, mask, mkx, mky, p, idx, 4);
+		_mm_storeu_si128((__m128i*)(row+kx), res);
+		mkx=_mm_add_epi32(mkx, four);
+	}
+	if(xrem)
+	{
+		for(int kx=0;kx<xrem;++kx)
+		{
+			dst.m128i_i32[kx]=row[xround+kx];
+			mask.m128i_i32[kx]=mrow[xround+kx];
+		}
+		res=cb_invert_color_px(dst, mask, mkx, mky, p, idx, xrem);
+		for(int kx=0;kx<xrem;++kx)
+			row[xround+kx]=res.m128i_i32[kx];
+	}
 }
 void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, int x2, int y2, int color, bool invert_color, int *imask)//invert_color ignores color argument & uses imask which has same dimensions as buffer
 {
@@ -1099,14 +1217,16 @@ void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, i
 				_mm_set_epi32(0, -1, -1, -1),
 				_mm_set1_epi32(-1),
 			};
-			InvertColorInfo ici={buffer, imask, mcomp};
+			InvertColorInfo ici={buffer, imask, bw, mcomp};
 			fill_convex(buffer, bw, bh, points.data(), nv, cb_invert_color, &ici);
 		}
 		else
 		{
-			__m128i m_color=_mm_set1_epi32(color);
-			auto LOL_1=&m_color;//
-			fill_convex(buffer, bw, bh, points.data(), nv, cb_assign_color, &m_color);
+			AssignColorInfo aci={buffer, bw, color};
+			fill_convex(buffer, bw, bh, points.data(), nv, cb_assign_color, &aci);
+			//__m128i m_color=_mm_set1_epi32(color);
+			//auto LOL_1=&m_color;//
+			//fill_convex(buffer, bw, bh, points.data(), nv, cb_assign_color, &m_color);
 #if 0//def _DEBUG
 			for(int k=0;k<(int)points.size();++k)//
 			{
@@ -1324,7 +1444,7 @@ void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, i
 				_mm_set_epi32(0, -1, -1, -1),
 				_mm_set1_epi32(-1),
 			};
-			InvertColorInfo ici={buffer, imask, mcomp};
+			InvertColorInfo ici={buffer, imask, bw, mcomp};
 			fill_convex_POT(buffer, bw, bh, p, 4, 3, cb_invert_color, &ici);
 		}
 		else

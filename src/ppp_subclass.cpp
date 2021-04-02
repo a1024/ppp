@@ -141,53 +141,6 @@ void			create_stretchskew()
 	//stretchskewproc[2]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[2], GWLP_WNDPROC, (long)StretchSkewSubclass);	SYS_ASSERT(stretchskewproc[2]);
 	//stretchskewproc[3]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[3], GWLP_WNDPROC, (long)StretchSkewSubclass);	SYS_ASSERT(stretchskewproc[3]);
 }
-#if 0
-WNDPROC			StretchHBoxProc=nullptr, StretchVBoxProc=nullptr, SkewHBoxProc=nullptr, SkewVBoxProc=nullptr;
-long			__stdcall StretchHBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
-{
-	switch(message)
-	{
-	case VK_TAB:
-		break;
-	}
-	if(!FontComboboxProc)
-		return 0;
-	return CallWindowProcA(StretchHBoxProc, hWnd, message, wParam, lParam);
-}
-long			__stdcall StretchVBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
-{
-	switch(message)
-	{
-	case VK_TAB:
-		break;
-	}
-	if(!FontComboboxProc)
-		return 0;
-	return CallWindowProcA(StretchVBoxProc, hWnd, message, wParam, lParam);
-}
-long			__stdcall SkewHBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
-{
-	switch(message)
-	{
-	case VK_TAB:
-		break;
-	}
-	if(!FontComboboxProc)
-		return 0;
-	return CallWindowProcA(SkewHBoxProc, hWnd, message, wParam, lParam);
-}
-long			__stdcall SkewVBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
-{
-	switch(message)
-	{
-	case VK_TAB:
-		break;
-	}
-	if(!FontComboboxProc)
-		return 0;
-	return CallWindowProcA(SkewVBoxProc, hWnd, message, wParam, lParam);
-}
-#endif
 
 //MASK WINDOW
 const int		xpad=10, ypad=10,
@@ -343,6 +296,7 @@ void			apply_image_dimensions()
 		}
 		else
 			hist_premodify(image, newwidth, newheight);//modify & resize
+		render(REDRAW_ALL, 0, w, 0, h);
 	}
 }
 long			__stdcall WndSubclassAttributes(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)

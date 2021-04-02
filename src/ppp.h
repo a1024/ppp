@@ -650,9 +650,9 @@ void			airbrush(int *buffer, int x0, int y0, int color);
 void			airbrush_mouse(int *buffer, int mx0, int my0, int color);
 
 void			draw_line_v3		(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int color);
-typedef __m128i (*FillCallback)(__m128i const &kx, __m128i const &ky, void *params, int idx, int count);
-void			fill_convex_POT	(int *buffer, int bw, int bh, Point const *p, int nv, int nvmask, FillCallback callback, void *params);//uses AND instead of MOD
-void			fill_convex		(int *buffer, int bw, int bh, Point const *points, int nv, FillCallback callback, void *params);
+//typedef __m128i (*FillCallback)(__m128i const &kx, __m128i const &ky, void *params, int idx, int count);
+void			fill_convex_POT	(int *buffer, int bw, int bh, Point const *p, int nv, int nvmask, XFillCallback callback, void *params);//uses AND instead of MOD
+void			fill_convex		(int *buffer, int bw, int bh, Point const *points, int nv, XFillCallback callback, void *params);
 
 void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, double x2, double y2, int c2, bool startOver);
 

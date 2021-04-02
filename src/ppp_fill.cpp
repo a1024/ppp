@@ -263,7 +263,7 @@ void			draw_line_v3(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2,
 	}
 }
 #endif
-void			fill_horizontal(int *buffer, int bw, int bh, Point const *p, int nv, FillCallback callback, void *params)
+void			fill_horizontal(int *buffer, int bw, int bh, Point const *p, int nv, XFillCallback callback, void *params)
 {
 	int fillstart=p[0].x, fillend=p[0].x, ky=p[0].y;
 	for(int k=1;k<nv;++k)
@@ -279,28 +279,29 @@ void			fill_horizontal(int *buffer, int bw, int bh, Point const *p, int nv, Fill
 	fillend+=(bw-fillend)&-(fillend>bw);
 
 	if(p[0].y>=0&&p[0].y<bh&&fillstart<fillend)
-	{
-		int xround=fillend-fillstart, xrem=xround&3;
-		xround&=~3;
-		const __m128i four=_mm_set1_epi32(4);
-		__m128i mky=_mm_set1_epi32(ky);
-		__m128i mkx=_mm_set_epi32(fillstart+3, fillstart+2, fillstart+1, fillstart), res;
-		int idx=bw*ky+fillstart, *row=buffer+idx;
-		for(int kx=0;kx<xround;kx+=4, idx+=4)
-		{
-			res=callback(mkx, mky, params, idx, 4);
-			_mm_storeu_si128((__m128i*)(row+kx), res);
-			mkx=_mm_add_epi32(mkx, four);
-		}
-		if(xrem)
-		{
-			res=callback(mkx, mky, params, idx, xrem);
-			for(int kx=0;kx<xrem;++kx)
-				row[xround+kx]=res.m128i_i32[kx];
-		}
-	}
+		callback(params, fillstart, fillend, ky);
+	//{
+	//	int xround=fillend-fillstart, xrem=xround&3;
+	//	xround&=~3;
+	//	const __m128i four=_mm_set1_epi32(4);
+	//	__m128i mky=_mm_set1_epi32(ky);
+	//	__m128i mkx=_mm_set_epi32(fillstart+3, fillstart+2, fillstart+1, fillstart), res;
+	//	int idx=bw*ky+fillstart, *row=buffer+idx;
+	//	for(int kx=0;kx<xround;kx+=4, idx+=4)
+	//	{
+	//		res=callback(mkx, mky, params, idx, 4);
+	//		_mm_storeu_si128((__m128i*)(row+kx), res);
+	//		mkx=_mm_add_epi32(mkx, four);
+	//	}
+	//	if(xrem)
+	//	{
+	//		res=callback(mkx, mky, params, idx, xrem);
+	//		for(int kx=0;kx<xrem;++kx)
+	//			row[xround+kx]=res.m128i_i32[kx];
+	//	}
+	//}
 }
-void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int nvmask, FillCallback callback, void *params)//number of vertices = POT
+void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int nvmask, XFillCallback callback, void *params)//number of vertices = POT
 {
 	int vtop=0;//min y
 	char all_horizontal=true;
@@ -422,44 +423,27 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 			fillend+=(bw-fillend)&-(fillend>bw);
 
 			if(fillstart<fillend)
-			{
-				//if(fillstart<0||fillend>=bw)//
-				//	int LOL_1=0;//
-				int xround=fillend-fillstart, xrem=xround&3;
-				xround&=~3;
-				const __m128i four=_mm_set1_epi32(4);
-				__m128i mkx=_mm_set_epi32(fillstart+3, fillstart+2, fillstart+1, fillstart), res;
-				int idx=bw*ky+fillstart, *row=buffer+idx;
-				for(int kx=0;kx<xround;kx+=4, idx+=4)
-				{
-					res=callback(mkx, mky, params, idx, 4);
-					_mm_storeu_si128((__m128i*)(row+kx), res);
-					mkx=_mm_add_epi32(mkx, four);
-				}
-				if(xrem)
-				{
-					res=callback(mkx, mky, params, idx, xrem);
-					for(int kx=0;kx<xrem;++kx)
-						row[xround+kx]=res.m128i_i32[kx];
-				}
-			}
-			//if(fillstart<fillend)
+				callback(params, fillstart, fillend, ky);
 			//{
-			//	//if(fillstart<0||fillstart>=bw||fillend<0||fillend>=bw)
-			//	//	int LOL_1=0;
-			//	memfill(buffer+bw*ky+fillstart, &color, (fillend-fillstart)<<2, 1<<2);
+			//	int xround=fillend-fillstart, xrem=xround&3;
+			//	xround&=~3;
+			//	const __m128i four=_mm_set1_epi32(4);
+			//	__m128i mkx=_mm_set_epi32(fillstart+3, fillstart+2, fillstart+1, fillstart), res;
+			//	int idx=bw*ky+fillstart, *row=buffer+idx;
+			//	for(int kx=0;kx<xround;kx+=4, idx+=4)
+			//	{
+			//		res=callback(mkx, mky, params, idx, 4);
+			//		_mm_storeu_si128((__m128i*)(row+kx), res);
+			//		mkx=_mm_add_epi32(mkx, four);
+			//	}
+			//	if(xrem)
+			//	{
+			//		res=callback(mkx, mky, params, idx, xrem);
+			//		for(int kx=0;kx<xrem;++kx)
+			//			row[xround+kx]=res.m128i_i32[kx];
+			//	}
 			//}
 		}
-		//int Lstart=minimum(Lkx, Lkx2)+(Lkx2<Lkx), Lrange=abs(Lkx2-Lkx)+(Lkx==Lkx2);
-		//int Rstart=minimum(Rkx, Rkx2)+(Rkx2<Rkx), Rrange=abs(Rkx2-Rkx)+(Rkx==Rkx2);
-		//int fillstart=minimum(Lstart, Rstart);
-		//int fillrange=maximum(Lstart+Lrange, Rstart+Rrange)-fillstart;
-		//if(ky<0||ky>=bh)//
-		//	int LOL_1=0;//
-		//if(fillstart<0||fillstart+fillrange>=bw||fillrange<0)//
-		//	int LOL_2=0;//
-		//memfill(buffer+bw*ky+fillstart, &color, fillrange<<2, 1<<2);
-		//buffer[bw*ky+kx]=color;//
 		Lkx=Lkx2;
 		Rkx=Rkx2;
 		mky=_mm_add_epi32(mky, m_one32);
@@ -571,7 +555,7 @@ void			convex_hull(Point const *p, int nv, std::vector<Point> &hull)
 #endif
 	//log_end();//
 }
-void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, FillCallback callback, void *params)
+void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFillCallback callback, void *params)
 {
 	static std::vector<Point> p;
 	convex_hull(points, nv, p);
@@ -679,25 +663,26 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, Fil
 			fillend+=(bw-fillend)&-(fillend>bw);
 
 			if(fillstart<fillend)
-			{
-				int xround=fillend-fillstart, xrem=xround&3;
-				xround&=~3;
-				const __m128i four=_mm_set1_epi32(4);
-				__m128i mkx=_mm_set_epi32(fillstart+3, fillstart+2, fillstart+1, fillstart), res;
-				int idx=bw*ky+fillstart, *row=buffer+idx;
-				for(int kx=0;kx<xround;kx+=4, idx+=4)
-				{
-					res=callback(mkx, mky, params, idx, 4);
-					_mm_storeu_si128((__m128i*)(row+kx), res);
-					mkx=_mm_add_epi32(mkx, four);
-				}
-				if(xrem)
-				{
-					res=callback(mkx, mky, params, idx, xrem);
-					for(int kx=0;kx<xrem;++kx)
-						row[xround+kx]=res.m128i_i32[kx];
-				}
-			}
+				callback(params, fillstart, fillend, ky);
+			//{
+			//	int xround=fillend-fillstart, xrem=xround&3;
+			//	xround&=~3;
+			//	const __m128i four=_mm_set1_epi32(4);
+			//	__m128i mkx=_mm_set_epi32(fillstart+3, fillstart+2, fillstart+1, fillstart), res;
+			//	int idx=bw*ky+fillstart, *row=buffer+idx;
+			//	for(int kx=0;kx<xround;kx+=4, idx+=4)
+			//	{
+			//		res=callback(mkx, mky, params, idx, 4);//TODO: call callback once per row
+			//		_mm_storeu_si128((__m128i*)(row+kx), res);
+			//		mkx=_mm_add_epi32(mkx, four);
+			//	}
+			//	if(xrem)
+			//	{
+			//		res=callback(mkx, mky, params, idx, xrem);
+			//		for(int kx=0;kx<xrem;++kx)
+			//			row[xround+kx]=res.m128i_i32[kx];
+			//	}
+			//}
 		}
 		Lkx=Lkx2;
 		Rkx=Rkx2;

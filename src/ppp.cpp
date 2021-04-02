@@ -3679,6 +3679,10 @@ skip_render:;
 					hist_premodify(image, iw, ih);
 					fill_mouse(image, mx, my, secondarycolor);
 					break;
+				case M_MAGNIFIER://reset zoom
+					logzoom=0, zoom=1;
+					currentmode=prevmode;
+					break;
 				case M_AIRBRUSH:
 					drag=D_DRAW;
 					if(!timer)

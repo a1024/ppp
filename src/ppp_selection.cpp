@@ -1,5 +1,6 @@
 #include		"ppp.h"
 #include		"generic.h"
+static const char file[]=__FILE__;
 #if 0
 void			selection_sort(Point const &sel_start, Point const &sel_end, Point &p1, Point &p2)
 {
@@ -410,13 +411,53 @@ void			editpaste()
 			formatted_error(L"OpenClipboard", __LINE__);
 			return;
 		}
+		void *hData;
+		int size;
 		switch(format)
 		{
+		case CF_BITMAP://added 20210402
+			{
+				//messageboxa(ghWnd, "Error", "Unsupported format CF_BITMAP");
+				HBITMAP hBm2=(HBITMAP)GetClipboardData(CF_BITMAP);		SYS_ASSERT(hBm2);
+				SIZE s;
+				GetBitmapDimensionEx(hBm2, &s);
+				if(!s.cx||!s.cy)
+					break;
+				selection_stamp(true);
+				selection.set(spx, spy, spx+s.cx, spy+s.cy);
+				currentmode=M_RECT_SELECTION, selection_free=false;
+				if(iw<spx+s.cx)
+					iw=spx+s.cx;
+				if(ih<spy+s.cy)
+					ih=spy+s.cy;
+				hist_premodify(image, iw, ih);
+				sw=s.cx, sh=s.cy, sel_buffer=(int*)realloc(sel_buffer, sw*sh<<2);
+				
+
+				BITMAPINFO bmh={{sizeof(BITMAPINFOHEADER), s.cx, -s.cy, 1, 32, BI_RGB, 0}};
+				HDC hDC2=CreateCompatibleDC(0);		SYS_ASSERT(hDC2);
+				hBm2=(HBITMAP)SelectObject(hDC2, hBm2);
+
+				int copied=GetDIBits(hDC2, hBm2, 0, s.cy, sel_buffer, &bmh, DIB_RGB_COLORS);
+
+				hBm2=(HBITMAP)SelectObject(hDC2, hBm2);
+				DeleteDC(hDC2);
+			}
+			break;
+		case CF_DIBV5://added 20210402
+			{
+				//hData=GetClipboardData(CF_DIB);		SYS_ASSERT(hData);
+				//size=GlobalSize(hData);
+				//BITMAPV5HEADER *bm5=(BITMAPV5HEADER*)GlobalLock(hData);
+				//GlobalUnlock(hData);
+				messageboxa(ghWnd, "Error", "Unsupported format CF_DIBV5");
+			}
+			break;
 		case CF_DIB:
 			{
-				void *hData=GetClipboardData(CF_DIB);
-				int size=GlobalSize(hData);
-				BITMAPINFO *bmi=(BITMAPINFO*)GlobalLock(hData);
+				hData=GetClipboardData(CF_DIB);						SYS_ASSERT(hData);
+				size=GlobalSize(hData);
+				BITMAPINFO *bmi=(BITMAPINFO*)GlobalLock(hData);		SYS_ASSERT(bmi);
 				if(bmi->bmiHeader.biCompression==BI_RGB||bmi->bmiHeader.biCompression==BI_BITFIELDS)//uncompressed
 				{
 					int bw=bmi->bmiHeader.biWidth, bh=abs(bmi->bmiHeader.biHeight);
@@ -444,6 +485,16 @@ void			editpaste()
 						ih=spy+bh;
 					hist_premodify(image, iw, ih);
 					sw=bw, sh=bh, sel_buffer=(int*)realloc(sel_buffer, sw*sh<<2);
+					int idx_b=0, idx_r=2;
+					if(bmi->bmiHeader.biCompression==BI_BITFIELDS)//first 3 DWORDs are red, green, blue bitfields
+					{
+						if(((int*)data)[0]==0x000000FF)//swap: 0xAABBGGRR -> 0xAARRGGBB
+							idx_b=2, idx_r=0, data+=3*(bmi->bmiHeader.biBitCount>>3);
+						else if(((int*)data)[0]==0x00FF0000)//as it is: 0xAARRGGBB
+							idx_b=0, idx_r=2, data+=3*(bmi->bmiHeader.biBitCount>>3);
+						else
+							messageboxa(ghWnd, "Error", "Invalid bitmap bitfield");
+					}
 					switch(bmi->bmiHeader.biBitCount)
 					{
 					case 24:
@@ -460,9 +511,9 @@ void			editpaste()
 								for(int kx=0;kx<bw;++kx)
 								{
 									auto dst=(byte*)(dstrow+kx), src=(byte*)(srcrow+3*kx);
-									dst[0]=src[0];
+									dst[0]=src[idx_r];
 									dst[1]=src[1];
-									dst[2]=src[2];
+									dst[2]=src[idx_b];
 									dst[3]=0xFF;
 								}
 							}
@@ -472,15 +523,51 @@ void			editpaste()
 						data_size=bw*bh<<2;
 						if(bmi->bmiHeader.biSizeImage)//skip palette bits
 							data+=bmi->bmiHeader.biSizeImage-data_size;
-						for(int ky=0;ky<bh&&(bw*(ky+1)<<2)<=data_size;++ky)
-							memcpy(sel_buffer+sw*ky, (int*)data+bw*(bmi->bmiHeader.biHeight<0?ky:bmi->bmiHeader.biHeight-1-ky), bw<<2);
-							//for(int kx=0;kx<bw;++kx)
-							//	sel_buffer[sw*ky+kx]=((int*)data)[bw*(bmi->bmiHeader.biHeight<0?ky:bmi->bmiHeader.biHeight-1-ky)+kx];
+						if(idx_b==0)
+						{
+							for(int ky=0;ky<bh&&(bw*(ky+1)<<2)<=data_size;++ky)
+								memcpy(sel_buffer+sw*ky, (int*)data+bw*(bmi->bmiHeader.biHeight<0?ky:bmi->bmiHeader.biHeight-1-ky), bw<<2);
+						}
+						else//swap rb
+						{
+							for(int ky=0;ky<bh&&(bw*(ky+1)<<2)<=data_size;++ky)
+							{
+								int *dst=sel_buffer+sw*ky,
+									*src=(int*)data+bw*(bmi->bmiHeader.biHeight<0?ky:bmi->bmiHeader.biHeight-1-ky);
+								for(int kx=0;kx<bw;++kx)
+								{
+									auto p1=(unsigned char*)(src+kx), p2=(unsigned char*)(dst+kx);
+									p2[0]=p1[2];
+									p2[1]=p1[1];
+									p2[2]=p1[0];
+									p2[3]=p1[3];
+								}
+							}
+						}
 						break;
 					}
 				}
+				else
+					messageboxa(ghWnd, "Error", "Unsupported compression: bmiHeader.biCompression == %d", bmi->bmiHeader.biCompression);
 				GlobalUnlock(hData);
 			}
+			break;
+		case CF_TEXT:
+		case CF_SYLK:
+		case CF_DIF:
+		case CF_OEMTEXT:
+		case CF_PENDATA:
+		case CF_RIFF:
+		case CF_WAVE:
+		case CF_UNICODETEXT:
+		case CF_ENHMETAFILE:
+		case CF_HDROP:
+		case CF_LOCALE:
+			break;
+		case CF_METAFILEPICT:
+		case CF_TIFF:
+		case CF_PALETTE:
+			messageboxa(ghWnd, "Error", "Unsupported format %d", format);
 			break;
 		}
 		CloseClipboard();
