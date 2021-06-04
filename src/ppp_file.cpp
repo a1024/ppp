@@ -62,7 +62,7 @@ int				write_utf8_file(const wchar_t *filename, std::wstring &input)
 	fclose(file);
 	return written;
 }
-inline bool		file_exists(std::wstring const &name)
+/*inline bool		file_exists(std::wstring const &name)//moved to g_file.c
 {
 	struct _stat32 info;
 	int error=_wstat32(name.c_str(), &info);
@@ -77,7 +77,7 @@ inline bool		file_exists(std::wstring const &name)
 	}
 	return false;
 #endif
-}
+}//*/
 
 char			errormsg[G_BUF_SIZE]={0};
 const char*		shfileerror2str(int error)
@@ -597,6 +597,58 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 	assign_path(filepath_u16, 0, filepath_u16.size(), filename);
 	int size=filename.size();
 	bool frames_extracted=false;
+	if(size>=8)
+	{
+		if(!acme_strcmp_ci(filename.c_str()+size-8, L".r10.png"))
+		{
+			stbi_convert_wchar_to_utf8(g_buf, g_buf_size, filename.c_str());
+			int iw2, ih2, nch2;
+			unsigned char *original_image=stbi_load(g_buf, &iw2, &ih2, &nch2, 0);
+			if(nch2!=4)
+				return false;
+
+			rawMode=RM_FLOAT_MOSAIC;
+			modified=false;
+			int *im=(int*)original_image;
+			//r10_subimage_to_clipboard(im, iw2, ih2, 16, 16);
+			iw=iw2<<1, ih=ih2, image_size=iw*ih, nchannels=nch2;//double width because each 32bit pixel packs two mosaic elements
+			image=hist_start(iw, ih);
+			//image_size=iw*ih, image=(int*)realloc(image, image_size<<2);
+			int bitdepth=10;
+			int mask=(1<<bitdepth)-1;
+			float normal=1.f/mask;
+			float *fimage=(float*)image;
+			for(int k=0;k<image_size;k+=2)
+			{
+				int couple=im[k>>1];
+				couple=swap_rb(couple);
+				int px1=couple&mask, px2=couple>>bitdepth&mask;
+				fimage[k  ]=px1*normal;
+				fimage[k+1]=px2*normal;
+			}
+			//for(int k=0;k<image_size;k+=2)
+			//{
+			//	int couple=im[k>>1];
+			//	couple=swap_rb(couple);
+			//	image[k  ]=0xFF000000|couple			&mask;
+			//	image[k+1]=0xFF000000|couple>>bitdepth	&mask;
+			//}
+			log_end();
+			return true;
+
+			//std::vector<byte> png;
+			//unsigned error=lodepng::encode(png, (byte*)savedimage, width, height);
+			//if(error)
+			//{
+			//	messagebox(ghWnd, L"Error", L"Failed to encode frame %d to PNG", ki);
+			//	continue;
+			//}
+			//swprintf_s(g_wbuf, g_buf_size, L"%08d.PNG", ki+1);
+			//framenames[ki]=g_wbuf;
+			//std::wstring framepath=workfolder+L'/'+framenames[ki];
+			//write_binary(framepath.c_str(), png);//possibly overwrite frame
+		}
+	}
 	if(size>=4)
 	{
 		if(!acme_strcmp_ci(filename.c_str()+size-4, L".ani"))
@@ -967,7 +1019,7 @@ void			save_media(std::wstring const &outputpath_u16)
 	//	if(outputpath_cmd[size-1]!=L'\"')
 	//		outputpath_cmd.push_back(L'\"');
 	//}
-	if(file_exists(outputpath_u16))
+	if(file_is_readablew(outputpath_u16.c_str()))
 		_wremove(outputpath_u16.c_str());
 
 //	std::wstring framename;

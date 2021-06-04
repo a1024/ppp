@@ -180,6 +180,7 @@ inline wchar_t	acme_tolower(wchar_t c)//ASCII-only
 }
 void			assign_path(std::wstring const &text, int start, int end, std::wstring &pathret);
 void			assign_path(std::string const &text, int start, int end, std::wstring &pathret);
+void			assign_path(std::string const &text, int start, int end, std::string &pathret);
 void			get_name_from_path(std::wstring const &path, std::wstring &name);
 
 bool			skip_whitespace(std::wstring const &text, int &k);
@@ -238,6 +239,12 @@ typedef unsigned short wchar_t;
 
 	double			getwindowdouble(HWND hWnd);
 	int				getwindowint(HWND hWnd);
+
+	//file
+	int				file_is_readablea(const char *filename);//0: not readable, 1: regular file, 2: folder
+	int				file_is_readablew(const wchar_t *filename);
+	//int			file_existsw(const wchar_t *name);
+	//int			file_existsa(const char *name);
 
 #ifdef __cplusplus
 }

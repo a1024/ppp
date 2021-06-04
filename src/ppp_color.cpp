@@ -1,4 +1,5 @@
 #include		"ppp.h"
+#include		"generic.h"
 #include		<tmmintrin.h>
 void			swap_rb(int *dstimage, const int *srcimage, int pxcount)
 {
@@ -109,4 +110,36 @@ void			clear_alpha()
 	hist_premodify(image, iw, ih);
 	for(int k=0;k<image_size;++k)
 		image[k]|=0xFF000000;
+}
+
+void			raw2float()
+{
+	if(rawMode!=RM_FLOAT_MOSAIC)
+	{
+		messageboxa(ghWnd, "Error", "This operation is only for raw images");
+		return;
+	}
+	rawMode=RM_FLOAT;
+	int iw0=iw>>1, ih0=ih>>1, iw2=iw0<<2, size=iw2*ih0;
+	float *fimage=(float*)image, *fimage2=new float[size];
+	int max_idx=0;
+	for(int ky=0;ky<ih0;++ky)
+	{
+		for(int kx=0;kx<iw0;++kx)
+		{
+			int kx1=kx<<1, ky1=ky<<1;
+			int kx2=kx<<2;
+			fimage2[iw2*ky+kx2  ]=fimage[iw*(ky1+1)+kx1];//r
+			fimage2[iw2*ky+kx2+1]=(fimage[iw*ky1+kx1]+fimage[iw*(ky1+1)+kx1+1])*0.5f;//g	little loss of green information
+			fimage2[iw2*ky+kx2+2]=fimage[iw*ky1+kx1+1];//b
+			fimage2[iw2*ky+kx2+3]=1;//a
+			if(max_idx<iw2*ky+kx2+4)
+				max_idx=iw2*ky+kx2+4;
+		}
+	}
+	image=hist_start(iw2, ih0);
+	iw=iw2>>2, ih=ih0, image_size=iw*ih;
+	memcpy(image, fimage2, size<<2);
+	//fimage2[(iw<<2)*(ih>>1)+(iw<<1)];
+	delete[] fimage2;
 }

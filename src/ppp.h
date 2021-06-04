@@ -34,6 +34,21 @@ struct			Bitmap//pass Bitmap with dimensions instead of pointer
 	int w, h;
 	int *rgb;//not rgb[1] because of CreateDIBSection
 };
+enum			RawMode
+{
+	RM_INT,//'image' is int 0xAARRGGBB, 256-level channels		size=iw*ih px
+	RM_FLOAT_MOSAIC,//'image' is RGGB float Bayer mosaic, [0~1] channels		size=iw*ih px
+	RM_FLOAT,//'image' is float {r, g, b, a}, [0~1] channels		size=(iw/4)*ih px (iw is quadrupled for 16 bytes per pixel)
+};
+extern RawMode	rawMode;
+enum			HistogramMode
+{
+	H_OFF,
+	H_HISTOGRAM,
+	H_CROSS_SECTION,
+	H_COUNT,
+};
+extern HistogramMode histogramMode;
 extern int		*rgb, w, h, rgbn,
 				mx, my,//current mouse position
 				prev_mx, prev_my,//previous mouse position
@@ -78,7 +93,7 @@ enum			Commands
 	IDM_EDIT_UNDO, IDM_EDIT_REPEAT, IDM_EDIT_CUT, IDM_EDIT_COPY, IDM_EDIT_PASTE, IDM_EDIT_CLEAR_SELECTION, IDM_EDIT_SELECT_ALL, IDM_EDIT_RESET_SEL_SCALE, IDM_EDIT_COPY_TO, IDM_EDIT_PASTE_FROM,
 	IDM_VIEW_TOOLBOX, IDM_VIEW_COLORBOX, IDM_VIEW_STATUSBAR, IDM_VIEW_TEXT_TOOLBAR, IDM_VIEW_ZOOM, IDM_VIEW_VIEWBITMAP,
 		IDSM_ZOOM_IN, IDSM_ZOOM_OUT, IDSM_ZOOM_CUSTOM, IDSM_ZOOM_SHOW_GRID, IDSM_ZOOM_SHOW_THUMBNAIL,
-	IDM_IMAGE_FLIP_ROTATE, IDM_IMAGE_SKETCH_SKEW, IDM_IMAGE_INVERT_COLORS, IDM_IMAGE_ATTRIBUTES, IDM_IMAGE_CLEAR_IMAGE, IDM_IMAGE_CLEAR_ALPHA, IDM_IMAGE_SET_CHANNEL, IDM_IMAGE_ASSIGN_CHANNEL, IDM_IMAGE_EXPORT_CHANNEL, IDM_IMAGE_DRAW_OPAQUE, IDM_IMAGE_LINEAR,
+	IDM_IMAGE_FLIP_ROTATE, IDM_IMAGE_SKETCH_SKEW, IDM_IMAGE_INVERT_COLORS, IDM_IMAGE_ATTRIBUTES, IDM_IMAGE_CLEAR_IMAGE, IDM_IMAGE_CLEAR_ALPHA, IDM_IMAGE_SET_CHANNEL, IDM_IMAGE_ASSIGN_CHANNEL, IDM_IMAGE_EXPORT_CHANNEL, IDM_RAW_TO_FLOAT, IDM_IMAGE_DRAW_OPAQUE, IDM_IMAGE_LINEAR,
 	IDM_COLORS_EDITCOLORS, IDM_COLORS_EDITMASK,
 	IDM_HELP_TOPICS, IDM_HELP_ABOUT,
 };
@@ -353,7 +368,15 @@ struct			Point2d//for bezier curve
 };
 inline Point2d	operator+(Point2d const &a, Point2d const &b){return Point2d(a.x+b.x, a.y+b.y);}
 inline Point2d	operator-(Point2d const &a, Point2d const &b){return Point2d(a.x-b.x, a.y-b.y);}
-//inline bool	operator!=(Point2d const &a, Point2d const &b){return a.x!=b.x||a.y!=b.y;}
+inline Point2d	operator*(double s, Point2d const &b){return Point2d(s*b.x, s*b.y);}
+inline bool	operator!=(Point2d const &a, Point2d const &b){return a.x!=b.x||a.y!=b.y;}
+inline double abs(Point2d const &a){return sqrt(a.x*a.x+a.y*a.y);}
+inline double dot(Point2d const &a, Point2d const &b){return a.x*b.x+a.y*b.y;}
+inline bool collinear(Point2d const &a, Point2d const &b, Point2d const &c)
+{
+	const double tolerance=1e-6;
+	return abs((c.x-b.x)*(b.y-a.y)-(b.x-a.x)*(c.y-b.y))<tolerance;
+}
 inline void		screen2image(int sx, int sy, int &ix, int &iy)
 {
 	ix=spx+shift(sx-(58*showtoolbox+3), -logzoom);
@@ -551,6 +574,9 @@ void			swap_rb(int *dstimage, const int *srcimage, int pxcount);
 void			invertcolor(int *buffer, int bw, int bh, bool selection=false);
 void			clear_alpha();
 
+void			raw2float();
+
+
 //globals
 extern int		primarycolor, secondarycolor,//0xAARRGGBB
 				primary_alpha, secondary_alpha;
@@ -707,6 +733,11 @@ extern WNDPROC	oldEditProc;
 long			__stdcall EditProc(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
 int				__stdcall FontProc(LOGFONTW const *lf, TEXTMETRICW const *tm, unsigned long FontType, long lParam);
 
+//image processing
+void			center_bright_object();
+void			simple_average_stacker();
+void			stack_sky_images();
+
 
 //paint++ GUI
 enum			ColorbarShow{CS_NONE, CS_TEXTOPTIONS, CS_FLIPROTATE, CS_STRETCHSKEW};
@@ -748,6 +779,9 @@ void			h_line_comp_dots(int x1, int x2, int y, Point const &cTL, Point const &cB
 
 //i0: start on image, id: extent in image, s0: imagewindow start on screen, s1 & s2: draw start & end on screen
 void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int sx0, int sy0,  int sx1, int sx2, int sy1, int sy2,  int *mask, int transparent, int bkcolor);//mask: pass nullptr for rectangular selection
+
+void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2);
+//void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2, int bitdepth);
 
 
 //application

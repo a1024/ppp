@@ -1450,3 +1450,192 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 		}
 	}//if mask else
 }
+
+void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
+{
+	if(rawMode==RM_INT||x1+4>=x2)
+		return;
+	float *fimage=(float*)buffer;
+	if(rawMode==RM_FLOAT_MOSAIC)
+	{
+		int nlevels=(x2-x1)>>2;//4 channels per level (RGGB) in histogram
+		float inv_nlevelsm1=1.f/(nlevels-1);
+		int *histogram=nullptr;
+		if(histogramMode==H_HISTOGRAM)
+		{
+			histogram=new int[nlevels<<2];
+			memset(histogram, 0, nlevels<<4);
+		}
+		int ch_mag[]={0x80, 0xFF, 0xFF, 0x80};
+		for(int ky=y1;ky<y2;++ky)
+		{
+			for(int kx=x1;kx<x2;++kx)
+			{
+				int ix=spx+shift(kx-x1, -logzoom), iy=spy+shift(ky-y1, -logzoom);
+				if(icheck(ix, iy))
+					continue;
+				int sh=(ix&1)+!(iy&1);//GR BG
+				int comp=(iy&1)<<1|!(ix&1);//GR BG
+				//int ch=!(ix&1)+(iy&1);//GB RG
+				//int comp=(iy&1)<<1|(ix&1);//GB RG
+				float pixel=fimage[bw*iy+ix];
+				int shade=(int)(pixel*ch_mag[comp]);//compensation for double green
+				rgb[w*ky+kx]=0xFF000000|shade<<(sh<<3);
+				if(histogramMode==H_HISTOGRAM)
+				{
+					int level=(int)(pixel*(nlevels-1));
+					//if((level<<2|comp)>=(nlevels<<2))
+					//	int LOL_1=0;
+					++histogram[level<<2|comp];
+				}
+			}
+		}
+		if(histogramMode==H_HISTOGRAM)
+		{
+			int histMax=0, hsize=nlevels<<2;
+			for(int k=0;k<hsize;k+=4)//alpha doesn't affect 'histMax'
+			{
+				if(histMax<histogram[k])
+					histMax=histogram[k];
+				if(histMax<histogram[k+1])
+					histMax=histogram[k+1];
+				if(histMax<histogram[k+2])
+					histMax=histogram[k+2];
+			}
+			//int hColor[]={0xFFFF0000, 0xFF00FF00, 0xFF00FF00, 0xFF0000FF};//RG GB
+			int hColor[]={0xFF00FF00, 0xFF0000FF, 0xFFFF0000, 0xFF00FF00};//GB RG
+			//int hColor[]={0xFF00FF00, 0xFFFF0000, 0xFF0000FF, 0xFF00FF00};//GR BG
+			for(int kx=0;kx<hsize&&x1+kx<x2;++kx)
+			{
+				int freq=histogram[kx]*(y2-y1)/histMax;
+				for(int ky=0;ky<freq&&y1+ky<y2;++ky)
+				{
+					if(check(kx, ky))
+						continue;
+					rgb[w*(y1+ky)+x1+kx]=hColor[kx&3];
+				}
+			}
+			delete[] histogram;
+		}
+	}
+	else if(rawMode==RM_FLOAT)
+	{
+		int nlevels=(x2-x1)>>2;//4 channels per level (RGBA) in histogram
+		float inv_nlevelsm1=1.f/(nlevels-1);
+		int *histogram=nullptr;
+		if(histogramMode==H_HISTOGRAM)
+		{
+			histogram=new int[nlevels<<2];
+			memset(histogram, 0, nlevels<<4);
+		}
+		int bw2=bw<<2;
+		//int level_a_prev=-1;
+		//int showAlpha=false;
+		for(int ky=y1;ky<y2;++ky)
+		{
+			//if(ky==((y1+y2)>>1))
+			//	int LOL_1=0;
+			for(int kx=x1;kx<x2;++kx)
+			{
+				int ix=spx+shift(kx-x1, -logzoom), iy=spy+shift(ky-y1, -logzoom);
+				if(icheck(ix, iy))
+					continue;
+				int ix2=ix<<2;
+				float comp_r=fimage[bw2*iy+ix2], comp_g=fimage[bw2*iy+ix2+1], comp_b=fimage[bw2*iy+ix2+2], comp_a=fimage[bw2*iy+ix2+3];
+				//if(comp_r==-431602080.f||comp_g==-431602080.f||comp_b==-431602080.f||comp_a==-431602080.f)
+				//	int LOL_2=0;
+				int shade_r=(int)(comp_r*0xFF);
+				int shade_g=(int)(comp_g*0xFF);
+				int shade_b=(int)(comp_b*0xFF);
+				int shade_a=(int)(comp_a*0xFF);
+				rgb[w*ky+kx]=shade_a<<24|shade_r<<16|shade_g<<8|shade_b;
+				if(histogramMode==H_HISTOGRAM)
+				{
+					int level_r=(int)(comp_r*(nlevels-1));
+					int level_g=(int)(comp_g*(nlevels-1));
+					int level_b=(int)(comp_b*(nlevels-1));
+					int level_a=(int)(comp_a*(nlevels-1));
+					++histogram[level_r<<2  ];
+					++histogram[level_g<<2|1];
+					++histogram[level_b<<2|2];
+					++histogram[level_a<<2|3];
+					//showAlpha|=level_a!=level_a_prev;
+					//level_a_prev=level_a;
+				}
+			}
+		}
+		if(histogramMode==H_HISTOGRAM)
+		{
+			int histMax=0, hsize=nlevels<<2;
+			for(int k=0;k<hsize;k+=4)//alpha doesn't affect 'histMax'
+			{
+				if(histMax<histogram[k])
+					histMax=histogram[k];
+				if(histMax<histogram[k+1])
+					histMax=histogram[k+1];
+				if(histMax<histogram[k+2])
+					histMax=histogram[k+2];
+			}
+			int hColor[]={0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFFFF};//rgba
+			for(int kx=0;kx<hsize&&x1+kx<x2;++kx)
+			{
+				int freq=histogram[kx]*(y2-y1)/histMax;
+				for(int ky=0;ky<freq&&y1+ky<y2;++ky)
+				{
+					if(check(kx, ky))
+						continue;
+					rgb[w*(y1+ky)+x1+kx]=hColor[kx&3];
+					//rgb[w*(y1+ky)+x1+kx]=0xFF0000FF;
+				}
+			}
+			delete[] histogram;
+		}
+	}
+}
+#if 0
+void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2, int bitdepth)
+{
+	int nlevels=1<<bitdepth;
+	int *histogram;
+	if(histogramOn)
+	{
+		histogram=new int[nlevels];
+		memset(histogram, 0, nlevels<<2);
+	}
+	int discard=bitdepth-8, shade_mask=(1<<bitdepth)-1;
+	for(int ky=y1, iyp=-1;ky<y2;++ky)
+	{
+		for(int kx=x1, ixp=-1;kx<x2;++kx)
+		{
+			int ix=spx+shift(kx-x1, -logzoom), iy=spy+shift(ky-y1, -logzoom);
+			if(icheck(ix, iy))
+				continue;
+			int pixel=buffer[bw*iy+ix];
+			int alpha=pixel>>24;//TODO: support alpha
+			//int shade=(pixel&shade_mask)*0xFF/shade_mask;
+			//int shade=pixel&0xFF;
+			int shade=(pixel&shade_mask)>>discard;
+			rgb[w*ky+kx]=0xFF000000|shade<<(((ix&1)+!(iy&1))<<3);
+			//rgb[w*ky+kx]=0xFF000000|shade<<16|shade<<8|shade;
+
+			if(ixp==-1||ix!=ixp||iyp==-1||iy!=iyp)
+			{
+				++histogram[pixel&shade_mask];
+				ixp=ix, iyp=iy;
+			}
+		}
+	}
+	if(histogramOn)
+	{
+		int hColor=0xFF000000|rand()<<15|rand();
+		for(int kx=0;kx<nlevels&&x1+kx<x2;++kx)
+		{
+			int freq=histogram[kx]>>4;
+			for(int ky=0;ky<freq&&y1+ky<y2;++ky)
+				rgb[w*(y1+ky)+x1+kx]=hColor;
+			//	rgb[w*(y1+ky)+x1+kx]=0xFFFF00FF;
+		}
+		delete[] histogram;
+	}
+}
+#endif

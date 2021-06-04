@@ -48,6 +48,7 @@
 #include		<functional>
 #include		<time.h>
 #include		<strsafe.h>
+
 //#pragma		comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 static const char file[]=__FILE__;
@@ -58,6 +59,8 @@ char			debugmode=true;
 #else
 char			debugmode=false;
 #endif
+RawMode			rawMode=RM_INT;
+HistogramMode	histogramMode=H_OFF;
 int				*rgb=nullptr, w=0, h=0, rgbn=0,
 				mx=0, my=0,//current mouse position
 				prev_mx=0, prev_my=0,//previous mouse position
@@ -742,6 +745,8 @@ Rect			imagewindow;//image window dimensions on screen, excluding scrollbars
 Point			imageBRcorner,//position of bottom-right corner of visible part of image
 				imagemarks[6];//{m1start, m1end, center-10, center+10, m2start, m2end}
 
+//int			threshold=-1;
+//double		planetx=-1, planety=-1;
 void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 {
 	prof_add("Entry");
@@ -1869,7 +1874,84 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		//if(*image==0xFF000000)
 		//	int LOL_1=0;
 		if(bx1<bx2&&by1<by2)
-			blend_with_checkboard_zoomed(use_temp_buffer?temp_buffer:image, x1, y1, bx1, bx2, by1, by2, 0, 0);
+		{
+			if(rawMode==RM_INT)
+			{
+				if(histogramMode)
+					bx1=x1, bx2=x2s, by1=y1, by2=y2s;
+				blend_with_checkboard_zoomed(use_temp_buffer?temp_buffer:image, x1, y1, bx1, bx2, by1, by2, 0, 0);
+				if(histogramMode==H_HISTOGRAM)
+				{
+					int nlevels=(bx2-bx1)>>2, hsize=nlevels<<2;
+					int *histogram=new int[hsize];
+					memset(histogram, 0, nlevels<<4);
+					for(int ky=by1;ky<by2;++ky)
+					{
+						for(int kx=bx1;kx<bx2;++kx)
+						{
+							int ix, iy;
+							screen2image(kx, ky, ix, iy);
+							if(icheck(ix, iy))
+								continue;
+							auto p=(unsigned char*)(image+iw*iy+ix);
+							++histogram[(p[0]*nlevels>>8)<<2  ];
+							++histogram[(p[1]*nlevels>>8)<<2|1];
+							++histogram[(p[2]*nlevels>>8)<<2|2];
+							++histogram[(p[3]*nlevels>>8)<<2|3];
+						}
+					}
+					int histMax=0;
+					for(int k=0;k<hsize;k+=4)//alpha doesn't affect 'histMax'
+					{
+						if(histMax<histogram[k])
+							histMax=histogram[k];
+						if(histMax<histogram[k+1])
+							histMax=histogram[k+1];
+						if(histMax<histogram[k+2])
+							histMax=histogram[k+2];
+					}
+					int hColor[]={0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFFFF};//RGBA
+					for(int kx=0;kx<hsize&&bx1+kx<bx2;++kx)
+					{
+						int freq=histogram[kx]*(by2-by1)/histMax;
+						for(int ky=0;ky<freq&&by1+ky<by2;++ky)
+						{
+							if(check(kx, ky))
+								continue;
+							rgb[w*(by1+ky)+bx1+kx]=hColor[kx&3];
+						}
+					}
+					delete[] histogram;
+				}
+				else if(histogramMode==H_CROSS_SECTION)
+				{
+					if(mx>=bx1&&mx<bx2&&my>=by1&&my<by2)
+					{
+						for(int kx=bx1;kx<bx2;++kx)//
+							rgb[w*my+kx]^=0x00FFFFFF;//
+						unsigned char color[]={0xFF, 0x00, 0xFF, 0x00};
+						for(int kx=bx1;kx<bx2;++kx)
+						{
+							int ix, iy;
+							screen2image(kx, my, ix, iy);
+							if(icheck(ix, iy))
+								continue;
+							auto p=(unsigned char*)(image+iw*iy+ix);
+							int count=(p[0]+p[1]+p[2])*(by2-by1)/(3*255);
+							for(int ky=0;ky<count;++ky)
+							{
+								auto p2=(unsigned char*)(rgb+w*(by1+ky)+kx);
+								p2[0]=(p2[0]+color[0])>>1;
+								p2[1]=(p2[1]+color[1])>>1;
+								p2[2]=(p2[2]+color[2])>>1;
+							}
+						}
+					}
+				}
+			}
+			else
+				display_raw(image, iw, ih, bx1, bx2, by1, by2);
+		}
 		//{
 		//	for(int ky=0, yend=minimum(y2s-y1, ih);ky<yend;++ky)
 		//		for(int kx=0, xend=minimum(x2s-x1, iw);kx<xend;++kx)
@@ -2151,6 +2233,15 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		imageBRcorner.set(x2s, y2s);
 	}//end if image
 	imagewindow.set(x1, y1, x2, y2);
+
+	//if(threshold>=0&&threshold<256)//
+	//{
+	//	int cx=x1+(int)((planetx-spx)*zoom), cy=y1+(int)((planety-spy)*zoom);
+	//	int color=0xFF000000|rand()<<15|rand();
+	//	h_line(cx-10, cx+10, cy, color);
+	//	v_line(cx, cy-10, cy+10, color);
+	//}
+
 #ifndef RELEASE
 	if(debugmode)
 	{
@@ -2415,6 +2506,7 @@ void			displayhelp()
 		__DATE__, __TIME__);
 }
 Point			p1, p2;
+
 long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
 {
 //#ifndef RELEASE//at first message, error 126 the specified module could not be found
@@ -2498,6 +2590,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SET_CHANNEL, L"Set Cha&nnel");					SYS_ASSERT(success);//new
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ASSIGN_CHANNEL, L"Assi&gn Channel...\tC");		SYS_ASSERT(success);//new
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_EXPORT_CHANNEL, L"&Export Channel...");		SYS_ASSERT(success);//new
+			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_RAW_TO_FLOAT, L"Raw to Float");						SYS_ASSERT(success);//new
 			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_DRAW_OPAQUE, L"&Draw Opaque");					SYS_ASSERT(success);
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_LINEAR, L"&Linear Interpolation");				SYS_ASSERT(success);
@@ -2925,6 +3019,10 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			case IDM_IMAGE_EXPORT_CHANNEL:
 				unimpl();
 				break;
+			case IDM_RAW_TO_FLOAT:
+				raw2float();
+				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+				break;
 			case IDM_IMAGE_DRAW_OPAQUE:
 				selection_transparency=1<<int(selection_transparency==TRANSPARENT);
 				//selection_transparency=selection_transparency==OPAQUE?TRANSPARENT:OPAQUE;
@@ -3107,30 +3205,32 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 #endif
 		{
 			int redrawtype=0;
+			if(histogramMode==H_CROSS_SECTION)
+				redrawtype=REDRAW_IMAGEWINDOW;
 			switch(drag)
 			{
 			case D_NONE:
 				if(currentmode==M_ERASER||currentmode==M_MAGNIFIER||currentmode==M_BRUSH)
-					redrawtype=REDRAW_IMAGE_PARTIAL;
-				else
-					goto skip_render;
+					redrawtype|=REDRAW_IMAGE_PARTIAL;
+				//else
+				//	goto skip_render;
 				break;
 			case D_DRAW:
-				redrawtype=REDRAW_IMAGE_PARTIAL;
+				redrawtype|=REDRAW_IMAGE_PARTIAL;
 				break;
 			case D_HSCROLL:
 			case D_VSCROLL:
-				redrawtype=REDRAW_IMAGEWINDOW;
+				redrawtype|=REDRAW_IMAGEWINDOW;
 				break;
 			case D_SELECTION:
-				redrawtype=REDRAW_IMAGE_PARTIAL;
+				redrawtype|=REDRAW_IMAGE_PARTIAL;
 				break;
 			case D_THBOX_VSCROLL:
-				redrawtype=REDRAW_THUMBBOX;
+				redrawtype|=REDRAW_THUMBBOX;
 				break;
 			case D_ALPHA1:
 			case D_ALPHA2:
-				redrawtype=REDRAW_COLORBAR;
+				redrawtype|=REDRAW_COLORBAR;
 				break;
 			case D_RESIZE_TL:
 			case D_RESIZE_TOP:
@@ -3148,14 +3248,15 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			case D_SEL_RESIZE_BL:
 			case D_SEL_RESIZE_BOTTOM:
 			case D_SEL_RESIZE_BR:
-				redrawtype=REDRAW_IMAGEWINDOW;
+				redrawtype|=REDRAW_IMAGEWINDOW;
 				break;
-			default:
-				goto skip_render;
+			//default:
+			//	goto skip_render;
 			}
-			render(redrawtype, 0, w, 0, h);
+			if(redrawtype)
+				render(redrawtype, 0, w, 0, h);
 			prev_mx=mx, prev_my=my;
-skip_render:;
+//skip_render:;
 			//int windowsize=100>>1;
 			//int x1=mx-windowsize, x2=mx+windowsize, y1=my-windowsize, y2=my+windowsize;
 			//x1=clamp(0, x1, w), x2=clamp(0, x2, w);
@@ -3526,6 +3627,9 @@ skip_render:;
 				{
 					selection.f.set(mx, my);
 					selection.f.screen2image_rounded();
+					//selection.i.clamp(0, iw, 0, ih);
+					//selection.f.clamp(0, iw, 0, ih);
+					selection.sort_and_crop(Point(iw, ih));
 					selection_select(selection);
 
 					//Point p1, p2;//sorted-bounded image coordinates
@@ -3915,7 +4019,7 @@ skip_render:;
 			}
 			break;
 		case 'O':
-			if(kb[VK_CONTROL])//open
+			if(kb[VK_CONTROL])//open		BUG: ctrl O, esc, O		OPENS BECAUSE CTRL IS STILL DOWN
 				open_media();
 			break;
 		case 'S':
@@ -3943,6 +4047,21 @@ skip_render:;
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 			}
 			break;
+
+		case 'T':
+			if(kb[VK_CONTROL])
+				center_bright_object();
+			break;
+		case 'R':
+			if(kb[VK_CONTROL])
+				simple_average_stacker();
+			break;
+		case 'F':
+			if(kb[VK_CONTROL])
+				stack_sky_images();
+				//stack_sky_images_v2();
+			break;
+
 		case 'A':
 			if(kb[VK_CONTROL])//select all
 			{
@@ -4006,6 +4125,20 @@ skip_render:;
 				CheckMenuItem(hMenuZoom, IDSM_ZOOM_SHOW_GRID, showgrid?MF_CHECKED:MF_UNCHECKED);//deprecated
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 			}
+			break;
+		case 'H'://show histogram
+			if(histogramMode!=H_HISTOGRAM)
+				histogramMode=H_HISTOGRAM;
+			else
+				histogramMode=H_OFF;
+			render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+			break;
+		case 'M'://show cross-section profile
+			if(histogramMode!=H_CROSS_SECTION)
+				histogramMode=H_CROSS_SECTION;
+			else
+				histogramMode=H_OFF;
+			render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 			break;
 		case 'Z':
 			if(kb[VK_CONTROL])//undo

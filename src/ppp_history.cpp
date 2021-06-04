@@ -9,10 +9,10 @@ int*			hist_start(int iw, int ih)//current buffer is in history[histpos]
 		free(buf), buf=nullptr;
 	}
 	history.clear();
-	int image_size=iw*ih;
-	int *image=(int*)malloc(image_size<<2);
-	history.push_back(HistoryFrame(image, iw, ih)), histpos=0;
-	return image;
+	int image_size0=iw*ih;//local variables
+	int *image0=(int*)malloc(image_size0<<2);
+	history.push_back(HistoryFrame(image0, iw, ih)), histpos=0;
+	return image0;
 }
 void			hist_premodify(int *&buffer, int nw, int nh)//nw, nh: new dimensions
 {

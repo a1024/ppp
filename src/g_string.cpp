@@ -60,6 +60,25 @@ void			assign_path(std::string const &text, int start, int end, std::wstring &pa
 		temp.pop_back();
 	pathret=std::move(temp);
 }
+void			assign_path(std::string const &text, int start, int end, std::string &pathret)//pathret can be text
+{
+	assert(text.size());
+	if(end>=(int)text.size())
+		end=text.size();
+	for(;end>0&&(text[end-1]==' '||text[end-1]=='\t'||text[end-1]=='\r'||text[end-1]=='\n');--end);//skip trailing whitespace
+	start+=text[start]==doublequote, end-=text[end-1]==doublequote;
+	assert(start<end);
+	std::string temp(text.begin()+start, text.begin()+end);
+	int size=temp.size();
+	for(int k=0;k<size;++k)
+	{
+		if(temp[k]==L'\\')
+			temp[k]=L'/';
+	}
+	if(temp[size-1]=='/')
+		temp.pop_back();
+	pathret=std::move(temp);
+}
 void			get_name_from_path(std::wstring const &path, std::wstring &name)
 {
 	int start=-1;
