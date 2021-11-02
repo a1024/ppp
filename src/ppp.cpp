@@ -59,7 +59,7 @@ char			debugmode=true;
 #else
 char			debugmode=false;
 #endif
-RawMode			rawMode=RM_INT;
+ImageMode		imagetype=IM_INT8_RGBA;
 HistogramMode	histogramMode=H_OFF;
 int				*rgb=nullptr, w=0, h=0, rgbn=0,
 				mx=0, my=0,//current mouse position
@@ -1873,9 +1873,9 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		use_temp_buffer0=use_temp_buffer;
 		//if(*image==0xFF000000)
 		//	int LOL_1=0;
-		if(bx1<bx2&&by1<by2)
+		if(bx1<bx2&&by1<by2)//display the image
 		{
-			if(rawMode==RM_INT)
+			if(imagetype==IM_INT8_RGBA)
 			{
 				if(histogramMode)
 					bx1=x1, bx2=x2s, by1=y1, by2=y2s;
@@ -2490,6 +2490,10 @@ void			displayhelp()
 		L"Ctrl Z/Y:\t\tUndo/redo\n"
 		L"Ctrl I:\t\tInvert image/selection color\n"
 		L"Ctrl N:\t\tNew Image\n"
+		L"H+Delete:\t\tDelete history\n"
+		L"Ctrl 1: Spectrogram to sound\n"	//<- more options here
+		L"Ctrl 2: Darken image\n"			//<- 
+		L"Ctrl 3: Convert to grayscale\n"		//<- better shortcut
 		L"F1:\t\tShow help\n"
 		L"F4:\t\tToggle profiler\n"
 		L"F7:\t\tToggle debug mode\n"
@@ -2591,7 +2595,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ASSIGN_CHANNEL, L"Assi&gn Channel...\tC");		SYS_ASSERT(success);//new
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_EXPORT_CHANNEL, L"&Export Channel...");		SYS_ASSERT(success);//new
 			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_RAW_TO_FLOAT, L"Raw to Float");						SYS_ASSERT(success);//new
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_RAW_TO_FLOAT, L"Convert to Float RGBA");				SYS_ASSERT(success);//new
 			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_DRAW_OPAQUE, L"&Draw Opaque");					SYS_ASSERT(success);
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_LINEAR, L"&Linear Interpolation");				SYS_ASSERT(success);
@@ -3020,7 +3024,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				unimpl();
 				break;
 			case IDM_RAW_TO_FLOAT:
-				raw2float();
+				convert2float();
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 				break;
 			case IDM_IMAGE_DRAW_OPAQUE:
@@ -3640,7 +3644,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				break;
 			case M_PICK_COLOR:
 				primarycolor=pick_color_mouse(image, mx, my);//with alpha
-				primary_alpha=primarycolor>>24;
+				primary_alpha=byte(primarycolor>>24);
 				currentmode=prevmode;
 				break;
 			case M_AIRBRUSH:
@@ -3831,7 +3835,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			{
 			case M_PICK_COLOR:
 				secondarycolor=pick_color_mouse(image, mx, my);//with alpha
-				secondary_alpha=secondarycolor>>24;
+				secondary_alpha=byte(secondarycolor>>24);
 				currentmode=prevmode;
 				break;
 			case M_AIRBRUSH:
@@ -3964,6 +3968,12 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		kb[wParam]=true;
 		switch(wParam)
 		{
+		case VK_F1:
+			displayhelp();
+			break;
+		case VK_SPACE://debug action
+			signal_test();
+			break;
 		case VK_RETURN://debug
 			switch(colorbarcontents)
 			{
@@ -3986,6 +3996,29 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			if(kb[VK_CONTROL])//reset zoom
 			{
 				logzoom=0, zoom=1;
+				render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
+			}
+			break;
+		case '1':
+			if(kb[VK_CONTROL])//spectrogram to sound
+			{
+				spectrogram2sound(image, iw, ih, imagetype);
+				messageboxa(ghWnd, "Information", "Done.");//
+			}
+			break;
+		case '2':
+			if(kb[VK_CONTROL])//darken image
+			{
+				hist_premodify(image, iw, ih);
+				change_brightness(0, 0.5, 0);
+				render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
+			}
+			break;
+		case '3':
+			if(kb[VK_CONTROL])//convert to grayscale image
+			{
+				hist_premodify(image, iw, ih);
+				make_grayscale();
 				render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
 			}
 			break;
@@ -4112,7 +4145,12 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 			break;
 		case VK_DELETE:
-			if(selection.nonzero())//delete selection
+			if(kb['H'])
+			{
+				hist_clear();
+				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
+			}
+			else if(selection.nonzero())//delete selection
 			{
 				selection_remove();
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
@@ -4200,15 +4238,13 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			else//fill with noise
 			{
 				hist_premodify(image, iw, ih);
+				//srand(unsigned(time_ms()*0xFFFF));
 				for(int k=0;k<image_size;++k)
 				//	image[k]=0xFFFFFFFF;
 					image[k]=0xFF000000|rand()<<15|rand();
 				//	image[k]=rand()<<30|rand()<<15|rand();
 				render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 			}
-			break;
-		case VK_F1:
-			displayhelp();
 			break;
 		case VK_F4:
 			if(!kb[VK_MENU])//profiler

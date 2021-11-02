@@ -1453,10 +1453,10 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 
 void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 {
-	if(rawMode==RM_INT||x1+4>=x2)
+	if(imagetype==IM_INT8_RGBA||x1+4>=x2)
 		return;
 	float *fimage=(float*)buffer;
-	if(rawMode==RM_FLOAT_MOSAIC)
+	if(imagetype==IM_FLOAT32_MOSAIC)
 	{
 		int nlevels=(x2-x1)>>2;//4 channels per level (RGGB) in histogram
 		float inv_nlevelsm1=1.f/(nlevels-1);
@@ -1518,7 +1518,7 @@ void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 			delete[] histogram;
 		}
 	}
-	else if(rawMode==RM_FLOAT)
+	else if(imagetype==IM_FLOAT32_RGBA)
 	{
 		int nlevels=(x2-x1)>>2;//4 channels per level (RGBA) in histogram
 		float inv_nlevelsm1=1.f/(nlevels-1);

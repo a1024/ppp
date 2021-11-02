@@ -1417,7 +1417,7 @@ void			huffman_decompress(HuffmanData const &in, unsigned char *&out, int &out_s
 		{
 			if(!n->branch[bit])
 			{
-				*out2=n->value;
+				*out2=(unsigned char)n->value;
 				++out2;
 			//	std::cout<<std::hex<<(unsigned)n->value<<'\n';
 				break;
@@ -2780,7 +2780,7 @@ static int*		compress(const short *buffer, int bw, int bh)
 				auto val=wFactors[kp]*((unsigned long long)hFactors[kp]*min+ypos)+xpos;
 				if(val>0xFFFFFFFF)//
 					int LOL_1=0;//
-				result[idx]=val;//store min with its position in group
+				result[idx]=(int)val;//store min with its position in group
 				if(result[idx]<0)
 					int LOL_2=0;
 				std::swap(result[bw*ky2+kx2], result[idx]);//swap min with first element in group
@@ -2915,7 +2915,7 @@ void			image_compression()
 	printf("Compression took %lfms\n", t2-t1);
 	auto dataHeader=(HuffDataHeader*)(data.data()+data_start);
 	HistogramElement histogram[256]={};
-	calculate_histogram((const byte*)dataHeader->data, dataHeader->bitSize>>3, histogram, 256);
+	calculate_histogram((const byte*)dataHeader->data, (int)(dataHeader->bitSize>>3), histogram, 256);
 	
 	//auto p=(const unsigned char*)dataHeader->data;
 	//memset(histogram, 0, 256*sizeof(int));
@@ -2927,11 +2927,11 @@ void			image_compression()
 	//}
 
 	printf("Compressed data histogram:\n");
-	print_histogram(histogram, 256, dataHeader->bitSize>>3);
+	print_histogram(histogram, 256, (int)(dataHeader->bitSize>>3));
 	std::sort(histogram, histogram+256, [](HistogramElement const &a, HistogramElement const &b){return a.count>b.count;});
 	//std::sort(histogram, histogram+256, [](int a, int b){return a>b;});
 	printf("Compressed data sorted histogram:\n");
-	print_histogram(histogram, 256, dataHeader->bitSize>>3);
+	print_histogram(histogram, 256, (int)(dataHeader->bitSize>>3));
 	//estimate_huffman((byte*)data.data(), data.size()*sizeof(int), 256);//2nd huffman
 	printf("\tFirst compression: %d\n", data.size()*32);
 

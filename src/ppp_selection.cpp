@@ -384,8 +384,8 @@ bool			editcopy()
 		int size=sizeof(BITMAPINFO)+(sw*sh<<2);
 		char *clipboard=(char*)LocalAlloc(LMEM_FIXED, size);
 		BITMAPINFO bmi={{sizeof(BITMAPINFOHEADER), sw, -sh, 1, 32, BI_RGB, sw*sh<<2, 0, 0, 0, 0}};
-		memcpy(clipboard, &bmi, sizeof BITMAPINFO);
-		memcpy(clipboard+sizeof BITMAPINFO, sel_buffer, sw*sh<<2);
+		memcpy(clipboard, &bmi, sizeof BITMAPINFOHEADER);
+		memcpy(clipboard+sizeof BITMAPINFOHEADER, sel_buffer, sw*sh<<2);
 		int success=OpenClipboard(ghWnd);
 		if(!success)
 		{

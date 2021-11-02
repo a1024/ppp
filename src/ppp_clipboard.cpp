@@ -20,6 +20,25 @@ void			sound_to_clipboard(short *audio_buf, float *L, float *R, int nsamples)
 	//	LOL_1<<k<<'\t'<<audio_buf[k<<1]<<' '<<L[k]<<'\t'<<audio_buf[(k<<1)+1]<<' '<<R[k]<<"\r\n";
 	copy_to_clipboard(LOL_1.str());
 }
+void			sound_to_clipboard(float *sound, int nsamples)
+{
+	std::stringstream LOL_1;
+	for(int k=0;k<nsamples;++k)
+	{
+		sprintf_s(g_buf, g_buf_size, "%f", sound[k]);
+		LOL_1<<k<<'\t'<<g_buf<<"\r\n";
+		//LOL_1<<k<<'\t'<<sound[k]<<"\r\n";
+	}
+	copy_to_clipboard(LOL_1.str());
+}
+void			complex_fbuf_to_clipboard(float *sound, int nsamples)
+{
+	std::stringstream LOL_1;
+	LOL_1<<"idx\tre\tim\r\n";
+	for(int k=0;k<(nsamples<<1);k+=2)
+		LOL_1<<(k>>1)<<'\t'<<sound[k]<<'\t'<<sound[k+1]<<"\r\n";
+	copy_to_clipboard(LOL_1.str());
+}
 void			buffer_to_clipboard(const void *buffer, int size_bytes)
 {
 	std::stringstream LOL_1;

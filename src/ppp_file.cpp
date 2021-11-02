@@ -607,7 +607,7 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 			if(nch2!=4)
 				return false;
 
-			rawMode=RM_FLOAT_MOSAIC;
+			imagetype=IM_FLOAT32_MOSAIC;
 			modified=false;
 			int *im=(int*)original_image;
 			//r10_subimage_to_clipboard(im, iw2, ih2, 16, 16);

@@ -34,13 +34,14 @@ struct			Bitmap//pass Bitmap with dimensions instead of pointer
 	int w, h;
 	int *rgb;//not rgb[1] because of CreateDIBSection
 };
-enum			RawMode
+enum			ImageMode
 {
-	RM_INT,//'image' is int 0xAARRGGBB, 256-level channels		size=iw*ih px
-	RM_FLOAT_MOSAIC,//'image' is RGGB float Bayer mosaic, [0~1] channels		size=iw*ih px
-	RM_FLOAT,//'image' is float {r, g, b, a}, [0~1] channels		size=(iw/4)*ih px (iw is quadrupled for 16 bytes per pixel)
+	IM_INT8_RGBA,//'image' is int 0xAARRGGBB, 256-level channels		size=iw*ih px
+	IM_FLOAT32_MOSAIC,//'image' is RGGB float Bayer mosaic, [0~1] channels		size=iw*ih px
+	IM_FLOAT32_RGBA,//'image' is float {r, g, b, a}, [0~1] channels		size=(iw/4)*ih px (iw is quadrupled for 16 bytes per pixel)
 };
-extern RawMode	rawMode;
+extern ImageMode imagetype;
+extern bool		historyOn;
 enum			HistogramMode
 {
 	H_OFF,
@@ -53,7 +54,7 @@ extern int		*rgb, w, h, rgbn,
 				mx, my,//current mouse position
 				prev_mx, prev_my,//previous mouse position
 				start_mx, start_my,//original mouse position
-				*image,			iw, ih, image_size, nchannels,//image==history[histpos].buffer always
+				*image,			iw, ih, image_size, nchannels,//image==history[histpos].buffer always, image_size is buffer size in words (ints/floats)
 				*temp_buffer,	tw, th,	//temporary buffer, has alpha
 				*sel_buffer,	sw, sh,	//selection buffer, has alpha
 				*sel_mask,		//selection mask, used only in free-form selection, inside selection polygon if true, same dimensions as sel_buffer
@@ -62,6 +63,10 @@ extern int		*rgb, w, h, rgbn,
 extern double	zoom;//a power of 2
 extern bool		use_temp_buffer,
 				modified;
+inline int		imwordsize(int iw, int ih){return iw*ih<<((imagetype==IM_FLOAT32_RGBA)<<1);}
+#define			IMWORDSIZE()		imwordsize(iw, ih)
+//#define		IMWORDSIZE			(iw*ih<<(imagetype==IM_FLOAT32_RGBA))
+//#define		IMBYTESIZE			(iw*ih<<(imagetype==IM_FLOAT32_RGBA)<<2)
 
 extern int		current_frame, nframes,
 				framerate_num, framerate_den;
@@ -225,6 +230,8 @@ extern HFONT	hFont;
 void			copy_to_clipboard(const char *a, int size);//size not including null terminator
 inline void		copy_to_clipboard(std::string const &str){copy_to_clipboard(str.c_str(), str.size());}
 void			sound_to_clipboard(short *audio_buf, float *L, float *R, int nsamples);
+void			sound_to_clipboard(float *sound, int nsamples);
+void			complex_fbuf_to_clipboard(float *sound, int nsamples);
 void			buffer_to_clipboard(const void *buffer, int size_bytes);
 void			polygon_to_clipboard(const int *buffer, int npoints);
 void			syscolors_to_clipboard();
@@ -556,7 +563,9 @@ struct			HistoryFrame
 };
 extern int		histpos;
 extern std::vector<HistoryFrame> history;
+//int			imbytesize();
 int*			hist_start(int iw, int ih);
+void			hist_clear();
 void			hist_premodify(int *&buffer, int nw, int nh);
 void			hist_postmodify(int *buffer, int nw, int nh);
 void			hist_undo(int *&buffer);
@@ -574,7 +583,10 @@ void			swap_rb(int *dstimage, const int *srcimage, int pxcount);
 void			invertcolor(int *buffer, int bw, int bh, bool selection=false);
 void			clear_alpha();
 
-void			raw2float();
+void			convert2float();
+
+void			change_brightness(double pre_offset, double gain, double post_offset);
+void			make_grayscale();
 
 
 //globals
@@ -732,6 +744,35 @@ void			print_text();
 extern WNDPROC	oldEditProc;
 long			__stdcall EditProc(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam);
 int				__stdcall FontProc(LOGFONTW const *lf, TEXTMETRICW const *tm, unsigned long FontType, long lParam);
+
+//signal processing
+struct			DFT_1D
+{
+	float *time, *freq;//...domain, interleaved complex numbers
+	void *plan, *iplan;
+};
+enum			DFT_FLAGS
+{
+	DFT_ALLOC_BUFFERS=0x1,
+	DFT_FORWARD=0x2,
+	DFT_INVERSE=0x4,
+	DFT_CLEAR_OTHER_PLANS=0x8,
+	DFT_REAL_TIME=0x10,
+};
+void			dft_1d_prepare(int size, DFT_1D *dft, int flags);
+void			dft_1d_destroy(DFT_1D *dft);
+void			dft_1d_apply(DFT_1D *dft, int flags);
+
+void			prepare_dct(int bw, int bh);
+void			destroy_dct();
+void			apply_dct(float *buffer, int bw, int bh);
+void			apply_idct(float *buffer, int bw, int bh);
+void			cleanup_fftw();
+void			signal_test();
+
+//sound
+void			spectrogram2sound(void *buffer, int bw, int bh, ImageMode imagetype);
+void			scalogram2sound(void *buffer, int bw, int bh, ImageMode imagetype);
 
 //image processing
 void			center_bright_object();
