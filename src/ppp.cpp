@@ -4463,15 +4463,6 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 			ask_FFmpeg_path();
 	//	prof_add("read settings");
 
-	//	wchar_t *cmdargs=GetCommandLineW();
-		int nArgs;
-		wchar_t **args=CommandLineToArgvW(GetCommandLineW(), &nArgs);
-		if(nArgs>1)
-		{
-			std::wstring filepath_u16=args[1];
-			open_media(filepath_u16);
-		}
-
 		//LARGE_INTEGER li;
 		//QueryPerformanceCounter(&li);
 		//t_start=li.QuadPart;
@@ -4499,31 +4490,43 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 		memfill(ext_colorpalette, &white_no_alpha, 16<<2, 1<<2);
 		//for(int k=0;k<16;++k)
 		//	ext_colorpalette[k]=0xFFFFFF;
+		
 
-		if(!iw||!ih)
-			iw=400, ih=300;
-		image_size=iw*ih;
-		image=hist_start(iw, ih);
-	//	image=(int*)malloc(image_size<<2);
-		//for(int ky=0;ky<ih;++ky)
-		//{
-		//	for(int kx=0;kx<iw;++kx)
-		//	{
-		//		unsigned char c=(kx<<4&0x7F)+(ky<<4&0x7F);
-		//		image[iw*ky+kx]=c<<16|c<<8|c;
-		//	}
-		//}
-		memset(image, 0xFF, image_size<<2);
-	//	for(int k=0;k<image_size;++k)
-	//		image[k]=rand()<<30|rand()<<15|rand();
-		//	image[k]=0xFF000000|rand()<<15|rand();
-		//	image[k]=0xFFFFFFFF;
+	//	wchar_t *cmdargs=GetCommandLineW();
+		int nArgs;
+		wchar_t **args=CommandLineToArgvW(GetCommandLineW(), &nArgs);
+		if(nArgs>1)
+		{
+			std::wstring filepath_u16=args[1];
+			open_media(filepath_u16);
+		}
+		else
+		{
+			if(!iw||!ih)
+				iw=400, ih=300;
+			image_size=iw*ih;
+			image=hist_start(iw, ih);
+		//	image=(int*)malloc(image_size<<2);
+			//for(int ky=0;ky<ih;++ky)
+			//{
+			//	for(int kx=0;kx<iw;++kx)
+			//	{
+			//		unsigned char c=(kx<<4&0x7F)+(ky<<4&0x7F);
+			//		image[iw*ky+kx]=c<<16|c<<8|c;
+			//	}
+			//}
+			memset(image, 0xFF, image_size<<2);
+		//	for(int k=0;k<image_size;++k)
+		//		image[k]=rand()<<30|rand()<<15|rand();
+			//	image[k]=0xFF000000|rand()<<15|rand();
+			//	image[k]=0xFFFFFFFF;
 
-		//int color_outline=0xFF00FF;
-		//draw_line(0, 0, 0, ih-1, color_outline);
-		//draw_line(0, ih-1, iw-1, ih-1, color_outline);
-		//draw_line(iw-1, ih-1, iw-1, 0, color_outline);
-		//draw_line(iw-1, 0, 0, 0, color_outline);
+			//int color_outline=0xFF00FF;
+			//draw_line(0, 0, 0, ih-1, color_outline);
+			//draw_line(0, ih-1, iw-1, ih-1, color_outline);
+			//draw_line(iw-1, ih-1, iw-1, 0, color_outline);
+			//draw_line(iw-1, 0, 0, 0, color_outline);
+		}
 
 	//	horiginalcursor=GetCursor();
 
