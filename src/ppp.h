@@ -3,7 +3,9 @@
 #include		<vector>
 #include		<string>
 #include		<Windows.h>
+#include		<cmath>
 
+//	#define ENABLE_SOUND
 //	#define		RELEASE//disables hpos=... and SHOW_WINMESSAGES
 
 //#ifndef RELEASE
@@ -771,8 +773,10 @@ void			cleanup_fftw();
 void			signal_test();
 
 //sound
+#ifdef ENABLE_SOUND
 void			spectrogram2sound(void *buffer, int bw, int bh, ImageMode imagetype);
 void			scalogram2sound(void *buffer, int bw, int bh, ImageMode imagetype);
+#endif
 
 //image processing
 void			center_bright_object();

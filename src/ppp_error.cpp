@@ -40,7 +40,10 @@ int				sys_check(const char *file, int line)
 	if(error)
 	{
 		char *messageBuffer=nullptr;
-		size_t size=FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+		size_t size=FormatMessageA(
+			FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL
+		);
 		log_error(file, line, "System %d: %s", error, messageBuffer);
 		LocalFree(messageBuffer);
 	}

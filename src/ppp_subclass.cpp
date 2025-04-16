@@ -364,7 +364,7 @@ long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wPar
 			const char *buttonlabels[]={"OK", "Cancel", "Same buffer"};
 			hAttr[ATTR_SAMEBUFFER]	=CreateWindowExA(0, WC_BUTTONA, nullptr, WS_CHILD|WS_VISIBLE | BS_CHECKBOX, attr_xpad, y, attr_button_w, attr_button_h, hWnd, (HMENU)ATTR_SAMEBUFFER, ghInstance, nullptr);
 			SYS_ASSERT(hAttr[ATTR_SAMEBUFFER]);
-			SendMessageA(hAttr[ATTR_SAMEBUFFER], WM_SETFONT, (WPARAM)hFont, 0);	SYS_CHECK();
+			SendMessageA(hAttr[ATTR_SAMEBUFFER], WM_SETFONT, (WPARAM)hFont, 0);	//SYS_CHECK();
 			success=SetWindowTextA(hAttr[ATTR_SAMEBUFFER], buttonlabels[2]);	SYS_ASSERT(success);
 
 			x+=attr_col_w, y=attr_ypad;
@@ -372,8 +372,8 @@ long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wPar
 			{
 				hAttr[ATTR_OK+k]	=CreateWindowExA(0, WC_BUTTONA, nullptr, WS_CHILD|WS_VISIBLE, x, y, attr_button_w, attr_button_h, hWnd, (HMENU)(ATTR_OK+k), ghInstance, nullptr);
 				SYS_ASSERT(hAttr[ATTR_OK+k]);
-				SendMessageA(hAttr[ATTR_OK+k], WM_SETFONT, (WPARAM)hFont, 0);	SYS_CHECK();
-				success=SetWindowTextA(hAttr[ATTR_OK+k], buttonlabels[k]);		SYS_ASSERT(success);
+				SendMessageA(hAttr[ATTR_OK+k], WM_SETFONT, (WPARAM)hFont, 0);	//SYS_CHECK();
+				success=SetWindowTextA(hAttr[ATTR_OK+k], buttonlabels[k]);	SYS_ASSERT(success);
 				y+=attr_row_h;
 			}
 

@@ -2491,7 +2491,9 @@ void			displayhelp()
 		L"Ctrl I:\t\tInvert image/selection color\n"
 		L"Ctrl N:\t\tNew Image\n"
 		L"H+Delete:\t\tDelete history\n"
+#ifdef ENABLE_SOUND
 		L"Ctrl 1: Spectrogram to sound\n"	//<- more options here
+#endif
 		L"Ctrl 2: Darken image\n"			//<- 
 		L"Ctrl 3: Convert to grayscale\n"		//<- better shortcut
 		L"F1:\t\tShow help\n"
@@ -2510,7 +2512,23 @@ void			displayhelp()
 		__DATE__, __TIME__);
 }
 Point			p1, p2;
+void			clear_image()
+{
+	hist_premodify(image, iw, ih);
+	memset(image, 0xFF, image_size<<2);
+}
+void			new_image()
+{
+	filename.clear();
+	filepath.clear();
+	int success=SetWindowTextA(ghWnd, default_title);
+	SYS_ASSERT(success);
 
+	image=hist_start(iw, ih);
+	memset(image, 0xFF, image_size<<2);
+}
+
+bool			is_key_down(int vkey){return (GetAsyncKeyState(vkey)&0x8000)!=0;}
 long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
 {
 //#ifndef RELEASE//at first message, error 126 the specified module could not be found
@@ -2623,6 +2641,11 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			success=SetMenu(hWnd, hMenubar);			SYS_ASSERT(success);
 		//	check_exit(L"Entry", __LINE__);
 		}
+		break;
+	case WM_ACTIVATE:
+		kb[VK_CONTROL]=is_key_down(VK_CONTROL);
+		kb[VK_SHIFT]=is_key_down(VK_SHIFT);
+		kb[VK_MENU]=is_key_down(VK_MENU);
 		break;
 	case WM_SIZE:
 		{
@@ -3999,6 +4022,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
 			}
 			break;
+#ifdef ENABLE_SOUND
 		case '1':
 			if(kb[VK_CONTROL])//spectrogram to sound
 			{
@@ -4006,6 +4030,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				messageboxa(ghWnd, "Information", "Done.");//
 			}
 			break;
+#endif
 		case '2':
 			if(kb[VK_CONTROL])//darken image
 			{
@@ -4053,7 +4078,11 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			break;
 		case 'O':
 			if(kb[VK_CONTROL])//open		BUG: ctrl O, esc, O		OPENS BECAUSE CTRL IS STILL DOWN
+			{
 				open_media();
+				kb[VK_SHIFT]=get_key_state(VK_SHIFT);
+				kb[VK_CONTROL]=get_key_state(VK_CONTROL);
+			}
 			break;
 		case 'S':
 			if(kb[VK_CONTROL])
@@ -4067,6 +4096,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 					else
 						save_media_as();
 				}
+				kb[VK_SHIFT]=get_key_state(VK_SHIFT);
+				kb[VK_CONTROL]=get_key_state(VK_CONTROL);
 			}
 			break;
 		case 'E':
@@ -4208,8 +4239,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			{
 				if(kb[VK_SHIFT])
 				{
-					hist_premodify(image, iw, ih);
-					memset(image, 0xFF, image_size<<2);
+					clear_image();
 					render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 				}
 				else if(modified)//new image
@@ -4221,18 +4251,17 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 						if(!save_media_as())
 							break;
 					case IDNO:
-						{
-							int success=SetWindowTextA(ghWnd, default_title);
-							SYS_ASSERT(success);
-
-							image=hist_start(iw, ih);
-							memset(image, 0xFF, image_size<<2);
-							render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
-						}
+						new_image();
+						render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 						break;
 					case IDCANCEL:
 						break;
 					}
+				}
+				else
+				{
+					new_image();
+					render(REDRAW_IMAGE_NOSCROLL, 0, w, 0, h);
 				}
 			}
 			else//fill with noise
@@ -4401,7 +4430,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		return ret;
 	return DefWindowProcA(hWnd, message, wParam, lParam);
 }
-int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, char *lpCmdLine, int nCmdShow)
+//int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, char *lpCmdLine, int nCmdShow)
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
 {
 	ghInstance=hInstance;
 	tagWNDCLASSEXA wndClassEx=
@@ -4443,7 +4473,7 @@ int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, cha
 	RotateBoxProc	=(WNDPROC)SetWindowLongPtrA(hRotatebox	, GWLP_WNDPROC, (long)RotateBoxSubclass);	SYS_ASSERT(RotateBoxProc);
 
 
-	ShowWindow(ghWnd, nCmdShow);
+	ShowWindow(ghWnd, nShowCmd);
 	
 	//	prof_start();
 		programpath.resize(MAX_PATH);

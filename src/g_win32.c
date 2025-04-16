@@ -9,7 +9,10 @@ static int		sys_check(const char *file, int line)
 	int error=GetLastError();
 	if(error)
 	{
-		size_t size=FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+		size_t size=FormatMessageA(
+			FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL
+		);
 		messageboxa(0, "Error", "%s(%d):\n%s", file, line, messageBuffer);
 		LocalFree(messageBuffer);
 	}
@@ -40,6 +43,10 @@ void			GUIPrint(HDC hDC, int x, int y, const char *a, ...)
 		success=TextOutA(hDC, x, y, g_buf, length);
 		((void)((success)!=0||sys_check(file, __LINE__)));
 	}
+}
+int			get_key_state(int key)
+{
+	return (GetAsyncKeyState(key)>>15)!=0;
 }
 //void			GUIPrint(HDC hDC, int x, int y, int value)
 //{

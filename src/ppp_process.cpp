@@ -4,7 +4,8 @@
 //const char	file[]=__FILE__;
 void			exec_FFmpeg_command(const wchar_t *executable, std::wstring const &args, std::string &result)//executable is FFmpeg or FFprobe
 {
-	std::wstring command=L"\""+FFmpeg_path+L'/'+executable+L"\" -hide_banner "+args;
+	std::wstring command=L"ffmpeg -hide_banner "+args;
+	//std::wstring command=L"\""+FFmpeg_path+L'/'+executable+L"\" -hide_banner "+args;
 	//auto &end=*FFmpeg_path.rbegin();
 	//if(end!=L'\\'&&end!=L'/')
 	//	FFmpeg_path.push_back(L'/');
@@ -69,7 +70,8 @@ bool			check_FFmpeg_path(std::wstring &path)//path is stripped of doublequotes a
 {
 	if(!path.size())
 		return false;
-	std::wstring FFmpeg_command=L"\""+path+L"/FFmpeg\"";
+	std::wstring FFmpeg_command=L"ffmpeg";
+	//std::wstring FFmpeg_command=L"\""+path+L"/FFmpeg\"";
 	//auto &end=*path.rbegin();
 	//if(end!=L'\\'&&end!=L'/')
 	//	path.push_back(L'/');

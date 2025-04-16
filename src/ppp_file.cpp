@@ -1019,8 +1019,10 @@ void			save_media(std::wstring const &outputpath_u16)
 	//	if(outputpath_cmd[size-1]!=L'\"')
 	//		outputpath_cmd.push_back(L'\"');
 	//}
-	if(file_is_readablew(outputpath_u16.c_str()))
+	if(file_is_readablew(outputpath_u16.c_str()))//delete existing file
+	{
 		_wremove(outputpath_u16.c_str());
+	}
 
 //	std::wstring framename;
 	if((unsigned)current_frame>=framenames.size()||!workfolder.size())//workfolder wasn't created yet, save frame as 00000001.PNG
@@ -1116,7 +1118,7 @@ void			save_media(std::wstring const &outputpath_u16)
 }
 bool			save_media_as()
 {
-	wchar_t filetitle[]=L"Untitled.PNG";
+	const wchar_t filetitle[]=L"Untitled.PNG";
 	memcpy(g_wbuf, filetitle, sizeof filetitle);
 	tagOFNW ofn=
 	{

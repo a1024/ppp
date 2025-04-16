@@ -1,6 +1,6 @@
 #ifndef		PPP_XMM_GLOBALS_H
 #define		PPP_XMM_GLOBALS_H
-//#include	<tmmintrin.h>
+#include	<tmmintrin.h>
 extern const __m128i m_onesmask;
 extern const __m128i m_getalpha0, m_getalpha1, m_comp_alphas;
 extern const __m128i m_one16, m_one32;

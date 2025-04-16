@@ -1,4 +1,5 @@
 #include		"ppp.h"
+#ifdef ENABLE_SOUND
 #include		"generic.h"//log
 #include		"g_api_loader.h"
 #include		<SDL.h>
@@ -491,3 +492,4 @@ void			spectrogram2sound(void *buffer, int bw, int bh, ImageMode imagetype)
 void			scalogram2sound(void *buffer, int bw, int bh, ImageMode imagetype)
 {
 }
+#endif

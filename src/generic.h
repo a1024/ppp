@@ -231,6 +231,7 @@ typedef unsigned short wchar_t;
 	long			GUITPrint(HDC hDC, int x, int y, const char *a, ...);//return value: 0xHHHHWWWW		width=(short&)ret, height=((short*)&ret)[1]
 	void			GUIPrint(HDC hDC, int x, int y, const char *a, ...);
 //	void			GUIPrint(HDC hDC, int x, int y, int value);
+	int				get_key_state(int key);
 	const char*		wm2str(int message);
 	void			messagebox(HWND hWnd, const wchar_t *title, const wchar_t *format, ...);//rename to messageboxw
 	void			messageboxa(HWND hWnd, const char *title, const char *format, ...);

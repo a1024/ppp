@@ -1,3 +1,8 @@
+#ifdef _MSC_VER
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+#endif
 #include		"ppp.h"
 #include		"generic.h"
 #include		"stb_image.h"
@@ -859,7 +864,7 @@ void			stack_sky_images_v2(bool loud)
 	{
 		printf("Warning: the folder \'out\' already exists. Overwrite output? [y/n] ");
 		char c;
-		scanf_s("%c", &c);
+		while(!scanf("%c", &c));
 		if(!(c=='y'||c=='Y'))
 		{
 			log_pause(LL_CRITICAL);
@@ -1057,7 +1062,7 @@ void			stack_sky_images_v2(bool loud)
 		if(!found)
 		{
 			auto &file=files[ki];
-			printf("\nError: batch %d (at \'%s\') has no pivots. Skipping.\n\n", kb, file.filename);
+			printf("\nError: batch %d (at \'%s\') has no pivots. Skipping.\n\n", kb, file.filename.c_str());
 			continue;
 		}
 		printf("%d pivots\n",  npivots);
@@ -2969,7 +2974,7 @@ void			stack_sky_images()
 		" 4:  Image stacker v3\n"
 		" 5:  Experimental image format test\n");
 	char c;
-	scanf_s("%c", &c);
+	while(!scanf("%c", &c));
 	switch(c)
 	{
 	case '1':

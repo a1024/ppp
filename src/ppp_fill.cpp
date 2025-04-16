@@ -4,6 +4,7 @@
 #include		"generic.h"
 #include		<queue>
 #include		<stack>
+#include		<algorithm>
 #include		<assert.h>
 struct			XFillInfo
 {
