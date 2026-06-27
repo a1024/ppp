@@ -1,33 +1,32 @@
-#include		"ppp.h"
-#include		"generic.h"
-#include		"lodepng.h"//for saving PNG
+#include"ppp.h"
+#include"generic.h"
+#include"lodepng.h"//for saving PNG
 
-#define			STBI_WINDOWS_UTF8
-#include		"stb_image.h"//for opening PNG
-#include		"lodepng.h"//for saving PNG
+#define	STBI_WINDOWS_UTF8
+#include"stb_image.h"//for opening PNG
 
-#include		<shellapi.h>
-#include		<vector>
-#include		<fstream>
-#include		<sstream>
-#include		<codecvt>
-#include		<sys/stat.h>
-static const char file[]=__FILE__;
+#include<shellapi.h>
+#include<vector>
+#include<fstream>
+#include<sstream>
+#include<codecvt>
+#include<sys/stat.h>
+//static const char file[]=__FILE__;
 
 //primitive file operations
-void			read_binary(const wchar_t *filename, std::vector<byte> &binary_data)
+void read_binary(const wchar_t *filename, std::vector<byte> &binary_data)
 {
 	std::ifstream input(filename, std::ios::binary);
 	binary_data.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
 	input.close();
 }
-void			write_file(const wchar_t *filename, std::string const &output)
+void write_file(const wchar_t *filename, std::string const &output)
 {
 	std::ofstream file(filename, std::ios::out);
 	file<<output;
 	file.close();
 }
-void			write_binary(const wchar_t *filename, std::vector<byte> const &binary_data)
+void write_binary(const wchar_t *filename, std::vector<byte> const &binary_data)
 {
 	std::string str(binary_data.begin(), binary_data.end());
 	std::ofstream file(filename, std::ios::binary|std::ios::out);
@@ -36,33 +35,38 @@ void			write_binary(const wchar_t *filename, std::vector<byte> const &binary_dat
 	file<<str;
 	file.close();
 }
-void			read_utf8_file(const wchar_t *filename, std::wstring &output)
+int read_utf8_file(const wchar_t *filename, std::wstring &output)
 {
 	std::wifstream wif(filename);
 	if(wif.is_open())
 	{
-		wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
+		wif.imbue(std::locale(std::locale(), new std::codecvt_utf8<wchar_t>));
 		std::wstringstream wss;
 		wss<<wif.rdbuf();
-		auto &str=wss.str();
+		const auto &str=wss.str();
 		if(str.size()&&str[0]==0xFEFF)//may start with byte-order mark (BOM)
 			output.assign(str.begin()+1, str.end());
 		else
-			output=std::move(wss.str());
+			output.assign(str.begin(), str.end());
+		//	output=std::move(wss.str());
 		wif.close();
+		return 0;
 	}
+	return -1;
 }
-int				write_utf8_file(const wchar_t *filename, std::wstring &input)
+int write_utf8_file(const wchar_t *filename, const wchar_t *input, size_t count)
 {
 	FILE *file;
+	size_t written;
+
 	_wfopen_s(&file, filename, L"w, ccs=UTF-8");
 	if(!file)
 		return 0;
-	int written=fwrite(input.c_str(), sizeof(wchar_t), input.size(), file);
+	written=fwrite(input, sizeof(wchar_t), count, file);
 	fclose(file);
-	return written;
+	return (int)written;
 }
-/*inline bool		file_exists(std::wstring const &name)//moved to g_file.c
+/*inline bool file_exists(std::wstring const &name)//moved to g_file.c
 {
 	struct _stat32 info;
 	int error=_wstat32(name.c_str(), &info);
@@ -79,8 +83,8 @@ int				write_utf8_file(const wchar_t *filename, std::wstring &input)
 #endif
 }//*/
 
-char			errormsg[G_BUF_SIZE]={0};
-const char*		shfileerror2str(int error)
+char errormsg[G_BUF_SIZE]={0};
+const char* shfileerror2str(int error)
 {
 	switch(error)
 	{//https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shfileoperationw
@@ -112,13 +116,13 @@ const char*		shfileerror2str(int error)
 	}
 	char *msgBuf=0;
 	int size=FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, 0, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (char*)&msgBuf, 0, 0);
-	size=minimum(size+1, g_buf_size);
+	size=MINIMUM(size+1, G_BUF_SIZE);
 	memcpy(errormsg, msgBuf, size-1);
 	errormsg[size-1]='\0';
 	LocalFree(msgBuf);
 	return errormsg;
 }
-void			remove_directory(const wchar_t *dir)//Fully qualified name of the directory being deleted, without trailing backslash
+void remove_directory(const wchar_t *dir)//Fully qualified name of the directory being deleted, without trailing backslash
 {//https://stackoverflow.com/questions/213392/what-is-the-win32-api-function-to-use-to-delete-a-folder
 	std::wstring from=dir;
 	from+=L'\0';
@@ -145,7 +149,7 @@ void			remove_directory(const wchar_t *dir)//Fully qualified name of the directo
 }
 
 //ppp settings file
-int				parse_path_field(const wchar_t *text, int size, int &k, int &k2, int &advance, const wchar_t *label_path)//path ends with newline
+int parse_path_field(const wchar_t *text, int size, int &k, int &k2, int &advance, const wchar_t *label_path)//path ends with newline
 {
 	advance=0;
 	if(label_path)
@@ -154,7 +158,7 @@ int				parse_path_field(const wchar_t *text, int size, int &k, int &k2, int &adv
 			return true;
 		if(!advance)
 		{
-			messagebox(ghWnd, L"Error", L"Expected \'path\', found:\n\n%*s%s", minimum(size-k, 50), text+k, size-k<10?L"":L"...");
+			messagebox(ghWnd, L"Error", L"Expected \'path\', found:\n\n%*s%s", MINIMUM(size-k, 50), text+k, size-k<10?L"":L"...");
 			return true;
 		}
 		if(skip_whitespace(text, k))
@@ -167,11 +171,12 @@ int				parse_path_field(const wchar_t *text, int size, int &k, int &k2, int &adv
 	int eof=skip_till_newline_or_null(text, size, k2, advance);
 	return eof;
 }
-void			read_settings()
+int read_settings()
 {
 	std::wstring text;
-	read_utf8_file((programpath+L'/'+settingsfilename).c_str(), text);
-
+	int error=read_utf8_file((programpath+L'/'+settingsfilename).c_str(), text);
+	if(error)
+		return 0;
 	const wchar_t *labels[]=
 	{
 		L"FFmpeg",
@@ -179,7 +184,7 @@ void			read_settings()
 		L"Canvas",
 		L"Font",
 	};
-	static const int nlabels=SIZEOF(labels);
+	static const int nlabels=_countof(labels);
 	//static int label_sizes[nlabels];
 
 	const wchar_t label_path[]=L"path";
@@ -187,7 +192,7 @@ void			read_settings()
 
 	//const wchar_t label_w=L'w', label_x=L'x', label_h=L'h', label_b=L'b', label_i=L'i', label_u=L'u', label_colon=L':', label_LPR=L'(', label_RPR=L')';
 	const wchar_t explanation[]=L"(wxh):";
-	const int expl_size=SIZEOF(explanation)-1;
+	const int expl_size=_countof(explanation)-1;
 
 	//static bool uninitialized=true;
 	//if(uninitialized)
@@ -198,7 +203,7 @@ void			read_settings()
 	//	label_path_size=strlen(label_path);
 	//}
 	const wchar_t *a=text.c_str();
-	int size=text.size();
+	int size=(int)text.size();
 	for(int k=0;;)
 	{
 		if(skip_whitespace(text, k))
@@ -220,7 +225,7 @@ void			read_settings()
 					break;
 				if(advance)
 				{
-					assign_path(text, k, k2, FFmpeg_path);
+					assign_path(text.c_str(), k, k2, FFmpeg_path);
 					k=k2;
 				}
 				//{
@@ -238,7 +243,7 @@ void			read_settings()
 					break;
 				if(advance)
 				{
-					assign_path(text, k, k2, workspace);
+					assign_path(text.c_str(), k, k2, workspace);
 					//workspace.assign(text.begin()+k, text.begin()+k2);
 					k=k2;
 				}
@@ -305,7 +310,7 @@ void			read_settings()
 				break;
 			continue;
 		default:
-			messagebox(ghWnd, L"Error", L"Unexpected text in settings file:\n\n%*s%s", minimum(text.size()-k, 50), a+k, size-k<10?"":"...");
+			messagebox(ghWnd, L"Error", L"Unexpected text in settings file:\n\n%*s%s", MINIMUM((int)text.size()-k, 50), a+k, size-k<10?"":"...");
 			break;
 		}
 		break;
@@ -332,8 +337,9 @@ void			read_settings()
 	//		}
 	//	}
 	//}
+	return 1;
 }
-void			write_settings()
+void write_settings()
 {
 	std::wstringstream LOL_1;
 	LOL_1<<L"FFmpeg path: "<<FFmpeg_path<<L'\n';
@@ -352,17 +358,17 @@ void			write_settings()
 	LOL_1<<L'\n';
 
 	auto filename=programpath+L'/'+settingsfilename;
-	auto &contents=LOL_1.str();
-	int written=write_utf8_file(filename.c_str(), contents);
+	const auto &contents=LOL_1.str();
+	int written=write_utf8_file(filename.c_str(), contents.c_str(), contents.size());
 	if(!written&&contents.size())
 	{
-		strerror_s(g_buf, g_buf_size, errno);
+		strerror_s(g_buf, G_BUF_SIZE, errno);
 		messagebox(ghWnd, L"Error", L"Failed to save settings to:\n\n%s\n\nfopen_s returned: %S", filename.c_str(), g_buf);
 	}
 }
 
 //ppp workspace
-void			writeworkfolder2wbuf()//TODO: use string&
+void writeworkfolder2wbuf()//TODO: use string&
 {
 	time_t open_time=time(0);
 	tm open_date;
@@ -370,14 +376,14 @@ void			writeworkfolder2wbuf()//TODO: use string&
 	swprintf_s(g_wbuf, L"%ls/%04d%02d%02d-%02d%02d%02d", workspace.c_str(), 1900+open_date.tm_year, open_date.tm_mon+1, open_date.tm_mday, open_date.tm_hour, open_date.tm_min, open_date.tm_sec);
 	//swprintf_s(g_wbuf, L"%ls%04d%02d%02d-%02d%02d%02d\\", workspace.c_str()+(workspace[0]=='\"'), 1900+open_date.tm_year, open_date.tm_mon+1, open_date.tm_mday, open_date.tm_hour, open_date.tm_min, open_date.tm_sec);
 }
-void			create_workfolder_from_wbuf()
+void create_workfolder_from_wbuf()
 {
 	workfolder.assign(g_wbuf);
 	int success=CreateDirectoryW(workfolder.c_str(), nullptr);
 	if(!success)
 		messagebox(ghWnd, L"Error: CreateDirectory", L"GetLastError() returned %d", GetLastError());
 }
-void			delete_workfolder()
+void delete_workfolder()
 {
 	if(workfolder.size())
 	{
@@ -396,7 +402,7 @@ void			delete_workfolder()
 }
 
 //frames
-void			load_frame(int frame_number)
+void load_frame(int frame_number)
 {
 	std::wstring framepath=workfolder+L'/'+framenames[frame_number];
 	//std::wstring framepath(workfolder.begin()+(workfolder[0]=='\"'), workfolder.end());
@@ -405,7 +411,7 @@ void			load_frame(int frame_number)
 	//if(workspace_has_quotes)
 	//	framepath+=L'\"';
 	
-	stbi_convert_wchar_to_utf8(g_buf, g_buf_size, framepath.c_str());
+	stbi_convert_wchar_to_utf8(g_buf, G_BUF_SIZE, framepath.c_str());
 	unsigned char *original_image=stbi_load(g_buf, &iw, &ih, &nchannels, 0);
 	image_size=iw*ih;
 	image=hist_start(iw, ih);
@@ -472,7 +478,7 @@ void			load_frame(int frame_number)
 	//memcpy(image, data.Scan0, image_size<<2);
 	//bmp.UnlockBits(&data);
 }
-void			save_frame(int frame_number)
+void save_frame(int frame_number)
 {
 	std::wstring framepath=workfolder+L'/'+framenames[frame_number];
 	//std::wstring framepath(workfolder.begin()+(workfolder[0]=='\"'), workfolder.end());
@@ -493,7 +499,7 @@ void			save_frame(int frame_number)
 		write_binary(framepath.c_str(), png);//possibly overwrite frame
 	free(image2);
 }
-void			assign_thumbnail(int *thumbnail, int *image)
+void assign_thumbnail(int *thumbnail, int *image)
 {
 	for(int ky=0;ky<th_h;++ky)//no averaging
 	{
@@ -505,7 +511,7 @@ void			assign_thumbnail(int *thumbnail, int *image)
 		}
 	}
 }
-void			load_thumbnails()
+void load_thumbnails()
 {
 	std::vector<byte> png, bitmap;
 	for(int kf=0;kf<nframes;++kf)
@@ -530,13 +536,13 @@ void			load_thumbnails()
 }
 
 //media
-union			Field32
+union Field32
 {
 	unsigned i;
 	unsigned short s[2];
 	byte c[4];
 };
-int				load32(byte const *data, int byteoffset)
+int load32(byte const *data, int byteoffset)
 {
 	Field32 x;
 	//byte *p=(byte*)&i;
@@ -546,25 +552,27 @@ int				load32(byte const *data, int byteoffset)
 	x.c[3]=data[byteoffset+3];
 	return x.i;
 }
-struct			IcoCurHeader
+struct IcoCurHeader
 {
 	unsigned short zero, type, count;
 };
-struct			IcoCurDirectory
+struct IcoCurDirectory
 {
 	byte width, height, ncolors, zero;
 	unsigned short xx, yy;
 	unsigned size, offset;
 };
-/*struct		IcoCurHeader
+#if 0
+struct IcoCurHeader
 {
 //	unsigned short zero;//not included because of padding
 	unsigned short type, nimages;
 	byte width, height, ncolors, zero2;
 	unsigned short xx, yy;
 	unsigned size, offset;
-};//*/
-bool			open_media(std::wstring filepath_u16)//pass by copy
+};
+#endif
+bool open_media(std::wstring filepath_u16)//pass by copy
 {
 	if(filepath_u16.find(L' ')!=std::string::npos)
 	{
@@ -575,33 +583,33 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 	}
 	std::string result;
 	
-	log_start(LL_OPERATIONS);
+	console_start(LL_OPERATIONS);
 	writeworkfolder2wbuf();
 	if(workfolder.size())
-		logi(LL_OPERATIONS,
+		console_log(LL_OPERATIONS,
 			"About to delete the old folder:\n"
 			"\t%ls\n"
 			"and extract frame(s) to the new folder:\n"
 			"\t%ls\n", workfolder.c_str(), g_wbuf);
 	else
-		logi(LL_OPERATIONS,
+		console_log(LL_OPERATIONS,
 			"About to extract frame(s) to the new folder:\n"
 			"\t%ls\n", g_wbuf);
-	log_pause(LL_OPERATIONS);
+	console_pause(LL_OPERATIONS);
 
 	delete_workfolder();			//delete old work folder if exists
 	create_workfolder_from_wbuf();
-	logi(LL_PROGRESS, "Extracting frame(s)...");
+	console_log(LL_PROGRESS, "Extracting frame(s)...");
 
 	std::wstring filename;
-	assign_path(filepath_u16, 0, filepath_u16.size(), filename);
-	int size=filename.size();
+	assign_path(filepath_u16.c_str(), 0, (int)filepath_u16.size(), filename);
+	int size=(int)filename.size();
 	bool frames_extracted=false;
 	if(size>=8)
 	{
 		if(!acme_strcmp_ci(filename.c_str()+size-8, L".r10.png"))
 		{
-			stbi_convert_wchar_to_utf8(g_buf, g_buf_size, filename.c_str());
+			stbi_convert_wchar_to_utf8(g_buf, G_BUF_SIZE, filename.c_str());
 			int iw2, ih2, nch2;
 			unsigned char *original_image=stbi_load(g_buf, &iw2, &ih2, &nch2, 0);
 			if(nch2!=4)
@@ -633,7 +641,7 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 			//	image[k  ]=0xFF000000|couple			&mask;
 			//	image[k+1]=0xFF000000|couple>>bitdepth	&mask;
 			//}
-			log_end();
+			console_end();
 			return true;
 
 			//std::vector<byte> png;
@@ -643,7 +651,7 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 			//	messagebox(ghWnd, L"Error", L"Failed to encode frame %d to PNG", ki);
 			//	continue;
 			//}
-			//swprintf_s(g_wbuf, g_buf_size, L"%08d.PNG", ki+1);
+			//swprintf_s(g_wbuf, G_BUF_SIZE, L"%08d.PNG", ki+1);
 			//framenames[ki]=g_wbuf;
 			//std::wstring framepath=workfolder+L'/'+framenames[ki];
 			//write_binary(framepath.c_str(), png);//possibly overwrite frame
@@ -656,7 +664,7 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 			std::vector<byte> data;
 			read_binary(filename.c_str(), data);
 			byte *bits=data.data();
-			int bytesize=data.size();
+			int bytesize=(int)data.size();
 			int k=0;
 			const int riff='R'|'I'<<8|'F'<<16|'F'<<24;//0x46464952
 			if(bytesize<8)
@@ -692,7 +700,7 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 				case 'f'|'r'<<8|'a'<<16|'m'<<24://start of frames
 					nframes=0;
 					framenames.clear();
-					for(int kt=0, size=thumbnails.size();kt<size;++kt)
+					for(int kt=0, size=(int)thumbnails.size();kt<size;++kt)
 						if(thumbnails[kt])
 							free(thumbnails[kt]), thumbnails[kt]=nullptr;
 					thumbnails.clear();
@@ -710,6 +718,9 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 					return false;
 				}
 			}
+			(void)filesize;
+			(void)listsize;
+			(void)framesize;
 			return true;//
 		}
 		else if(!acme_strcmp_ci(filename.c_str()+size-4, L".ico")||!acme_strcmp_ci(filename.c_str()+size-4, L".cur"))
@@ -717,7 +728,7 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 			std::vector<byte> data;
 			read_binary(filename.c_str(), data);
 			byte *bits=data.data();
-			int bytesize=data.size();
+			int bytesize=(int)data.size();
 			if(bytesize<22)
 				goto standard_open;
 
@@ -791,13 +802,13 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 							for(int kx=0, kx2=0;kx2<w8;kx+=8, ++kx2)
 							{
 								byte octet=srcrow[kx2];
-								if(octet)
-									int LOL_1=0;
+								//if(octet)
+								//	int LOL_1=0;
 								for(int kb=0;kb<8;++kb)
 								{
 									int color=palette[octet>>(7-kb)&1];
-									if(color)
-										int LOL_2=0;
+									//if(color)
+									//	int LOL_2=0;
 									dstrow[kx+kb]=0xFF000000|color;
 								}
 							}
@@ -817,7 +828,7 @@ bool			open_media(std::wstring filepath_u16)//pass by copy
 					messagebox(ghWnd, L"Error", L"Failed to encode frame %d to PNG", ki);
 					continue;
 				}
-				swprintf_s(g_wbuf, g_buf_size, L"%08d.PNG", ki+1);
+				swprintf_s(g_wbuf, G_BUF_SIZE, L"%08d.PNG", ki+1);
 				framenames[ki]=g_wbuf;
 				std::wstring framepath=workfolder+L'/'+framenames[ki];
 				write_binary(framepath.c_str(), png);//possibly overwrite frame
@@ -868,7 +879,7 @@ standard_open:
 	}
 	//exec_FFmpeg_command(L"FFmpeg", L"-i "+filepath_u16+L" "+wfoldercmd+L"%08d."+imageformats[tempformat]+doublequote, result);
 	//exec_FFmpeg_command(L"ffmpeg", L"-i "+filepath_u16+L" "+wfoldercmd+L"%08d."+imageformats[tempformat]+(workspace_has_quotes?L"\"":L""), result);
-	logi(LL_PROGRESS, "\tDone.\n");
+	console_log(LL_PROGRESS, "\tDone.\n");
 
 	//list frame names	//https://stackoverflow.com/questions/2802188/file-count-in-a-directory-using-c
 	framenames.clear();
@@ -891,21 +902,21 @@ standard_open:
 		do
 		{
 			std::wstring name=data.cFileName;
-			int k=maximum(0, name.size()-4);
+			int k=MAXIMUM(0, (int)name.size()-4);
 			if(!(data.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)&&compare_string_caseinsensitive(name, k, L".PNG", 4))
 				framenames.push_back(data.cFileName);
 		}
 		while(FindNextFileW(hSearch, &data));
 		FindClose(hSearch);
 	}
-	nframes=framenames.size();
+	nframes=(int)framenames.size();
 	if(!nframes)
 	{
 		messageboxa(ghWnd, "Error", "FFmpeg returned:\n\n%s", result.c_str());
-		log_end();
+		console_end();
 		return false;
 	}
-	for(int kt=0, size=thumbnails.size();kt<size;++kt)
+	for(int kt=0, size=(int)thumbnails.size();kt<size;++kt)
 		if(thumbnails[kt])
 			free(thumbnails[kt]), thumbnails[kt]=nullptr;
 	thumbnails.resize(nframes);
@@ -913,9 +924,9 @@ standard_open:
 
 	if(animated)//get framerate
 	{
-		logi(LL_PROGRESS, "Querying framerate...");
+		console_log(LL_PROGRESS, "Querying framerate...");
 		exec_FFmpeg_command(L"ffprobe", L"-v 0 -of csv=p=0 -select_streams v:0 -show_entries stream=r_frame_rate "+filepath_u16, result);//query framerate num & den https://askubuntu.com/questions/110264/how-to-find-frames-per-second-of-any-video-file
-		int k=0, size=result.size();
+		int k=0, size=(int)result.size();
 		framerate_num=read_unsigned_int(result, k);
 		if(k<size&&result[k]=='/')
 		{
@@ -924,32 +935,32 @@ standard_open:
 		}
 		else
 			framerate_den=1;
-		logi(LL_PROGRESS, "\tDone: %d/%d=%lf\n", framerate_num, framerate_den, double(framerate_num)/framerate_den);
+		console_log(LL_PROGRESS, "\tDone: %d/%d=%lf\n", framerate_num, framerate_den, double(framerate_num)/framerate_den);
 	}
 	
-	logi(LL_PROGRESS, "Opening first frame...");
+	console_log(LL_PROGRESS, "Opening first frame...");
 	current_frame=0;//load first frame
 	load_frame(current_frame);
-	logi(LL_PROGRESS, "\tDone.\n");
+	console_log(LL_PROGRESS, "\tDone.\n");
 
 	const int thumbnail_size=90;//calculate thumbnails size
-	int maxd=maximum(iw, ih);
+	int maxd=MAXIMUM(iw, ih);
 	if(maxd>thumbnail_size)
 		th_w=int(iw*(double)thumbnail_size/maxd), th_h=int(ih*(double)thumbnail_size/maxd);
 	else
 		th_w=iw, th_h=ih;
 	thbox_h=(10+16+th_h)*nframes+10;
-	logi(LL_PROGRESS, "Loading thumbnails...");
+	console_log(LL_PROGRESS, "Loading thumbnails...");
 	if(animated)
 		load_thumbnails();
-	logi(LL_PROGRESS, "\tDone.\n");
+	console_log(LL_PROGRESS, "\tDone.\n");
 
 	modified=false;
-	log_pause(LL_PROGRESS);
-	log_end();
+	console_pause(LL_PROGRESS);
+	console_end();
 	return true;
 }
-void			open_media_pt2()
+void open_media_pt2()
 {
 	if(open_media(filepath))
 	{
@@ -957,7 +968,7 @@ void			open_media_pt2()
 		render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
 	}
 }
-void			open_media()
+void open_media()
 {
 	wchar_t szFile[MAX_PATH]={'\0'};
 	tagOFNW ofn={sizeof(ofn), ghWnd, 0, L"All files(*.*)\0*.*\0", 0, 0, 1, szFile, sizeof(szFile), 0, 0, 0, 0, OFN_PATHMUSTEXIST|OFN_FILEMUSTEXIST, 0, 0, 0, 0, 0, 0};
@@ -965,10 +976,10 @@ void			open_media()
 	{
 		filepath=ofn.lpstrFile;
 		//std::wstring filepath_u16=ofn.lpstrFile;
-		//int length=stbi_convert_wchar_to_utf8(g_buf, g_buf_size, ofn.lpstrFile);
+		//int length=stbi_convert_wchar_to_utf8(g_buf, G_BUF_SIZE, ofn.lpstrFile);
 		//filepath=g_buf;//utf8
-		int psize=filepath.size();
-		get_name_from_path(filepath, filename);
+		int psize=(int)filepath.size();
+		get_name_from_path(filepath.c_str(), (int)filepath.size(), filename);
 		
 		if(filepath.size())
 		{
@@ -989,9 +1000,10 @@ void			open_media()
 			else
 				open_media_pt2();
 		}
+		(void)psize;
 	}
 }
-void			save_media(std::wstring const &outputpath_u16)
+void save_media(std::wstring const &outputpath_u16)
 {
 	std::wstring outputpath_cmd;
 	outputpath_cmd.reserve(outputpath_u16.size()+2);
@@ -1029,7 +1041,7 @@ void			save_media(std::wstring const &outputpath_u16)
 	{
 		writeworkfolder2wbuf();
 		create_workfolder_from_wbuf();
-		framenames.push_back(L"00000001.PNG"), nframes=framenames.size(), current_frame=0;
+		framenames.push_back(L"00000001.PNG"), nframes=(int)framenames.size(), current_frame=0;
 	}
 
 	//overwrite frame if modified, use FFmpeg
@@ -1046,16 +1058,16 @@ void			save_media(std::wstring const &outputpath_u16)
 		if(!framerate_den)
 			framerate_den=1;
 
-		//swprintf_s(g_wbuf, g_buf_size, L"%%d");//
-		swprintf_s(g_wbuf, g_buf_size, L" -framerate %lf -i %ls%%08d.PNG -plays 0 %ls", (double)framerate_num/framerate_den, workfolder.c_str(), outputpath_cmd.c_str());
-	//	swprintf_s(g_wbuf, g_buf_size, L" -framerate %lf -i %ls%%08d.PNG %ls", (double)framerate_num/framerate_den, workfolder.c_str(), outputpath_cmd.c_str());//doesn't loop
-	//	swprintf_s(g_wbuf, g_buf_size, L" -framerate %lf -i %ls%%08d.PNG \"D:\\Share Box\\!\\LOL.GIF\"", (double)framerate_num/framerate_den, workfolder.c_str());
+		//swprintf_s(g_wbuf, G_BUF_SIZE, L"%%d");//
+		swprintf_s(g_wbuf, G_BUF_SIZE, L" -framerate %lf -i %ls%%08d.PNG -plays 0 %ls", (double)framerate_num/framerate_den, workfolder.c_str(), outputpath_cmd.c_str());
+	//	swprintf_s(g_wbuf, G_BUF_SIZE, L" -framerate %lf -i %ls%%08d.PNG %ls", (double)framerate_num/framerate_den, workfolder.c_str(), outputpath_cmd.c_str());//doesn't loop
+	//	swprintf_s(g_wbuf, G_BUF_SIZE, L" -framerate %lf -i %ls%%08d.PNG \"D:\\Share Box\\!\\LOL.GIF\"", (double)framerate_num/framerate_den, workfolder.c_str());
 		exec_FFmpeg_command(L"FFmpeg", g_wbuf, result);
 
 		//exec_FFmpeg_command(L"FFmpeg",
 		//	L" -i "+workfolder+L"%08d.PNG"+(workspace_has_quotes?L"\"":L"")
 		//	+L" -vf palettegen "+workfolder+L"palette.png"+(workspace_has_quotes?L"\"":L""), result);
-		//swprintf_s(g_wbuf, g_buf_size, L" -framerate %lf -i %ls\%08d.PNG -i %lspalette.PNG %ls", (double)framerate_num/framerate_den, workfolder.c_str(), workfolder.c_str(), outputpath_cmd.c_str());
+		//swprintf_s(g_wbuf, G_BUF_SIZE, L" -framerate %lf -i %ls\%08d.PNG -i %lspalette.PNG %ls", (double)framerate_num/framerate_den, workfolder.c_str(), workfolder.c_str(), outputpath_cmd.c_str());
 		//exec_FFmpeg_command(L"FFmpeg", g_wbuf, result);
 
 	//	exec_FFmpeg_command(L"FFmpeg", L" -i "+workfolder+L"%08d.PNG"+(workspace_has_quotes?L"\" ":L" ")+outputpath_cmd, result);
@@ -1065,7 +1077,7 @@ void			save_media(std::wstring const &outputpath_u16)
 	const char failmsg[]="Conversion failed!\r\n";//TODO: put this as global string visible on top (may change with FFmpeg version)
 	const int fm_size=sizeof(failmsg);
 	bool conversion_failed=true;
-	for(int k=fm_size-2, k2=result.size()-1;k>=0&&k2>=0;--k, --k2)//compare strings backwards
+	for(int k=fm_size-2, k2=(int)result.size()-1;k>=0&&k2>=0;--k, --k2)//compare strings backwards
 	{
 		if(result[k2]!=failmsg[k])
 		{
@@ -1075,13 +1087,13 @@ void			save_media(std::wstring const &outputpath_u16)
 	}
 	if(conversion_failed)
 	{
-		log_start(LL_OPERATIONS);
-		logi(LL_OPERATIONS, result.c_str());
-		logi(LL_OPERATIONS, "\n");
-		log_pause(LL_OPERATIONS);
-		log_end();
+		console_start(LL_OPERATIONS);
+		console_log(LL_OPERATIONS, result.c_str());
+		console_log(LL_OPERATIONS, "\n");
+		console_pause(LL_OPERATIONS);
+		console_end();
 	}
-	//int length=stbi_convert_wchar_to_utf8(g_buf, g_buf_size, ofn.lpstrFile);//not used
+	//int length=stbi_convert_wchar_to_utf8(g_buf, G_BUF_SIZE, ofn.lpstrFile);//not used
 	//if(length)
 	//{
 	//	if(!animated&&ofn.nFilterIndex>0&&ofn.nFilterIndex<=5)//PNG, GIF, JPG, BMP, TIF: just Gdiplus
@@ -1104,7 +1116,7 @@ void			save_media(std::wstring const &outputpath_u16)
 	//		//	Gdiplus::Status status=bmp.Save(g_wbuf, &encoderClsid, nullptr);
 	//		//	if(status)
 	//		//	{
-	//		//		swprintf_s(g_wbuf, g_buf_size, L"Bitmap::Save() -> %d", status);
+	//		//		swprintf_s(g_wbuf, G_BUF_SIZE, L"Bitmap::Save() -> %d", status);
 	//		//		error_exit(g_wbuf, __LINE__);
 	//		//	}
 	//		//}
@@ -1116,10 +1128,10 @@ void			save_media(std::wstring const &outputpath_u16)
 	modified=false;
 	SetWindowTextW(ghWnd, (outputpath_u16+L" - Paint++").c_str());
 }
-bool			save_media_as()
+bool save_media_as()
 {
 	const wchar_t filetitle[]=L"Untitled.PNG";
-	memcpy(g_wbuf, filetitle, sizeof filetitle);
+	memcpy(g_wbuf, filetitle, sizeof(filetitle));
 	tagOFNW ofn=
 	{
 		sizeof(tagOFNW), ghWnd, 0,
@@ -1132,7 +1144,7 @@ bool			save_media_as()
 		0, 0,//custom filter
 		1,//filter index: 0 is custom filter, 1 is first, ...
 					
-		g_wbuf, g_buf_size,//file (output)
+		g_wbuf, G_BUF_SIZE,//file (output)
 					
 		0, 0,//file title
 		0, 0, OFN_ENABLESIZING|OFN_EXPLORER|OFN_NOTESTFILECREATE|OFN_PATHMUSTEXIST|OFN_EXTENSIONDIFFERENT|OFN_OVERWRITEPROMPT,//flags
@@ -1146,14 +1158,14 @@ bool			save_media_as()
 	if(GetSaveFileNameW(&ofn))
 	{
 		filepath=ofn.lpstrFile;
-		get_name_from_path(filepath, filename);
+		get_name_from_path(filepath.c_str(), (int)filepath.size(), filename);
 	//	std::wstring outputpath_u16=ofn.lpstrFile, outputpath_cmd=outputpath_u16;
 		save_media(filepath);
 		return true;
 	}
 	return false;
 }
-//struct			MyDropTarget:public IDropTarget
+//struct MyDropTarget:public IDropTarget
 //{
 //	long __stdcall QueryInterface(/*[in]*/ IID const &riid, /*[iid_is][out]*/ _COM_Outptr_ void __RPC_FAR *__RPC_FAR *ppvObject){return 0;}
 //	unsigned long __stdcall AddRef(){return 0;}

@@ -1,6 +1,6 @@
 #ifndef GENERIC_H
 #define GENERIC_H
-#include		<Windows.h>
+#include<Windows.h>
 #ifdef __cplusplus
 
 
@@ -31,7 +31,7 @@
 #ifdef __GNUC__
 #define	__rdtsc	__builtin_ia32_rdtsc
 #endif
-inline double		time_sec()
+inline double time_sec()
 {
 #ifdef TIMING_USE_QueryPerformanceCounter
 	static long long t=0;
@@ -71,7 +71,7 @@ inline double		time_sec()
 	return (double)timeGetTime()*0.001;//system time, in milliseconds
 #endif
 }
-inline double		time_ms()
+inline double time_ms()
 {
 #ifdef TIMING_USE_QueryPerformanceCounter
 	static long long t=0;
@@ -111,7 +111,7 @@ inline double		time_ms()
 	return (double)timeGetTime();//system time, in milliseconds
 #endif
 }
-inline double		elapsed_ms(double &calltime)//since last call
+inline double elapsed_ms(double &calltime)//since last call
 {
 	double t0=calltime;
 	calltime=time_ms();
@@ -122,7 +122,7 @@ inline double		elapsed_ms(double &calltime)//since last call
 	//t1=t2;
 	//return diff;
 }
-inline double		elapsed_cycles(long long &calltime)//since last call
+inline double elapsed_cycles(long long &calltime)//since last call
 {
 	long long t0=calltime;
 	calltime=__rdtsc();
@@ -135,64 +135,71 @@ inline double		elapsed_cycles(long long &calltime)//since last call
 	//return diff;
 }
 
-extern int			prof_on;
-void				prof_toggle();
+extern int prof_on;
+void prof_toggle();
 
-//void				prof_start();
-void				prof_add(const char *label, int divisor=1);
-void				prof_sum(const char *label, int count);//add the sum of last 'count' steps
-void				prof_loop_start(const char **labels, int n);//describe the loop body parts in 'labels'
-void				prof_add_loop(int idx);//call on each part of loop body
+//void prof_start();
+void prof_add(const char *label, int divisor=1);
+void prof_sum(const char *label, int count);//add the sum of last 'count' steps
+void prof_loop_start(const char **labels, int n);//describe the loop body parts in 'labels'
+void prof_add_loop(int idx);//call on each part of loop body
 #ifdef PROFILER_SCREEN
-#define		PROF_PRINT_ARGS	HDC hDC, int xlabels, int xnumbers
+#define PROF_PRINT_ARGS	HDC hDC, int xlabels, int xnumbers
 #else
-#define		PROF_PRINT_ARGS
+#define PROF_PRINT_ARGS
 #endif
-void				prof_print(PROF_PRINT_ARGS);
-void				prof_print_in_title();
+void prof_print(PROF_PRINT_ARGS);
+void prof_print_in_title();
 //END OF [PROFILER]
 
 
-#define		SIZEOF(STATIC_ARRAY)	(sizeof(STATIC_ARRAY)/sizeof(*(STATIC_ARRAY)))
-
-
-//[CONSOLE]		cpp (name mangled) to enable cin & cout
-enum			LogLevel
+//[CONSOLE]	cpp (name mangled) to enable cin & cout
+enum LogLevel//inspired by FFmpeg
 {
-	LL_CRITICAL,	//talk only when unavoidable		//inspired by FFmpeg
-	LL_OPERATIONS,	//talk only when doing dangerous stuff
-	LL_PROGRESS,	//report progress
+	LL_PROGRESS=0,	//progress
+	LL_OPERATIONS,	//dangerous stuff
+	LL_CRITICAL,	//unavoidable
 };
-void			RedirectIOToConsole();
-void			freeconsole();
-void			print_closewarning();
-void			log_start(int priority);
-void			logi(int priority, const char *format, ...);
-void			log_pause(int priority);
-#define			log_end freeconsole
+void console_log(int priority, const char *format, ...);
+void console_logw(int priority, const wchar_t *format, ...);
+void console_start(int priority);
+void console_end(void);
+void console_buffer_size(int x, int y);
+int console_scan(char *buf, int len);
+int console_scan_int(void);
+double console_scan_float(void);
+void console_pause(int priority);
+
+//void RedirectIOToConsole();
+//void freeconsole();
+//void print_closewarning();
+//void log_start(int priority);
+//void logi(int priority, const char *format, ...);
+//void log_pause(int priority);
+//#define log_end freeconsole
 
 
 //string
-#include		<string>
-inline wchar_t	acme_tolower(wchar_t c)//ASCII-only
+#include<string>
+inline wchar_t acme_tolower(wchar_t c)//ASCII-only
 {
 	return c+(('a'-'A')&-((c>='A')&(c<='Z')));
 }
-void			assign_path(std::wstring const &text, int start, int end, std::wstring &pathret);
-void			assign_path(std::string const &text, int start, int end, std::wstring &pathret);
-void			assign_path(std::string const &text, int start, int end, std::string &pathret);
-void			get_name_from_path(std::wstring const &path, std::wstring &name);
+void assign_path(const wchar_t *text, int start, int end, std::wstring &pathret);
+void assign_path(const char *text, int start, int end, std::wstring &pathret);
+void assign_path(const char *text, int start, int end, std::string &pathret);
+void get_name_from_path(const wchar_t *path, int len, std::wstring &name);
 
-bool			skip_whitespace(std::wstring const &text, int &k);
-bool			skip_whitespace(std::string const &text, int &k);
-bool			compare_string_caseinsensitive(std::wstring const &text, int &k, const wchar_t *label, int label_size);
-bool			compare_string_caseinsensitive(std::string const &text, int &k, const char *label, int label_size);
-unsigned		read_unsigned_int(std::string const &text, int &k);
-double			read_unsigned_float(std::string const &text, int &k);
-int				acme_matchlabel_ci(const wchar_t *text, int size, int &k, const wchar_t *label, int &advance);
-int				skip_till_newline_or_null(const wchar_t *text, int size, int &k, int &advance);
+bool skip_whitespace(std::wstring const &text, int &k);
+bool skip_whitespace(std::string const &text, int &k);
+bool compare_string_caseinsensitive(std::wstring const &text, int &k, const wchar_t *label, int label_size);
+bool compare_string_caseinsensitive(std::string const &text, int &k, const char *label, int label_size);
+unsigned read_unsigned_int(std::string const &text, int &k);
+double read_unsigned_float(std::string const &text, int &k);
+int acme_matchlabel_ci(const wchar_t *text, int size, int &k, const wchar_t *label, int &advance);
+int skip_till_newline_or_null(const wchar_t *text, int size, int &k, int &advance);
 
-#include		"g_cpp11.h"
+#include"g_cpp11.h"
 
 extern "C"
 {
@@ -204,48 +211,50 @@ typedef unsigned short wchar_t;
 #endif//__cplusplus
 
 	//buffer
-#define G_BUF_SIZE	2048
-	extern const int g_buf_size;
-	extern char		g_buf[G_BUF_SIZE];
+	enum
+	{
+		G_BUF_SIZE=2048,
+	};
+	extern char g_buf[G_BUF_SIZE];
 	extern wchar_t	g_wbuf[G_BUF_SIZE];
 
 	//math
-	extern const double	_pi, todeg, torad;
-	int				mod(int x, int n);
-	int				floor_log2(unsigned long long n);
-	int				floor_log10(double x);
-	double			power(double x, int y);
-	double			_10pow(int n);
+	extern double _pi, todeg, torad;
+	int mod(int x, int n);
+	int floor_log2(unsigned long long n);
+	int floor_log10(double x);
+	double power(double x, int y);
+	double _10pow(int n);
 
 	//memory
-	void			memfill(void *dst, const void *src, int dstbytes, int srcbytes);//repeating pattern
-	void			cycle_image(int *image, int iw, int ih, int dx, int dy);//lossless
+	void memfill(void *dst, const void *src, int dstbytes, int srcbytes);//repeating pattern
+	void cycle_image(int *image, int iw, int ih, int dx, int dy);//lossless
 
 	//string
-	long long		acme_wtoll(const wchar_t *str, int *ret_advance);
-	int				acme_wtoi(const wchar_t *str, int *ret_advance);
-	int				acme_strcmp_ci(const wchar_t *s1, const wchar_t *s2);//returns zero on match, n+1 on mismatch at n
+	long long acme_wtoll(const wchar_t *str, int *ret_advance);
+	int acme_wtoi(const wchar_t *str, int *ret_advance);
+	int acme_strcmp_ci(const wchar_t *s1, const wchar_t *s2);//returns zero on match, n+1 on mismatch at n
 
 	//win32
-	int				GUINPrint(HDC hDC, int x, int y, int w, int h, const char *a, ...);//DrawText with newlines
-	long			GUITPrint(HDC hDC, int x, int y, const char *a, ...);//return value: 0xHHHHWWWW		width=(short&)ret, height=((short*)&ret)[1]
-	void			GUIPrint(HDC hDC, int x, int y, const char *a, ...);
-//	void			GUIPrint(HDC hDC, int x, int y, int value);
-	int				get_key_state(int key);
-	const char*		wm2str(int message);
-	void			messagebox(HWND hWnd, const wchar_t *title, const wchar_t *format, ...);//rename to messageboxw
-	void			messageboxa(HWND hWnd, const char *title, const char *format, ...);
-	void			formatted_error(const wchar_t *lpszFunction, int line);
-	void			error_exit(const wchar_t *lpszFunction, int line);//Format a readable error message, display a message box, and exit from the application.
+	int GUINPrint(HDC hDC, int x, int y, int w, int h, const char *a, ...);//DrawText with newlines
+	long GUITPrint(HDC hDC, int x, int y, const char *a, ...);//return value: 0xHHHHWWWW		width=(short&)ret, height=((short*)&ret)[1]
+	void GUIPrint(HDC hDC, int x, int y, const char *a, ...);
+//	void GUIPrint(HDC hDC, int x, int y, int value);
+	int get_key_state(int key);
+	const char* wm2str(int message);
+	void messagebox(HWND hWnd, const wchar_t *title, const wchar_t *format, ...);//rename to messageboxw
+	void messageboxa(HWND hWnd, const char *title, const char *format, ...);
+	void formatted_error(const wchar_t *lpszFunction, int line);
+	void error_exit(const wchar_t *lpszFunction, int line);//Format a readable error message, display a message box, and exit from the application.
 
-	double			getwindowdouble(HWND hWnd);
-	int				getwindowint(HWND hWnd);
+	double getwindowdouble(HWND hWnd);
+	int getwindowint(HWND hWnd);
 
 	//file
-	int				file_is_readablea(const char *filename);//0: not readable, 1: regular file, 2: folder
-	int				file_is_readablew(const wchar_t *filename);
-	//int			file_existsw(const wchar_t *name);
-	//int			file_existsa(const char *name);
+	int file_is_readablea(const char *filename);//0: not readable, 1: regular file, 2: folder
+	int file_is_readablew(const wchar_t *filename);
+	//int file_existsw(const wchar_t *name);
+	//int file_existsa(const char *name);
 
 #ifdef __cplusplus
 }

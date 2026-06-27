@@ -1,7 +1,7 @@
-#include		"ppp.h"
-#include		"generic.h"
-#include		<sstream>
-void			copy_to_clipboard(const char *a, int size)//size not including null terminator
+#include"ppp.h"
+#include"generic.h"
+#include<sstream>
+void copy_to_clipboard(const char *a, int size)//size not including null terminator
 {
 	char *clipboard=(char*)LocalAlloc(LMEM_FIXED, (size+1)*sizeof(char));
 	memcpy(clipboard, a, (size+1)*sizeof(char));
@@ -11,7 +11,7 @@ void			copy_to_clipboard(const char *a, int size)//size not including null termi
 	SetClipboardData(CF_OEMTEXT, (void*)clipboard);
 	CloseClipboard();
 }
-void			sound_to_clipboard(short *audio_buf, float *L, float *R, int nsamples)
+void sound_to_clipboard(short *audio_buf, float *L, float *R, int nsamples)
 {
 	std::stringstream LOL_1;
 	LOL_1<<"idx\tL\tR\r\n\r\n";
@@ -20,18 +20,18 @@ void			sound_to_clipboard(short *audio_buf, float *L, float *R, int nsamples)
 	//	LOL_1<<k<<'\t'<<audio_buf[k<<1]<<' '<<L[k]<<'\t'<<audio_buf[(k<<1)+1]<<' '<<R[k]<<"\r\n";
 	copy_to_clipboard(LOL_1.str());
 }
-void			sound_to_clipboard(float *sound, int nsamples)
+void sound_to_clipboard(float *sound, int nsamples)
 {
 	std::stringstream LOL_1;
 	for(int k=0;k<nsamples;++k)
 	{
-		sprintf_s(g_buf, g_buf_size, "%f", sound[k]);
+		sprintf_s(g_buf, G_BUF_SIZE, "%f", sound[k]);
 		LOL_1<<k<<'\t'<<g_buf<<"\r\n";
 		//LOL_1<<k<<'\t'<<sound[k]<<"\r\n";
 	}
 	copy_to_clipboard(LOL_1.str());
 }
-void			complex_fbuf_to_clipboard(float *sound, int nsamples)
+void complex_fbuf_to_clipboard(float *sound, int nsamples)
 {
 	std::stringstream LOL_1;
 	LOL_1<<"idx\tre\tim\r\n";
@@ -39,7 +39,7 @@ void			complex_fbuf_to_clipboard(float *sound, int nsamples)
 		LOL_1<<(k>>1)<<'\t'<<sound[k]<<'\t'<<sound[k+1]<<"\r\n";
 	copy_to_clipboard(LOL_1.str());
 }
-void			buffer_to_clipboard(const void *buffer, int size_bytes)
+void buffer_to_clipboard(const void *buffer, int size_bytes)
 {
 	std::stringstream LOL_1;
 	auto a=(const char*)buffer;
@@ -48,14 +48,14 @@ void			buffer_to_clipboard(const void *buffer, int size_bytes)
 	//	LOL_1<<std::hex<<(int)a[k]<<"\r\n";
 	copy_to_clipboard(LOL_1.str());
 }
-void			polygon_to_clipboard(const int *buffer, int npoints)
+void polygon_to_clipboard(const int *buffer, int npoints)
 {
 	std::stringstream LOL_1;
 	for(int k=0, nnumbers=npoints<<1;k+1<nnumbers;k+=2)
 		LOL_1<<(k>>1)<<":\t"<<buffer[k]<<'\t'<<buffer[k+1]<<"\r\n";
 	copy_to_clipboard(LOL_1.str());
 }
-void			syscolors_to_clipboard()
+void syscolors_to_clipboard()
 {
 	const int ncolors=31;
 	int colors[ncolors]={0};
@@ -101,7 +101,7 @@ void			syscolors_to_clipboard()
 		LOL_1<<k;
 		if(names[k])
 		{
-			sprintf_s(g_buf, g_buf_size, "\t%s\t0x%08X", names[k], colors[k]);
+			sprintf_s(g_buf, G_BUF_SIZE, "\t%s\t0x%08X", names[k], colors[k]);
 			LOL_1<<g_buf;
 		//	LOL_1<<'\t'<<names[k]<<'\t'<<colors[k];
 		}

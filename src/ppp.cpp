@@ -15,124 +15,132 @@
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include		"ppp.h"
-#include		"generic.h"
-#include		"ppp_inline_blend.h"
+#include"ppp.h"
+#include"generic.h"
+#include"ppp_inline_blend.h"
 
-#include		<Windows.h>
+#include<Windows.h>
 
-#include		<Gdiplus.h>
-#include		<Gdiplusimaging.h>
-//#include		<wcsplugin.h>//windows color system
-#include		<commctrl.h>
-#include		<sys\stat.h>
-#include		<string>
-#include		<cwctype>
-#include		<sstream>
-#include		<fstream>
-#include		<algorithm>
-#include		<vector>
-//#include		<queue>
-#pragma			comment(lib, "Comctl32.lib")//status bar
-#pragma			comment(lib, "Gdiplus.lib")
-//#define		SDL_MAIN_HANDLED
-//#include		<SDL.h>
-//#include		<SDL_syswm.h>
-//#pragma		comment(lib, "SDL2.lib")
-//#pragma		comment(lib, "SDL2main.lib")
+#include<Gdiplus.h>
+#ifdef _MSC_VER
+#include<Gdiplusimaging.h>
+#else
+#include<gdiplus/Gdiplusimaging.h>
+#endif
+//#include<wcsplugin.h>//windows color system
+#include<commctrl.h>
+#include<sys/stat.h>
+#include<string>
+#include<cwctype>
+#include<sstream>
+#include<fstream>
+#include<algorithm>
+#include<vector>
+//#include<queue>
+#ifdef _MSC_VER
+#pragma comment(lib, "Comctl32.lib")//status bar
+#pragma comment(lib, "Gdiplus.lib")
+#endif
+//#define SDL_MAIN_HANDLED
+//#include <SDL.h>
+//#include <SDL_syswm.h>
+//#pragma comment(lib, "SDL2.lib")
+//#pragma comment(lib, "SDL2main.lib")
 
-#include		<iostream>
-//#include		<codecvt>
-#include		<assert.h>
-#include		<exception>
-#include		<functional>
-#include		<time.h>
-#include		<strsafe.h>
-
-//#pragma		comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#include<iostream>
+//#include<codecvt>
+#include<assert.h>
+#include<exception>
+#include<functional>
+#include<time.h>
+#include<strsafe.h>
+//#pragma comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 static const char file[]=__FILE__;
-int				cfocus=FOCUS_MAIN;
-int				g_processed=0;//
+int cfocus=FOCUS_MAIN;
+int g_processed=0;//
+char debugmode=
 #ifdef _DEBUG
-char			debugmode=true;
+	true
 #else
-char			debugmode=false;
+	false
 #endif
-ImageMode		imagetype=IM_INT8_RGBA;
-HistogramMode	histogramMode=H_OFF;
-int				*rgb=nullptr, w=0, h=0, rgbn=0,
-				mx=0, my=0,//current mouse position
-				prev_mx=0, prev_my=0,//previous mouse position
-				start_mx=0, start_my=0,//original mouse position
-				*image=nullptr,			iw=0, ih=0, image_size=0, nchannels=0,//image==history[histpos].buffer always
-				*temp_buffer=nullptr,	tw=0, th=0,	//temporary buffer, has alpha
-				*sel_buffer=nullptr,	sw=0, sh=0,	//selection buffer, has alpha
-				*sel_mask=nullptr,		//selection mask, used only in free-form selection, inside selection polygon if true, same dimensions as sel_buffer
-				logzoom=0,//log2(pixel size)
-				spx=0, spy=0;//position of top left corner of the window in image coordinates
-double			zoom=1;//a power of 2
-bool			use_temp_buffer=false,
-				modified=false;
+;
+ImageMode imagetype=IM_INT8_RGBA;
+HistogramMode histogramMode=H_OFF;
+int
+	*rgb=nullptr, w=0, h=0, rgbn=0,
+	mx=0, my=0,//current mouse position
+	prev_mx=0, prev_my=0,//previous mouse position
+	start_mx=0, start_my=0,//original mouse position
+	*image=nullptr,			iw=0, ih=0, image_size=0, nchannels=0,//image==history[histpos].buffer always
+	*temp_buffer=nullptr,	tw=0, th=0,	//temporary buffer, has alpha
+	*sel_buffer=nullptr,	sw=0, sh=0,	//selection buffer, has alpha
+	*sel_mask=nullptr,		//selection mask, used only in free-form selection, inside selection polygon if true, same dimensions as sel_buffer
+	logzoom=0,//log2(pixel size)
+	spx=0, spy=0;//position of top left corner of the window in image coordinates
+double zoom=1;//a power of 2
+bool use_temp_buffer=false,
+	modified=false;
 //std::vector<int> delays;//X
-std::wstring	workspace,//the workspace containing the workfolder
-				workfolder;//the folder containing opened temp files, it has the name 'date time'
-int				tempformat=IF_PNG;
-const wchar_t	*settingsfilename=L"settings.txt", *imageformats[]={L"BMP", L"TIFF", L"PNG", L"JPEG", L"FLIF"};
+std::wstring workspace,//the workspace containing the workfolder
+	workfolder;//the folder containing opened temp files, it has the name 'date time'
+int tempformat=IF_PNG;
+const wchar_t *settingsfilename=L"settings.txt", *imageformats[]={L"BMP", L"TIFF", L"PNG", L"JPEG", L"FLIF"};
 std::vector<std::wstring> framenames;//file names of all frames, must append workfolder with possible doublequote
 std::vector<int*> thumbnails;//same size as framenames
-int				th_w=0, th_h=0,//thumbnail dimensions		TODO: th -> thumb
-				thbox_h=0,//thumbnail box internal height
-				thbox_x1=0,//thumbnail box xstart
-				thbox_posy=0;//thumbnail box scroll position (thbox top -> screen top)
+int th_w=0, th_h=0,//thumbnail dimensions		TODO: th -> thumb
+	thbox_h=0,//thumbnail box internal height
+	thbox_x1=0,//thumbnail box xstart
+	thbox_posy=0;//thumbnail box scroll position (thbox top -> screen top)
 
 extern const int scrollbarwidth=17;
-Scrollbar		vscroll={}, hscroll={},//image scrollbars
-				thbox_vscroll={};
-//bool			thbox_scrollbar=false;
-//int			thbox_vscroll_my_start=0,//starting mouse position
-//				thbox_vscroll_s0=0,//initial scrollbar slider start
-//				thbox_vscroll_start=0,//scrollbar slider start
-//				thbox_vscroll_size=0;//scrollbar slider size
-int				current_frame=0, nframes=0,
-				framerate_num=0, framerate_den=1;
-bool			animated=false;
-tagRECT			R;
-HINSTANCE		ghInstance=0;
-HWND			ghWnd=nullptr;
-//HWND			hFontbar=nullptr;
-HWND			hFontcombobox=nullptr, hFontsizecb=nullptr, hTextbox=nullptr,
-				hRotatebox=nullptr;
-//				hStretchHbox=nullptr, hStretchVbox=nullptr, hSkewHbox=nullptr, hSkewVbox=nullptr;
-//HWND			gToolbar=0, gColorBar=0, ghStatusbar=0, hWndPanel=0;
-HDC				ghDC=nullptr, ghMemDC=nullptr;
-HBITMAP			hBitmap=nullptr;
-std::wstring	programpath, FFmpeg_path;//all paths use forward slashes only, and are stripped of doublequotes and trailing slash
+Scrollbar vscroll={}, hscroll={},//image scrollbars
+	thbox_vscroll={};
+//bool thbox_scrollbar=false;
+//int thbox_vscroll_my_start=0,//starting mouse position
+//	thbox_vscroll_s0=0,//initial scrollbar slider start
+//	thbox_vscroll_start=0,//scrollbar slider start
+//	thbox_vscroll_size=0;//scrollbar slider size
+int current_frame=0, nframes=0,
+	framerate_num=0, framerate_den=1;
+bool animated=false;
+RECT R;
+HINSTANCE ghInstance=0;
+HWND ghWnd=nullptr;
+//HWND hFontbar=nullptr;
+HWND hFontcombobox=nullptr, hFontsizecb=nullptr, hTextbox=nullptr,
+	hRotatebox=nullptr;
+//	hStretchHbox=nullptr, hStretchVbox=nullptr, hSkewHbox=nullptr, hSkewVbox=nullptr;
+//HWND gToolbar=0, gColorBar=0, ghStatusbar=0, hWndPanel=0;
+HDC ghDC=nullptr, ghMemDC=nullptr;
+HBITMAP hBitmap=nullptr;
+std::wstring programpath, FFmpeg_path;//all paths use forward slashes only, and are stripped of doublequotes and trailing slash
 //bool			FFmpeg_path_has_quotes=false, workspace_has_quotes=false;
-std::string		FFmpeg_version;
-std::wstring	filename=L"Untitled", filepath;//opened media file name & path, utf16
-const char		default_title[]="Untitled - Paint++";
+std::string FFmpeg_version;
+std::wstring filename=L"Untitled", filepath;//opened media file name & path, utf16
+const char default_title[]="Untitled - Paint++";
 extern const wchar_t doublequote=L'\"';
-char			kb[256]={false},
-//				mb[2]={false},//mouse buttons {0: left, 1: right}
-				drag=0, prev_drag=0;//drag type
-int				timer=0;
-//bool			hscrollbar=false, vscrollbar=false;
-//int			hscroll_mx_start=0, vscroll_my_start=0,//starting mouse position
-//				hscroll_s0=0, vscroll_s0=0,//initial scrollbar slider start
-//				hscroll_start=0, vscroll_start=0,//scrollbar slider start
-//				hscroll_size=0, vscroll_size=0;//scrollbar slider size
+char kb[256]={false},
+//	mb[2]={false},//mouse buttons {0: left, 1: right}
+	drag=0, prev_drag=0;//drag type
+int timer=0;
+//bool hscrollbar=false, vscrollbar=false;
+//int hscroll_mx_start=0, vscroll_my_start=0,//starting mouse position
+//	hscroll_s0=0, vscroll_s0=0,//initial scrollbar slider start
+//	hscroll_start=0, vscroll_start=0,//scrollbar slider start
+//	hscroll_size=0, vscroll_size=0;//scrollbar slider size
 
-bool			operator<(Font const &a, Font const &b){return wcscmp(a.lf.lfFaceName, b.lf.lfFaceName)<0;}
-const int		truetypesizes[]={8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72};
+bool operator<(Font const &a, Font const &b){return wcscmp(a.lf.lfFaceName, b.lf.lfFaceName)<0;}
+const int truetypesizes[]={8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72};
 extern const int truetypesizes_size=sizeof(truetypesizes)>>2;
 std::vector<Font> fonts;
-int				font_idx=0, font_size=10;
-bool			bold=false, italic=false, underline=false;
-HFONT			hFont=nullptr;
+int font_idx=0, font_size=10;
+bool bold=false, italic=false, underline=false;
+HFONT hFont=nullptr;
 
-int				scrollbar_init_ms=500, scrollbar_tick_ms=35;
-void			timer_set(int id)
+int scrollbar_init_ms=500, scrollbar_tick_ms=35;
+void timer_set(int id)
 {
 	GEN_ASSERT(!timer);
 	int elapse=10;
@@ -148,11 +156,11 @@ void			timer_set(int id)
 		elapse=scrollbar_tick_ms;
 		break;
 	}
-	int ret=SetTimer(ghWnd, id, elapse, 0);
+	size_t ret=SetTimer(ghWnd, id, elapse, 0);
 	SYS_ASSERT(ret);
 	timer=id;
 }
-void			timer_kill()
+void timer_kill()
 {
 	if(timer)
 	{
@@ -163,13 +171,13 @@ void			timer_kill()
 	else
 		LOG_ERROR("KillTimer(), but there is no timer.");//
 }
-void			unimpl(){messagebox(ghWnd, L"Error", L"Not implemented yet.");}
-void			mark_modified()
+void unimpl(){messagebox(ghWnd, L"Error", L"Not implemented yet.");}
+void mark_modified()
 {
 	if(!modified)
 	{
 		modified=true;
-		int size=GetWindowTextW(ghWnd, g_wbuf+1, g_buf_size-1);
+		int size=GetWindowTextW(ghWnd, g_wbuf+1, G_BUF_SIZE-1);
 		SYS_ASSERT(size);
 		if(g_wbuf[1]!=L'*')
 		{
@@ -180,10 +188,10 @@ void			mark_modified()
 	}
 }
 
-void			ask_FFmpeg_path()
+void ask_FFmpeg_path()
 {
-	log_start(LL_CRITICAL);
-	logi(LL_CRITICAL,
+	console_start(LL_CRITICAL);
+	console_log(LL_CRITICAL,
 		"FFmpeg not found.\n"
 
 		"Please download FFmpeg for Windows from:\n"
@@ -209,11 +217,17 @@ void			ask_FFmpeg_path()
 	for(;;)
 	{
 		std::string str;
-		std::getline(std::cin, str);
+		int len;
+
+		str.resize(4096);
+		len=0;
+		while(!len)
+			len=console_scan(&str[0], 4096-1);
+	//	std::getline(std::cin, str);
 	//	std::cin>>str;//useless
 		if(check_FFmpeg_path(str))//if valid path entered, write it in 'settings.txt'
 		{
-			assign_path(str, 0, str.size(), FFmpeg_path);
+			assign_path(str.c_str(), 0, (int)str.size(), FFmpeg_path);
 			//FFmpeg_path_has_quotes=false;
 			//for(int k=0, kEnd=str.size();k<kEnd;++k)
 			//{
@@ -243,20 +257,20 @@ void			ask_FFmpeg_path()
 			if(check_FFmpeg_path(FFmpeg_path))
 				break;
 		}
-		logi(LL_CRITICAL,
+		console_log(LL_CRITICAL,
 			"\nFFmpeg not found.\n"
 			"> ");
 	}
-	logi(LL_CRITICAL,
+	console_log(LL_CRITICAL,
 		"\n"
 		"Found FFmpeg version %s\n"
 		"Press any key to continue...\n", FFmpeg_version.c_str());
-	log_pause(LL_CRITICAL);
-	log_end();
+	console_pause(LL_CRITICAL);
+	console_end();
 }
 
 
-enum			MousePosition
+enum MousePosition
 {
 	MP_NONCLIENT,
 	MP_THUMBNAILBOX, MP_COLORBAR, MP_TOOLBAR,
@@ -265,20 +279,22 @@ enum			MousePosition
 	MP_RESIZE_TL, MP_RESIZE_TOP, MP_RESIZE_TR, MP_RESIZE_LEFT, MP_RESIZE_RIGHT, MP_RESIZE_BL, MP_RESIZE_BOTTOM, MP_RESIZE_BR,
 	MP_IMAGE
 };
-int				mousepos=-1;
-HMENU			hMenubar=0,		hMenuFile=0, hMenuEdit=0, hMenuView=0, hMenuZoom=0, hMenuImage=0, hMenuColors=0, hMenuHelp=0;
-//HMENU			hMenuTest=0;
+int mousepos=-1;
+HMENU hMenubar=0, hMenuFile=0, hMenuEdit=0, hMenuView=0, hMenuZoom=0, hMenuImage=0, hMenuColors=0, hMenuHelp=0;
+//HMENU hMenuTest=0;
 
-HCURSOR			hcursor_original=(HCURSOR)LoadCursorW(nullptr, IDC_ARROW),
-				hcursor_sizewe=(HCURSOR)LoadCursorW(nullptr, IDC_SIZEWE),
-				hcursor_sizens=(HCURSOR)LoadCursorW(nullptr, IDC_SIZENS),
-				hcursor_sizenwse=(HCURSOR)LoadCursorW(nullptr, IDC_SIZENWSE),
-				hcursor_sizenesw=(HCURSOR)LoadCursorW(nullptr, IDC_SIZENESW),
-				hcursor_cross=(HCURSOR)LoadCursorW(nullptr, IDC_CROSS),//TODO: mspaint cursors
-				hcursor=hcursor_cross;
-int				*icons=nullptr, nicons=0,//16x16 icons, buffer size = nicons*256
-				*icons_seltype=nullptr;//2 icons of w=36, h=23
-int				colorpalette[]=
+HCURSOR
+	hcursor_original=(HCURSOR)LoadCursorW(nullptr, (wchar_t*)IDC_ARROW),
+	hcursor_sizewe=(HCURSOR)LoadCursorW(nullptr, (wchar_t*)IDC_SIZEWE),
+	hcursor_sizens=(HCURSOR)LoadCursorW(nullptr, (wchar_t*)IDC_SIZENS),
+	hcursor_sizenwse=(HCURSOR)LoadCursorW(nullptr, (wchar_t*)IDC_SIZENWSE),
+	hcursor_sizenesw=(HCURSOR)LoadCursorW(nullptr, (wchar_t*)IDC_SIZENESW),
+	hcursor_cross=(HCURSOR)LoadCursorW(nullptr, (wchar_t*)IDC_CROSS),//TODO: mspaint cursors
+	hcursor=hcursor_cross;
+int
+	*icons=nullptr, nicons=0,//16x16 icons, buffer size = nicons*256
+	*icons_seltype=nullptr;//2 icons of w=36, h=23
+uint32_t colorpalette[]=
 {
 	0xFF000000, 0xFFFFFFFF,//column major (transposed)
 	0xFF808080, 0xFFC0C0C0,
@@ -295,46 +311,46 @@ int				colorpalette[]=
 	0xFF8000FF, 0xFFFF0080,
 	0xFF804000, 0xFFFF8040,
 }, primary_idx=0;
-int				ext_colorpalette[16];//extended color palette
-int				primarycolor=colorpalette[0], secondarycolor=colorpalette[1],//0xAARRGGBB
-				primary_alpha=255, secondary_alpha=255;
-inline void		assign_alpha(int &color, int alpha){color=alpha<<24|color&0x00FFFFFF;}
-bool			showgrid=false,
-				showcolorbar=true, showtoolbox=true, showthumbnailbox=false;
-			//	show_fliprotate=false, show_stretchskew=false;
+int ext_colorpalette[16];//extended color palette
+uint32_t primarycolor=colorpalette[0], secondarycolor=colorpalette[1];//0xAARRGGBB
+int primary_alpha=255, secondary_alpha=255;
+static inline void assign_alpha(uint32_t *color, int alpha){*color=alpha<<24|(*color&0x00FFFFFF);}
+bool showgrid=false,
+	showcolorbar=true, showtoolbox=true, showthumbnailbox=false;
+//	show_fliprotate=false, show_stretchskew=false;
 
-int				currentmode=M_PENCIL, prevmode=M_PENCIL,
-				selection_free=false,//true: free-form selection, false: rectangular selection
-				selection_transparency=TRANSPARENT,//2: opaque or 1: transparent
-				selection_persistent=false,//selection remains after switching to another tool
-				erasertype=ERASER08,
-				magnifier_level=4,//log pixel size {0:1, 1:2, 2:4, 3:8, 4:16, 5:32}		default was 0
-				brushtype=BRUSH_DISK,
-				airbrush_size=S_SMALL, airbrush_cpt=18, airbrush_timer=10,
-				linewidth=1,//[1, 5]
-				rectangle_type=ST_HOLLOW, polygon_type=ST_HOLLOW, ellipse_type=ST_HOLLOW, roundrect_type=ST_HOLLOW,
-				interpolation_type=I_BILINEAR;
-char			magnification_levels[]=
+int currentmode=M_PENCIL, prevmode=M_PENCIL,
+	selection_free=false,//true: free-form selection, false: rectangular selection
+	selection_transparency=TRANSPARENT,//2: opaque or 1: transparent
+	selection_persistent=false,//selection remains after switching to another tool
+	erasertype=ERASER08,
+	magnifier_level=4,//log pixel size {0:1, 1:2, 2:4, 3:8, 4:16, 5:32}		default was 0
+	brushtype=BRUSH_DISK,
+	airbrush_size=S_SMALL, airbrush_cpt=18, airbrush_timer=10,
+	linewidth=1,//[1, 5]
+	rectangle_type=ST_HOLLOW, polygon_type=ST_HOLLOW, ellipse_type=ST_HOLLOW, roundrect_type=ST_HOLLOW,
+	interpolation_type=I_BILINEAR;
+char magnification_levels[]=
 {
 	-1, 1,
 	 2, 3,
 	 4, 5
 };
 
-Rect			selection, sel0;//image coordinates, i: buffer start, f: buffer end (not in order)
-//Point			sel_start, sel_end,//selection (start: fixed, end: moving), image coordinates			//TODO: use struct Rect
-//				sel_s1, sel_s2,//ordered screen coordinates for mouse test
-//				selpos,//position of top-left corner of selection in image coordinates
-//				selid;//selection image dimensions
-//bool			selection_moved=false;//deprecated
+Rect selection, sel0;//image coordinates, i: buffer start, f: buffer end (not in order)
+//Point sel_start, sel_end,//selection (start: fixed, end: moving), image coordinates			//TODO: use struct Rect
+//	sel_s1, sel_s2,//ordered screen coordinates for mouse test
+//	selpos,//position of top-left corner of selection in image coordinates
+//	selid;//selection image dimensions
+//bool selection_moved=false;//deprecated
 
-Rect			textrect;//image coordinates, sorted
-//Point			text_start, text_end,//static point -> moving point, image coordinates
-//				text_s1, text_s2,//ordered screen coordinates
-//				textpos;//position of top-right corner of textbox in image coordinates
+Rect textrect;//image coordinates, sorted
+//Point text_start, text_end,//static point -> moving point, image coordinates
+//	text_s1, text_s2,//ordered screen coordinates
+//	textpos;//position of top-right corner of textbox in image coordinates
 
-#include		"ppp_inline_check.h"
-int				pick_color_mouse(int *buffer, int x0, int y0)
+#include "ppp_inline_check.h"
+int pick_color_mouse(int *buffer, int x0, int y0)
 {
 	int ix, iy;
 	screen2image(mx, my, ix, iy);
@@ -354,11 +370,11 @@ extern const char anchors[]=//anchor: -1: resize from start, 0: no resize, 1: re
 	 0,  1,//bottom
 	 1,  1,//BR
 };
-void			imresize_setparams(char anchor, int delta, int oldsize, int &newsize, int &srcstart, int &dststart, int &copysize)
+void imresize_setparams(char anchor, int delta, int oldsize, int &newsize, int &srcstart, int &dststart, int &copysize)
 {
 	if(anchor==-1)//resize from start
 	{
-		newsize=oldsize-conditional_negate(delta, kb[VK_SHIFT]);
+		newsize=oldsize-NEGATE(delta, kb[VK_SHIFT]);
 		//newsize=oldsize-conditional_negate(imouse, kb[VK_SHIFT]);
 		if(newsize<1)
 			newsize=1;
@@ -382,10 +398,10 @@ void			imresize_setparams(char anchor, int delta, int oldsize, int &newsize, int
 		//newsize=imouse;
 		if(newsize<1)
 			newsize=1;
-		srcstart=0, dststart=0, copysize=minimum(newsize, oldsize);
+		srcstart=0, dststart=0, copysize=MINIMUM(newsize, oldsize);
 	}
 }
-void			imresize_setparams(Point &newsize, Point &srcstart, Point &dststart, Point &copysize)
+void imresize_setparams(Point &newsize, Point &srcstart, Point &dststart, Point &copysize)
 {
 	char xanchor=anchors[(drag-D_RESIZE_TL)<<1], yanchor=anchors[(drag-D_RESIZE_TL)<<1|1];//-1: resize from start, 0: original, 1: resize from end
 	Point mouse(mx, my), prevmouse(start_mx, start_my);//mouse coordinates
@@ -394,7 +410,7 @@ void			imresize_setparams(Point &newsize, Point &srcstart, Point &dststart, Poin
 	imresize_setparams(xanchor, mouse.x-prevmouse.x, iw, newsize.x, srcstart.x, dststart.x, copysize.x);
 	imresize_setparams(yanchor, mouse.y-prevmouse.y, ih, newsize.y, srcstart.y, dststart.y, copysize.y);
 }
-void			imresize(int *im2, Point const &newsize, int const *im, Point const &oldsize, Point const &srcstart, Point const &dststart, Point const &copysize)
+void imresize(int *im2, Point const &newsize, int const *im, Point const &oldsize, Point const &srcstart, Point const &dststart, Point const &copysize)
 {
 	Point dstend=dststart+copysize;
 	if(newsize.x*dststart.y>2)
@@ -412,7 +428,7 @@ void			imresize(int *im2, Point const &newsize, int const *im, Point const &olds
 	if(newsize.y-dstend.y>0)
 		memset(im2+newsize.x*dstend.y, 0xFF, newsize.x*(newsize.y-dstend.y)<<2);
 }
-//void			sort_using_anchor(char anchor, int &start, int &end)
+//void sort_using_anchor(char anchor, int &start, int &end)
 //{
 //	if(anchor==-1)//resize from start
 //	{
@@ -425,7 +441,7 @@ void			imresize(int *im2, Point const &newsize, int const *im, Point const &olds
 //			std::swap(start, end);
 //	}
 //}
-int				assign_using_anchor(char anchor, int &start, int &end, int mouse, int prevmouse)//returns true if flipped
+int assign_using_anchor(char anchor, int &start, int &end, int mouse, int prevmouse)//returns true if flipped
 {
 #if 1
 	int delta=mouse-prevmouse;
@@ -444,7 +460,7 @@ int				assign_using_anchor(char anchor, int &start, int &end, int mouse, int pre
 	}
 	else if(anchor==1)//resize from most significant side
 	{
-		int flipped=mouse>end;
+		//int flipped=mouse>end;
 		if(start<end)
 		{
 			end+=delta;
@@ -499,23 +515,23 @@ int				assign_using_anchor(char anchor, int &start, int &end, int mouse, int pre
 	//else if(anchor==1)
 	//	start=fixed, size=moving-fixed;
 }
-Point			newsize, srcstart, dststart, copysize;//globals for debugging
-char			xanchor, yanchor;
+Point newsize, srcstart, dststart, copysize;//globals for debugging
+char xanchor, yanchor;
 
 #if 0//cleartype test
-void			ctt_clear(int x, int y, int dx, int dy, int color)
+void ctt_clear(int x, int y, int dx, int dy, int color)
 {
 	for(int ky=0;ky<dy;++ky)
 		for(int kx=0;kx<dx;++kx)
 			rgb[w*(y+ky)+x+kx]=color;
 }
-void			ctt_copy(short x1, short y1, short dx, short dy, short x2, short y2)
+void ctt_copy(short x1, short y1, short dx, short dy, short x2, short y2)
 {
 	for(int ky=0;ky<dy;++ky)
 		for(int kx=0;kx<dx;++kx)
 			rgb[w*(y2+ky)+x2+kx]=rgb[w*(y1+ky)+x1+kx];
 }
-void			ctt_copy_mul(short x1, short y1, short dx, short dy, short x2, short y2)
+void ctt_copy_mul(short x1, short y1, short dx, short dy, short x2, short y2)
 {
 	for(int ky=0;ky<dy;++ky)
 	{
@@ -531,7 +547,7 @@ void			ctt_copy_mul(short x1, short y1, short dx, short dy, short x2, short y2)
 		}
 	}
 }
-void			ctt_absdiff(short x1, short y1, short x2, short y2, short dx, short dy, short xd, short yd)//pd = p1-p2
+void ctt_absdiff(short x1, short y1, short x2, short y2, short dx, short dy, short xd, short yd)//pd = p1-p2
 {
 	for(int ky=0;ky<dy;++ky)
 	{
@@ -546,7 +562,7 @@ void			ctt_absdiff(short x1, short y1, short x2, short y2, short dx, short dy, s
 		}
 	}
 }
-void			ctt_print(short gx, short gy, short dx, short dy, short xd, short yd, int txtcolor)//X
+void ctt_print(short gx, short gy, short dx, short dy, short xd, short yd, int txtcolor)//X
 {
 	auto t=(unsigned char*)&txtcolor;
 	float inv255=1.f/255;
@@ -578,7 +594,7 @@ void			ctt_print(short gx, short gy, short dx, short dy, short xd, short yd, int
 		}
 	}
 }
-void			ctt_print15(short gx, short gy, short dx, short dy, short xd, short yd, int txtcolor)//transparent
+void ctt_print15(short gx, short gy, short dx, short dy, short xd, short yd, int txtcolor)//transparent
 {
 	auto t=(unsigned char*)&txtcolor;
 	float inv255=1.f/255;
@@ -603,7 +619,7 @@ void			ctt_print15(short gx, short gy, short dx, short dy, short xd, short yd, i
 		}
 	}
 }
-void			ctt_print2(short gx, short gy, short dx, short dy, short xd, short yd, int txtcolor, int bkcolor)//opaque-only
+void ctt_print2(short gx, short gy, short dx, short dy, short xd, short yd, int txtcolor, int bkcolor)//opaque-only
 {
 	auto t=(unsigned char*)&txtcolor, bk=(unsigned char*)&bkcolor;
 	float inv255=1.f/255;
@@ -631,7 +647,7 @@ void			ctt_print2(short gx, short gy, short dx, short dy, short xd, short yd, in
 		}
 	}
 }
-void			emulate_cleartype()
+void emulate_cleartype()
 {
 //	Rectangle(ghMemDC, -1, -1, w, h);
 	HFONT hFont=(HFONT)GetStockObject(DEFAULT_GUI_FONT);
@@ -704,14 +720,14 @@ void			emulate_cleartype()
 }
 #endif
 
-union			RedrawType
+union RedrawType
 {
 	int all;
 	struct{char image, thumbbox, colorbar, toolbar;};
 };
-void			redrawbounds_dragbrush(Point const &p1, Point const &p2, int halfthickness, Rect &r)
+void redrawbounds_dragbrush(Point const &p1, Point const &p2, int halfthickness, Rect &r)
 {
-	int t=shift(halfthickness, logzoom);
+	int t=SHIFT_LEFT(halfthickness, logzoom);
 	if(p1.x<=p2.x)
 		r.i.x=p1.x-t, r.f.x=p2.x+t;
 	else
@@ -721,7 +737,7 @@ void			redrawbounds_dragbrush(Point const &p1, Point const &p2, int halfthicknes
 	else
 		r.i.y=p2.y-t, r.f.y=p1.y+t;
 }
-void			redrawbounds_dragbox(Point const &boxstart, Point const &boxend, Point const &delta, Rect &r)
+void redrawbounds_dragbox(Point const &boxstart, Point const &boxend, Point const &delta, Rect &r)
 {
 	const int rmark_margin=11;
 	if(delta.x>=0)
@@ -741,13 +757,13 @@ void			redrawbounds_dragbox(Point const &boxstart, Point const &boxend, Point co
 	r.f.constraint_BR(Point(w, h));
 }
 
-Rect			imagewindow;//image window dimensions on screen, excluding scrollbars
-Point			imageBRcorner,//position of bottom-right corner of visible part of image
-				imagemarks[6];//{m1start, m1end, center-10, center+10, m2start, m2end}
+Rect imagewindow;//image window dimensions on screen, excluding scrollbars
+Point imageBRcorner,//position of bottom-right corner of visible part of image
+	imagemarks[6];//{m1start, m1end, center-10, center+10, m2start, m2end}
 
-//int			threshold=-1;
-//double		planetx=-1, planety=-1;
-void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
+//int threshold=-1;
+//double planetx=-1, planety=-1;
+void render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 {
 	prof_add("Entry");
 	RedrawType redraw;
@@ -757,7 +773,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		redraw.all=REDRAW_COLORBAR;
 
 	const unsigned char background_grey=0xAB;
-	if(redraw.all==REDRAW_ALL)
+	if(redraw.all==(int)REDRAW_ALL)
 		memset(rgb, background_grey, rgbn<<2);
 	prof_add("memset");
 	
@@ -824,7 +840,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				int *thumbnail=thumbnails[kth];
 				if(thumbnail)
 				{
-					for(int ky=maximum(0, y1-ypos), kyEnd=minimum(y2-ypos, th_h);ky<kyEnd;++ky)
+					for(int ky=MAXIMUM(0, y1-ypos), kyEnd=MINIMUM(y2-ypos, th_h);ky<kyEnd;++ky)
 					//for(int ky=maximum(0, y1-ypos), kyEnd=th_h+minimum(y2-(ypos+th_h), 0);ky<kyEnd;++ky)
 					{
 						int *srow=thumbnail+th_w*ky, *dstart=rgb+w*(ypos+ky)+xpos;
@@ -842,14 +858,19 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 						}
 						if(xrem)
 						{
+							ALIGN(16) uint32_t asrc[4]={0}, adst[4]={0};
+
 							for(int k=0;k<xrem;++k)
 							{
-								src.m128i_i32[k]=srow[xround+k];
-								dst.m128i_i32[k]=dstart[xround+k];
+								asrc[k]=srow[xround+k];
+								adst[k]=dstart[xround+k];
 							}
+							src=_mm_load_si128((__m128i*)asrc);
+							dst=_mm_load_si128((__m128i*)adst);
 							dst=blend_ssse3(src, dst);
+							_mm_store_si128((__m128i*)adst, dst);
 							for(int k=0;k<xrem;++k)
-								dstart[xround+k]=dst.m128i_i32[k];
+								dstart[xround+k]=adst[k];
 						}
 #else
 						memcpy(dstart, srow, th_w<<2);//
@@ -857,7 +878,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 					}
 				}
 				else
-					rectangle(xpos, xpos+th_w, maximum(ypos, y1), minimum(ypos+th_h, y2), 0xFFFFFF);
+					rectangle(xpos, xpos+th_w, MAXIMUM(ypos, y1), MINIMUM(ypos+th_h, y2), 0xFFFFFF);
 				//for(int ky=0, ky2=ypos+ky;ky<th_h&&ky2>=y1&&ky2<y2;++ky, ++ky2)
 				//{
 				//	for(int kx=0;kx<th_w;++kx)
@@ -910,9 +931,9 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			{
 				const int sstart=320;//slider start
 				if(drag==D_ALPHA1)
-					primary_alpha=clamp(0, mx-sstart, 255), assign_alpha(primarycolor, primary_alpha);
+					primary_alpha=mx-sstart, CLAMP(primary_alpha, 0, 255), assign_alpha(&primarycolor, primary_alpha);
 				else if(drag==D_ALPHA2)
-					secondary_alpha=clamp(0, mx-sstart, 255), assign_alpha(secondarycolor, secondary_alpha);
+					secondary_alpha=mx-sstart, CLAMP(secondary_alpha, 0, 255), assign_alpha(&secondarycolor, secondary_alpha);
 				const int color_aslider=0x808080;
 				int c0=SetTextColor(ghMemDC, color_aslider), bk0=SetBkMode(ghMemDC, TRANSPARENT);
 				GUIPrint(ghMemDC, 270, h-57, "Alpha:");
@@ -942,8 +963,8 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				{
 					int x0=650, y0=h-48;
 					//int bkmode=SetBkMode(ghMemDC, TRANSPARENT);
-					int color_sel=0xA0A0A0,//0xFF9933
-						color_text=0x000000;//0xFFFFFF
+					int color_sel=0xA0A0A0;//0xFF9933
+					//int color_text=0x000000;//0xFFFFFF
 					if(bold)
 						rectangle(x0+50+1, x0+100-1, y0+1, y0+23-1, color_sel);
 					//	rectangle(x0+50, x0+100, y0, y0+25, color_sel);
@@ -1332,7 +1353,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 	int use_temp_buffer0=0;
 	if(!image)
 	{
-		if(redraw.all!=REDRAW_ALL&&(redraw.image&REDRAW_IMAGE_SCROLL)==REDRAW_IMAGE_SCROLL)//fill imagewindow background
+		if(redraw.all!=(int)REDRAW_ALL&&(redraw.image&REDRAW_IMAGE_SCROLL)==REDRAW_IMAGE_SCROLL)//fill imagewindow background
 			for(int ky=y1;ky<y2;++ky)
 				memset(rgb+w*ky+x1, background_grey, (x2-x1)<<2);
 	}
@@ -1356,9 +1377,9 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			spx=0;
 		if(spy<0)
 			spy=0;
-		int xend=x1_2+shift(iw-spx, logzoom), yend=y1_2+shift(ih-spy, logzoom);
+		int xend=x1_2+SHIFT_LEFT(iw-spx, logzoom), yend=y1_2+SHIFT_LEFT(ih-spy, logzoom);
 		hscroll.decide_orwith(!hscroll.dwidth&&vscroll.dwidth&&xend>=w-scrollbarwidth);
-		vscroll.decide_orwith(!vscroll.dwidth&&vscroll.dwidth&&yend>=h-74-scrollbarwidth);
+		vscroll.decide_orwith(!vscroll.dwidth&&hscroll.dwidth&&yend>=h-74-scrollbarwidth);
 		//hscrollbar|=!hscrollbar&&vscrollbar&&xend>=w-scrollbarwidth;
 		//vscrollbar|=!vscrollbar&&hscrollbar&&yend>=h-74-scrollbarwidth;
 		int color_barbk=0xF0F0F0, color_slider=0xCDCDCD, color_button=0xE5E5E5;//0xDDDDDD
@@ -1418,7 +1439,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 
 					int *imask=(int*)malloc(image_size<<2);
 					memset(imask, 0, image_size<<2);
-					int nv=freesel.size();
+					int nv=(int)freesel.size();
 					for(int k=1;k<nv;++k)
 					{
 						auto &p1=freesel[k-1], &p2=freesel[k];
@@ -1448,7 +1469,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			case M_RECT_SELECTION:
 				if(drag==D_DRAW)//select with mouse
 				{
-					//int half=shift(1, logzoom-1);
+					//int half=SHIFT_LEFT(1, logzoom-1);
 					//screen2image(mx+half, my+half, sel_end.x, sel_end.y);
 					screen2image_rounded(mx, my, selection.f.x, selection.f.y);
 					//screen2image_rounded(mx, my, sel_end.x, sel_end.y);
@@ -1467,8 +1488,8 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 						sr.image2screen();
 						delta.screen2image();
 						delta.image2screen();
-						if(delta.f.x!=delta.i.x)
-							int LOL_1=0;
+						//if(delta.f.x!=delta.i.x)
+						//	int LOL_1=0;
 						redrawbounds_dragbox(sr.i, sr.f, delta.f-delta.i, redrawrect);
 					}
 					if(kb[VK_SHIFT])
@@ -1588,7 +1609,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 					memcpy(temp_buffer, image, image_size<<2);
 				//	memset(temp_buffer, 0, image_size<<2);
 					use_temp_buffer=true;
-					for(int k=0, npoints=polygon.size();k<npoints-1;++k)
+					for(int k=0, npoints=(int)polygon.size();k<npoints-1;++k)
 					{
 						auto &p1=polygon[k], &p2=polygon[(k+1)%npoints];
 						draw_line_brush(temp_buffer, iw, ih, linewidth, p1.x, p1.y, p2.x, p2.y, c3);
@@ -1710,7 +1731,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			mouse.screen2image_rounded();
 			prevmouse.screen2image_rounded();
 			
-			//int half=shift(1, logzoom-1);
+			//int half=SHIFT_LEFT(1, logzoom-1);
 			//Point mouse(mx+half, my+half);
 			//mouse.screen2image();
 
@@ -1814,20 +1835,20 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 #endif
 		prof_add("action");
 
-		int x2s=hscroll.dwidth?w-vscroll.dwidth:x1+shift(iw-spx, logzoom),
-			y2s=vscroll.dwidth?h-74-hscroll.dwidth:y1+shift(ih-spy, logzoom);
-		//int x2s=hscrollbar?w-scrollbarwidth*vscrollbar:x1+shift(iw-spx, logzoom),
-		//	y2s=vscrollbar?h-74-scrollbarwidth*hscrollbar:y1+shift(ih-spy, logzoom);
+		int x2s=hscroll.dwidth?w-vscroll.dwidth:x1+SHIFT_LEFT(iw-spx, logzoom),
+			y2s=vscroll.dwidth?h-74-hscroll.dwidth:y1+SHIFT_LEFT(ih-spy, logzoom);
+		//int x2s=hscrollbar?w-scrollbarwidth*vscrollbar:x1+SHIFT_LEFT(iw-spx, logzoom),
+		//	y2s=vscrollbar?h-74-scrollbarwidth*hscrollbar:y1+SHIFT_LEFT(ih-spy, logzoom);
 		if(vscroll.dwidth&&x2s>w-scrollbarwidth)
 			x2s=w-vscroll.dwidth;
 		if(spx+(x2s-x1)/zoom>iw)
-			x2s=x1+shift(iw-spx, logzoom);
+			x2s=x1+SHIFT_LEFT(iw-spx, logzoom);
 		if(hscroll.dwidth&&y2s>h-74-scrollbarwidth)
 			y2s=h-74-scrollbarwidth;
 		if(spy+(y2s-y1)/zoom>ih)
-			y2s=y1+shift(ih-spy, logzoom);
+			y2s=y1+SHIFT_LEFT(ih-spy, logzoom);
 
-		if(redraw.all!=REDRAW_ALL&&(redraw.image&REDRAW_IMAGE_SCROLL)==REDRAW_IMAGE_SCROLL)//fill imagewindow background
+		if(redraw.all!=(int)REDRAW_ALL&&(redraw.image&REDRAW_IMAGE_SCROLL)==REDRAW_IMAGE_SCROLL)//fill imagewindow background
 		{
 			for(int ky=0;ky<y2;++ky)//note: ky starts from 0, kx starts from x1-3
 				memset(rgb+w*ky+x1-3, background_grey, (x2-(x1-3))<<2);
@@ -1847,7 +1868,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 			auto b=resources::brushes+(currentmode==M_ERASER?erasertype:brushtype);
 			Point i;
 			screen2image(mx, my, i.x, i.y);
-			int c=currentmode==M_BRUSH!=kb[VK_RBUTTON]?primarycolor:secondarycolor;
+			int c=(currentmode==M_BRUSH)!=kb[VK_RBUTTON]?primarycolor:secondarycolor;
 			for(int k=0, ky=i.y+b->yoffset;k<b->ysize;++k, ++ky)
 				for(int kx=b->bounds[k<<1], kxEnd=b->bounds[k<<1|1];kx<=kxEnd;++kx)
 					if(!icheck(i.x+kx, ky))
@@ -1863,10 +1884,8 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		int bx1, bx2, by1, by2;//blend rect
 		if(redraw.all==REDRAW_IMAGE_PARTIAL)
 		{
-			bx1=redrawrect.i.x=maximum(x1, redrawrect.i.x);
-			bx2=redrawrect.f.x=minimum(x2s, redrawrect.f.x);
-			by1=redrawrect.i.y=maximum(y1, redrawrect.i.y);
-			by2=redrawrect.f.y=minimum(y2s, redrawrect.f.y);
+			bx1=redrawrect.i.x=MAXIMUM(x1, redrawrect.i.x); bx2=redrawrect.f.x=MINIMUM(x2s, redrawrect.f.x);
+			by1=redrawrect.i.y=MAXIMUM(y1, redrawrect.i.y); by2=redrawrect.f.y=MINIMUM(y2s, redrawrect.f.y);
 		}
 		else//redraw rect can be bigger than blend rect
 			bx1=x1, bx2=x2s, by1=y1, by2=y2s;
@@ -1910,7 +1929,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 						if(histMax<histogram[k+2])
 							histMax=histogram[k+2];
 					}
-					int hColor[]={0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFFFF};//RGBA
+					uint32_t hColor[]={0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFFFF};//RGBA
 					for(int kx=0;kx<hsize&&bx1+kx<bx2;++kx)
 					{
 						int freq=histogram[kx]*(by2-by1)/histMax;
@@ -2176,22 +2195,27 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 				//int wx2=x2-vscroll.dwidth, wndx=wx2-x1,
 				//	wy2=y2-hscroll.dwidth, wndy=wy2-y1;
 				int mag_action=magnifier_level&-(logzoom!=magnifier_level);//if mlevel==zoom: set zoom, otherwise reset zoom 1:1
-				int rx=shift(wndx, logzoom-(mag_action+1)),
-					ry=shift(wndy, logzoom-(mag_action+1));
+				int rx=SHIFT_LEFT(wndx, logzoom-(mag_action+1)),
+					ry=SHIFT_LEFT(wndy, logzoom-(mag_action+1));
 				int roundmask=-1<<(logzoom&-(logzoom>0));
-				//int roundmask=~(shift(1, logzoom)-1);
+				//int roundmask=~(SHIFT_LEFT(1, logzoom)-1);
 				//Point mouse(x1+((mx-x1)&roundmask), y1+((my-y1)&roundmask));
 				//Point mouse(mx, my);
 				//mouse.screen2image();//takes into account GUI window offsets
 				//mouse.image2screen();
 				int x0=x1+((mx-rx-x1)&roundmask)+rx,
 					y0=y1+((my-ry-y1)&roundmask)+ry;
-				x0=clamp(x1+rx, x0, x2-rx);
-				y0=clamp(y1+ry, y0, y2-ry);
-				int hx1=clamp(x1, x0-rx, x2-1),
-					hx2=clamp(x1, x0+rx, x2-1),
-					hy1=clamp(y1, y0-ry, y2-1),
-					hy2=clamp(y1, y0+ry, y2-1);
+				CLAMP(x0, x1+rx, x2-rx);
+				CLAMP(y0, y1+ry, y2-ry);
+				int
+					hx1=x0-rx,
+					hx2=x0+rx,
+					hy1=y0-ry,
+					hy2=y0+ry;
+				CLAMP(hx1, x1, x2-1);
+				CLAMP(hx2, x1, x2-1);
+				CLAMP(hy1, y1, y2-1);
+				CLAMP(hy2, y1, y2-1);
 				h_line_add(hx1, hx2+1, hy1, 128);
 				h_line_add(hx1, hx2+1, hy2, 128);
 				v_line_add(hx1, hy1+1, hy2, 128);
@@ -2249,12 +2273,12 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 		hFont=(HFONT)SelectObject(ghMemDC, hFont);
 		int fontH=13;
 		int size=0;
-		for(int k=0, nv=history.size();k<nv;++k)
+		for(int k=0, nv=(int)history.size();k<nv;++k)
 			size+=history[k].iw*history[k].ih;
 		GUIPrint(ghMemDC, (w>>1)+2, h>>1, "hpos=%d/%d,  %fMB", histpos, history.size(), float(size<<2)/1048576);//
-		for(int k=0, kx=(w>>1)+1, ky=(h>>1)+fontH, kEnd=history.size();k<kEnd;++k)//
+		for(int k=0, kx=(w>>1)+1, ky=(h>>1)+fontH, kEnd=(int)history.size();k<kEnd;++k)//
 		{
-			GUIPrint(ghMemDC, kx, ky, "0x%08X", (int)history[k].buffer);//
+			GUIPrint(ghMemDC, kx, ky, "0x%p", history[k].buffer);//
 			ky+=fontH;
 			if(ky>=h-fontH)
 				ky=(h>>1)+fontH, kx+=70;
@@ -2337,7 +2361,7 @@ void			render(int redrawtype, int rx1, int rx2, int ry1, int ry2)
 	//}
 }
 #ifdef MOUSE_POLLING_TEST
-void			render2()//mouse polling test
+void render2()//mouse polling test
 {
 /*	const int npositions=50;
 	static Point positions[npositions];
@@ -2416,26 +2440,37 @@ void			render2()//mouse polling test
 	prof_add("exit");
 }
 #endif
-int				ask_to_save()
+int ask_to_save()
 {
 	swprintf_s(g_wbuf, L"Save changes to %s?", filename.c_str());
 	int result=MessageBoxW(ghWnd, g_wbuf, L"Paint++", MB_YESNOCANCEL);
 	return result;
 }
-void			pickcolor(int &color, int &pcolor, int alpha)
+static void pickcolor(uint32_t *color, uint32_t *pcolor, int alpha)
 {
-	CHOOSECOLOR cc={sizeof(CHOOSECOLOR), ghWnd, (HWND)ghInstance, swap_rb(color), (unsigned long*)ext_colorpalette, CC_FULLOPEN|CC_RGBINIT, 0, nullptr, nullptr};
+	CHOOSECOLORW cc=
+	{
+		sizeof(CHOOSECOLOR),
+		ghWnd,
+		(HWND)ghInstance,
+		(uint32_t)swap_rb(*color),
+		(unsigned long*)ext_colorpalette,
+		CC_FULLOPEN|CC_RGBINIT,
+		0,
+		nullptr,
+		nullptr,
+	};
 	if(ChooseColorW(&cc))
-		color=pcolor=swap_rb(cc.rgbResult), assign_alpha(color, alpha);
+		*color=*pcolor=swap_rb(cc.rgbResult), assign_alpha(color, alpha);
 }
-void			pickcolor_palette(int message, int &color, int &pcolor, int alpha)
+static void pickcolor_palette(int message, uint32_t *color, uint32_t *pcolor, int alpha)
 {
 	if(message==WM_LBUTTONDBLCLK)//show color picker
 		pickcolor(color, pcolor, alpha);
 	else
 		color=pcolor, assign_alpha(color, alpha);
 }
-void			displayhelp()
+void displayhelp()
 {
 #if 0
 	const char *help[]=
@@ -2456,7 +2491,7 @@ void			displayhelp()
 		"F1",			"Show help",
 		"F7",			"Toggle debug mode",
 	};
-	const int nparts=sizeof help>>2;
+	const int nparts=sizeof(help)>>2;
 	int length=0;
 	HFONT hFont=(HFONT)GetStockObject(DEFAULT_GUI_FONT);
 	hFont=(HFONT)SelectObject(ghMemDC, hFont);
@@ -2470,8 +2505,8 @@ void			displayhelp()
 		int commandlen=strlen(help[k]);
 		if(GetTextExtentPoint32A(ghMemDC, help[k], commandlen, &s))
 			padding=(spaces_px-s.cx)/3+commandlen;
-		length+=sprintf_s(g_buf+length, g_buf_size-length, "%*s:  %s\n", padding, help[k], help[k+1]);
-	//	length+=sprintf_s(g_buf+length, g_buf_size-length, "%14s: %s\n", help[k], help[k+1]);
+		length+=sprintf_s(g_buf+length, G_BUF_SIZE-length, "%*s:  %s\n", padding, help[k], help[k+1]);
+	//	length+=sprintf_s(g_buf+length, G_BUF_SIZE-length, "%14s: %s\n", help[k], help[k+1]);
 	}
 	hFont=(HFONT)SelectObject(ghMemDC, hFont);
 	MessageBoxA(ghWnd, g_buf, "Help", MB_OK);
@@ -2509,15 +2544,16 @@ void			displayhelp()
 		L"Release version. "
 #endif
 		L"Built on %S, %S",
-		__DATE__, __TIME__);
+		__DATE__, __TIME__
+	);
 }
-Point			p1, p2;
-void			clear_image()
+Point p1, p2;
+void clear_image()
 {
 	hist_premodify(image, iw, ih);
 	memset(image, 0xFF, image_size<<2);
 }
-void			new_image()
+void new_image()
 {
 	filename.clear();
 	filepath.clear();
@@ -2528,17 +2564,17 @@ void			new_image()
 	memset(image, 0xFF, image_size<<2);
 }
 
-bool			is_key_down(int vkey){return (GetAsyncKeyState(vkey)&0x8000)!=0;}
-long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+bool is_key_down(int vkey){return (GetAsyncKeyState(vkey)&0x8000)!=0;}
+LRESULT __stdcall WndProc(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
 //#ifndef RELEASE//at first message, error 126 the specified module could not be found
 //	check(__LINE__);//
 //#endif//
 	bool handled=false;
-	int ret=0;
-#if !defined RELEASE //&& defined _DEBUG
+	size_t ret=0;
+#if !defined RELEASE && defined _DEBUG
 	char *debugmsg=nullptr;
-#define			DEBUG(format, ...)	sprintf_s(g_buf, g_buf_size, format, __VA_ARGS__), debugmsg=g_buf;
+#define			DEBUG(format, ...)	sprintf_s(g_buf, G_BUF_SIZE, format, __VA_ARGS__), debugmsg=g_buf;
 #else
 #define			DEBUG(format, ...)
 #endif
@@ -2562,83 +2598,83 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			CREATE_MENU(hMenuHelp);
 			//CREATE_MENU(hMenuTest);
 #undef		CREATE_MENU
-			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_NEW, L"&New\tCtrl+N");					SYS_ASSERT(success);		//[F]ILE
-			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_OPEN, L"&Open...\tCtrl+O");				SYS_ASSERT(success);
-			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_SAVE, L"&Save\tCtrl+S");					SYS_ASSERT(success);
+			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_NEW, L"&New\tCtrl+N");			SYS_ASSERT(success);		//[F]ILE
+			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_OPEN, L"&Open...\tCtrl+O");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_SAVE, L"&Save\tCtrl+S");			SYS_ASSERT(success);
 			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_SAVE_AS, L"Save &As...\tCtrl+Shift+S");	SYS_ASSERT(success);
-			success=AppendMenuW(hMenuFile, MF_SEPARATOR, 0, 0);											SYS_ASSERT(success);
-			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_QUIT, L"E&xit\tAlt+F4");					SYS_ASSERT(success);
-			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuFile, L"&File");						SYS_ASSERT(success);
+			success=AppendMenuW(hMenuFile, MF_SEPARATOR, 0, 0);						SYS_ASSERT(success);
+			success=AppendMenuW(hMenuFile, MF_STRING, IDM_FILE_QUIT, L"E&xit\tAlt+F4");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenubar, MF_POPUP, (size_t)hMenuFile, L"&File");				SYS_ASSERT(success);
 
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_UNDO, L"&Undo\tCrtl+Z");							SYS_ASSERT(success);		//[E]DIT
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_REPEAT, L"&Repeat\tCrtl+Y");						SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);													SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CUT, L"Cu&t\tCrtl+X");							SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY, L"&Copy\tCrtl+C");							SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE, L"&Paste\tCrtl+V");						SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CLEAR_SELECTION, L"C&lear Selection\tDel");		SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_SELECT_ALL, L"Select &All\tCtrl+A");				SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_RESET_SEL_SCALE, L"Reset Selection Scale\tE");	SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);													SYS_ASSERT(success);
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY_TO, L"C&opy To...");						SYS_ASSERT(success);//TODO
-			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE_FROM, L"Paste &From...");					SYS_ASSERT(success);//TODO
-			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuEdit, L"&Edit");								SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_UNDO, L"&Undo\tCrtl+Z");			SYS_ASSERT(success);		//[E]DIT
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_REPEAT, L"&Repeat\tCrtl+Y");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);						SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CUT, L"Cu&t\tCrtl+X");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY, L"&Copy\tCrtl+C");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE, L"&Paste\tCrtl+V");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_CLEAR_SELECTION, L"C&lear Selection\tDel");	SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_SELECT_ALL, L"Select &All\tCtrl+A");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_RESET_SEL_SCALE, L"Reset Selection Scale\tE");SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_SEPARATOR, 0, 0);						SYS_ASSERT(success);
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_COPY_TO, L"C&opy To...");			SYS_ASSERT(success);//TODO
+			success=AppendMenuW(hMenuEdit, MF_STRING, IDM_EDIT_PASTE_FROM, L"Paste &From...");		SYS_ASSERT(success);//TODO
+			success=AppendMenuW(hMenubar, MF_POPUP, (size_t)hMenuEdit, L"&Edit");				SYS_ASSERT(success);
 
 			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TOOLBOX, L"&Tool Box\tCtrl+T");		SYS_ASSERT(success);//?	//[V]IEW
-			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_COLORBOX, L"&Color Box\tCtrl+L");	SYS_ASSERT(success);//?
+			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_COLORBOX, L"&Color Box\tCtrl+L");		SYS_ASSERT(success);//?
 			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_STATUSBAR, L"&Status Bar");			SYS_ASSERT(success);//?
-			success=CheckMenuItem(hMenuView, IDM_VIEW_STATUSBAR, MF_CHECKED);						SYS_ASSERT(success);
+			success=CheckMenuItem(hMenuView, IDM_VIEW_STATUSBAR, MF_CHECKED);				SYS_ASSERT(success);
 		//	success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_TEXT_TOOLBAR, L"T&ext Toolbar");		SYS_ASSERT(success);//not needed
-			success=AppendMenuW(hMenuView, MF_SEPARATOR, 0, 0);										SYS_ASSERT(success);
-		//	success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_ZOOM, L"&Zoom");						SYS_ASSERT(success);
-			success=AppendMenuW(hMenuView, MF_STRING|MF_POPUP, (unsigned)hMenuZoom, L"&Zoom");		SYS_ASSERT(success);
-			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_VIEWBITMAP, L"&View Bitmap\tCtrl+F");SYS_ASSERT(success);
-			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuView, L"&View");					SYS_ASSERT(success);
+			success=AppendMenuW(hMenuView, MF_SEPARATOR, 0, 0);						SYS_ASSERT(success);
+		//	success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_ZOOM, L"&Zoom");				SYS_ASSERT(success);
+			success=AppendMenuW(hMenuView, MF_STRING|MF_POPUP, (size_t)hMenuZoom, L"&Zoom");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenuView, MF_STRING, IDM_VIEW_VIEWBITMAP, L"&View Bitmap\tCtrl+F");	SYS_ASSERT(success);
+			success=AppendMenuW(hMenubar, MF_POPUP, (size_t)hMenuView, L"&View");				SYS_ASSERT(success);
 
 			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_IN, L"&Zoom Out\tCtrl +");			SYS_ASSERT(success);		//VIEW/[Z]OOM
 			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_OUT, L"&Zoom In\tCtrl -");			SYS_ASSERT(success);
-			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_CUSTOM, L"C&ustom...");				SYS_ASSERT(success);//?
-			success=AppendMenuW(hMenuZoom, MF_SEPARATOR, 0, 0);										SYS_ASSERT(success);
-			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_GRID, L"Show &Grid\tCtrl+G");	SYS_ASSERT(success);
-			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_THUMBNAIL, L"Show T&humbnail");SYS_ASSERT(success);//TODO
+			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_CUSTOM, L"C&ustom...");			SYS_ASSERT(success);//?
+			success=AppendMenuW(hMenuZoom, MF_SEPARATOR, 0, 0);						SYS_ASSERT(success);
+			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_GRID, L"Show &Grid\tCtrl+G");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenuZoom, MF_STRING, IDSM_ZOOM_SHOW_THUMBNAIL, L"Show T&humbnail");	SYS_ASSERT(success);//TODO
 
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_FLIP_ROTATE, L"&Flip/Rotate...\tCtrl+R");		SYS_ASSERT(success);	//IMAGE
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SKETCH_SKEW, L"&Sketch/Skew...\tCtrl+W");		SYS_ASSERT(success);
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_INVERT_COLORS, L"&Invert Colors\tCtrl+I");		SYS_ASSERT(success);
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ATTRIBUTES, L"&Attributes...\tCtrl+E");		SYS_ASSERT(success);
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CLEAR_IMAGE, L"&Clear Image\tCtrl+Shift+N");	SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CLEAR_ALPHA, L"Clear Al&pha\tA");				SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SET_CHANNEL, L"Set Cha&nnel");					SYS_ASSERT(success);//new
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_CLEAR_ALPHA, L"Clear Al&pha\tA");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);							SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_SET_CHANNEL, L"Set Cha&nnel");			SYS_ASSERT(success);//new
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_ASSIGN_CHANNEL, L"Assi&gn Channel...\tC");		SYS_ASSERT(success);//new
 			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_EXPORT_CHANNEL, L"&Export Channel...");		SYS_ASSERT(success);//new
-			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_RAW_TO_FLOAT, L"Convert to Float RGBA");				SYS_ASSERT(success);//new
-			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);												SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_DRAW_OPAQUE, L"&Draw Opaque");					SYS_ASSERT(success);
-			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_LINEAR, L"&Linear Interpolation");				SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);							SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_RAW_TO_FLOAT, L"Convert to Float RGBA");			SYS_ASSERT(success);//new
+			success=AppendMenuW(hMenuImage, MF_SEPARATOR, 0, 0);							SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_DRAW_OPAQUE, L"&Draw Opaque");			SYS_ASSERT(success);
+			success=AppendMenuW(hMenuImage, MF_STRING, IDM_IMAGE_LINEAR, L"&Linear Interpolation");			SYS_ASSERT(success);
 			success=CheckMenuItem(hMenuImage, IDM_IMAGE_LINEAR, interpolation_type?MF_CHECKED:MF_UNCHECKED);	SYS_ASSERT(success);
-			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuImage, L"&Image");							SYS_ASSERT(success);
+			success=AppendMenuW(hMenubar, MF_POPUP, (size_t)hMenuImage, L"&Image");					SYS_ASSERT(success);
 
-			success=AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITCOLORS, L"&Edit Colors...");		SYS_ASSERT(success);	//COLORS
-		//	success=AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITMASK, L"Edit &Mask...\tCtrl+M");	SYS_ASSERT(success);//?
-			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuColors, L"&Colors");					SYS_ASSERT(success);
+			success=AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITCOLORS, L"&Edit Colors...");			SYS_ASSERT(success);	//COLORS
+		//	success=AppendMenuW(hMenuColors, MF_STRING, IDM_COLORS_EDITMASK, L"Edit &Mask...\tCtrl+M");		SYS_ASSERT(success);//?
+			success=AppendMenuW(hMenubar, MF_POPUP, (size_t)hMenuColors, L"&Colors");				SYS_ASSERT(success);
 
-		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO1, L".&BMP");									SYS_CHECK(success);			//TEST
-		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO2, L".&TIFF");									SYS_CHECK(success);
-		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO3, L".&PNG");									SYS_CHECK(success);
-		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO4, L".&JPEG");									SYS_CHECK(success);
-		//	//success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO5, L".&FLIF");								SYS_CHECK(success);
+		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO1, L".&BMP");					SYS_CHECK(success);			//TEST
+		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO2, L".&TIFF");					SYS_CHECK(success);
+		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO3, L".&PNG");					SYS_CHECK(success);
+		//	success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO4, L".&JPEG");					SYS_CHECK(success);
+		//	//success=AppendMenuW(hMenuTest, MF_STRING, IDM_TEST_RADIO5, L".&FLIF");				SYS_CHECK(success);
 		//	success=CheckMenuRadioItem(hMenuTest, IDM_TEST_RADIO1, IDM_TEST_RADIO4, IDM_TEST_RADIO3, MF_BYCOMMAND);	SYS_CHECK(success);
-		//	success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuTest, L"&Temp Format");							SYS_CHECK(success);
+		//	success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuTest, L"&Temp Format");				SYS_CHECK(success);
 
 			success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_TOPICS, L"&Help\tF1");		SYS_ASSERT(success);		//HELP
-		//	success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_TOPICS, L"&Help Topics");	SYS_ASSERT(success);//?
-			success=AppendMenuW(hMenuHelp, MF_SEPARATOR, 0, 0);								SYS_ASSERT(success);
-			success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, L"&About Paint++");	SYS_ASSERT(success);
-			success=AppendMenuW(hMenubar, MF_POPUP, (unsigned)hMenuHelp, L"&Help");			SYS_ASSERT(success);
+		//	success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_TOPICS, L"&Help Topics");		SYS_ASSERT(success);//?
+			success=AppendMenuW(hMenuHelp, MF_SEPARATOR, 0, 0);					SYS_ASSERT(success);
+			success=AppendMenuW(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, L"&About Paint++");		SYS_ASSERT(success);
+			success=AppendMenuW(hMenubar, MF_POPUP, (size_t)hMenuHelp, L"&Help");			SYS_ASSERT(success);
 
-			success=SetMenu(hWnd, hMenubar);			SYS_ASSERT(success);
+			success=SetMenu(hWnd, hMenubar);	SYS_ASSERT(success);
 		//	check_exit(L"Entry", __LINE__);
 		}
 		break;
@@ -2763,7 +2799,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			HICON hIcon=(HICON)LoadImageW(hUser32, (wchar_t*)100, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
 			if(!hIcon)
 				formatted_error(L"LoadImageW", __LINE__);//spams '0 the operation completed successfully'
-			ret=(int)hIcon, handled=true;
+			ret=(size_t)hIcon, handled=true;
 		}
 		break;
 	case WM_CTLCOLOREDIT:
@@ -2774,13 +2810,13 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 			SetTextColor(hDC, swap_rb(primarycolor&0x00FFFFFF));
 			SetBkMode(hDC, selection_transparency);
 			SetBkColor(hDC, swap_rb(secondarycolor&0x00FFFFFF));
-			return (long)GetStockObject(selection_transparency==TRANSPARENT?NULL_BRUSH:WHITE_BRUSH);
+			return (LONG_PTR)GetStockObject(selection_transparency==TRANSPARENT?NULL_BRUSH:WHITE_BRUSH);
 		//	return (long)GetStockObject(NULL_BRUSH);
 		//	RedrawWindow(hTextbox, nullptr, nullptr, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE);//sends WM_CTLCOLOREDIT again
 		//	return (long)GetStockObject(WHITE_BRUSH);
 
 			//int brushes[]={WHITE_BRUSH, LTGRAY_BRUSH, GRAY_BRUSH, DKGRAY_BRUSH, NULL_BRUSH};
-			//const int nbrushes=sizeof brushes>>2;
+			//const int nbrushes=sizeof(brushes)>>2;
 			//return (long)GetStockObject(brushes[rand()%nbrushes]);
 		//	return (long)GetStockObject(rand()%6);
 		//	return (long)GetStockObject(GRAY_BRUSH);
@@ -2789,7 +2825,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 	case WM_COMMAND:
 #if 1
 		{
-			int wp_hi=((short*)&wParam)[1], wp_lo=(short&)wParam;
+			int wp_hi=(uint16_t)(wParam>>16), wp_lo=(uint16_t)wParam;
 			switch(wp_lo)
 			{
 			case IDM_FONT_COMBOBOX://font selection combobox
@@ -2797,20 +2833,20 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				if(wp_hi==CBN_SELCHANGE||wp_hi==CBN_EDITCHANGE)
 				{
 					HWND handle=(HWND)lParam;
-					int result=SendMessageW(handle, CB_GETCURSEL, 0, 0);
+					size_t result=SendMessageW(handle, CB_GETCURSEL, 0, 0);
 					//wchar_t listitem[256]={0};
 					//SendMessageW((HWND)lParam, CB_GETLBTEXT, font_idx, (LPARAM)listitem);//
 					//int LOL_1=0;
 					bool changed=false;
 					if(handle==hFontcombobox)
 					{
-						if(result!=-1)
-							set_sizescombobox(result), font_idx=result, changed=true;
+						if((ptrdiff_t)result!=(ptrdiff_t)-1)
+							set_sizescombobox((int)result), font_idx=(int)result, changed=true;
 					}
 					else if(handle==hFontsizecb)
 					{
 						changed=true;
-						GetWindowTextW(hFontsizecb, g_wbuf, g_buf_size);
+						GetWindowTextW(hFontsizecb, g_wbuf, G_BUF_SIZE);
 					//	SendMessageW(hFontsizecb, CB_GETLBTEXT, result, (LPARAM)g_wbuf);
 						int fs2=_wtoi(g_wbuf);
 						std::wstring static c0;//combobox contents
@@ -2825,10 +2861,15 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 						font_size=fs2;
 						//if(fs2!=font_size)
 						//	SetFocus(ghWnd), font_size=fs2;
-						static int ksizecb=0, wp0=0, lp0=0;
+#ifdef _DEBUG
+						static int ksizecb=0;
+						static size_t wp0=0, lp0=0;
 						++ksizecb;
-						DEBUG("font size=%d, %d times, (0x%08X, h=0x%08X), (0x%08X, h=0x%08X)", font_size, ksizecb, wp0, lp0, wParam, lParam);
+						DEBUG("font size=%d, %d times, (0x%p, h=0x%p), (0x%p, h=0x%p)"
+							, font_size, ksizecb, (void*)wp0, (void*)lp0, (void*)wParam, (void*)lParam
+						);
 						wp0=wParam, lp0=lParam;
+#endif
 					//	DEBUG("font size=%d, %d times", font_size, ksizecb);
 					}
 					if(changed)
@@ -2865,7 +2906,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 						case EN_HSCROLL  :a="EN_HSCROLL";break;
 						case EN_VSCROLL  :a="EN_VSCROLL";break;
 						}
-						length+=sprintf_s(g_buf+length, g_buf_size-length, "0x%04X %s%s\t\n", notifications[k], a, k==current?" <":"");
+						length+=sprintf_s(g_buf+length, G_BUF_SIZE-length, "0x%04X %s%s\t\n", notifications[k], a, k==current?" <":"");
 					//	GUITPrint(ghDC, 0, k<<4, "0x%04X %s%s\t", notifications[k], a, k==current?" <":"");
 					}
 					current=(current+1)%nn;//
@@ -3064,7 +3105,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 
 				//colors menu
 			case IDM_COLORS_EDITCOLORS:
-				pickcolor(primarycolor, colorpalette[primary_idx], primary_alpha);
+				pickcolor(&primarycolor, colorpalette+primary_idx, primary_alpha);
 				render(REDRAW_COLORPALETTE, 0, w, 0, h);
 				break;
 			case IDM_COLORS_EDITMASK:
@@ -3118,10 +3159,10 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 	case WM_NCHITTEST://0x0084: non-client hit test - update mouse position
 #if 1
 		{
-			POINT p={(short&)lParam, ((short*)&lParam)[1]};//screen coordinates
+			POINT p={(uint16_t)lParam, (uint16_t)(lParam>>16)};//screen coordinates
 			ScreenToClient(ghWnd, &p);//this can tell window position
 			mx=p.x, my=p.y;
-			const int scrollbarwidth=17;
+		//	const int scrollbarwidth=17;
 			p1.setzero(), p2.set(w, h);
 		//	x1=0, y1=0, x2=w, y2=h;
 			if(mx<0||mx>=w||my<0||my>=h)
@@ -3224,7 +3265,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 	//case WM_NCLBUTTONDOWN://0x00A1: click on border
 	//	break;
 	case WM_MOUSEMOVE://0x0200		when a button is down, only WM_MOUSEMOVE is received
-		mx=(short&)lParam, my=((short*)&lParam)[1];//client coordinates
+		mx=(uint16_t)lParam, my=(uint16_t)(lParam>>16);//client coordinates
 #ifdef MOUSE_POLLING_TEST
 		if(true)//mouse polling test
 			render2();//
@@ -3299,7 +3340,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 #if 1
 		{
 			kb[VK_LBUTTON]=true;
-			const int scrollbarwidth=17;
+		//	const int scrollbarwidth=17;
 			switch(mousepos)
 			{
 			case MP_THUMBNAILBOX:														//click on THUMBNAIL BOX
@@ -3334,7 +3375,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				{
 					int kx=(mx-31)>>4, ky=(my-(h-65))>>4;
 					primary_idx=kx<<1|ky;
-					pickcolor_palette(message, primarycolor, colorpalette[primary_idx], primary_alpha);
+					pickcolor_palette(message, &primarycolor, colorpalette+primary_idx, primary_alpha);
 					//if(message==WM_LBUTTONDBLCLK)//show color picker			//FUNCTION
 					//{
 					//	CHOOSECOLOR cc={sizeof(CHOOSECOLOR), ghWnd, (HWND)ghInstance, swap_rb(primarycolor), (unsigned long*)ext_colorpalette, CC_FULLOPEN|CC_RGBINIT, 0, nullptr, nullptr};
@@ -3415,7 +3456,10 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 					{
 						if(polygon.size()>=3)
 							hist_premodify(image, iw, ih);
-						polygon_draw(image, polygon_leftbutton?primarycolor:secondarycolor, polygon_type==ST_FILL==polygon_leftbutton?primarycolor:secondarycolor);
+						polygon_draw(image
+							, polygon_leftbutton?primarycolor:secondarycolor
+							, (polygon_type==(int)ST_FILL)==polygon_leftbutton?primarycolor:secondarycolor
+						);
 						//int c3, c4;
 						//if(polygon_type==ST_FILL==polygon_leftbutton)
 						//	c3=primarycolor, c4=secondarycolor;
@@ -3481,7 +3525,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				break;
 			case MP_VSCROLL://image vertical scrollbar									//click on SCROLLBARS
 				//{
-				//	int dy=shift(h/10, -logzoom);
+				//	int dy=SHIFT_LEFT(h/10, -logzoom);
 				//	if(dy<=0)
 				//		dy=1;
 					if(my>=p2.y-scrollbarwidth-hscroll.dwidth)//down arrow
@@ -3494,7 +3538,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				break;
 			case MP_HSCROLL://image horizontal scrollbar
 				//{
-				//	int dx=shift(w/10, -logzoom);
+				//	int dx=SHIFT_LEFT(w/10, -logzoom);
 				//	if(dx<=0)
 				//		dx=1;
 					if(mx>=p2.x-scrollbarwidth-vscroll.dwidth)//right arrow
@@ -3571,8 +3615,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 						screen2image(mx, my, imx, imy);
 						logzoom=magnifier_level, zoom=1<<magnifier_level;
 						int dx=w-(61*showtoolbox+17), dy=h-(5+17+73*showcolorbar), idx, idy;
-						idx=shift(dx, -logzoom);
-						idy=shift(dy, -logzoom);
+						idx=SHIFT_LEFT(dx, -logzoom);
+						idy=SHIFT_LEFT(dy, -logzoom);
 						//screen2image(dx, dy, idx, idy);
 						spx=imx-(idx>>1), spy=imy-(idy>>1);
 					}
@@ -3656,7 +3700,11 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 					selection.f.screen2image_rounded();
 					//selection.i.clamp(0, iw, 0, ih);
 					//selection.f.clamp(0, iw, 0, ih);
-					selection.sort_and_crop(Point(iw, ih));
+					{
+						Point br(iw, ih);
+
+						selection.sort_and_crop(br);
+					}
 					selection_select(selection);
 
 					//Point p1, p2;//sorted-bounded image coordinates
@@ -3682,7 +3730,9 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 					//selection_sort(p1, p2, text_s1, text_s2);
 
 					move_textbox();
-					int prevshow=ShowWindow(hTextbox, SW_SHOWNA);
+					//int prevshow=
+					ShowWindow(hTextbox, SW_SHOWNA);
+					//(void)prevshow;
 				//	draw_line_mouse(image, start_mx, start_my, mx, my, rand()<<15|rand());
 				}
 				break;
@@ -3778,7 +3828,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 	case WM_RBUTTONDBLCLK:
 		{
 			kb[VK_RBUTTON]=true;
-			const int scrollbarwidth=17;
+			//const int scrollbarwidth=17;
 			switch(mousepos)
 			{
 			//case MP_THUMBNAILBOX:
@@ -3787,7 +3837,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				if(mx>=31&&mx<255&&my>=h-65&&my<h-33)//color palette
 				{
 					int kx=(mx-31)>>4, ky=(my-(h-65))>>4, idx=kx<<1|ky;
-					pickcolor_palette(message, secondarycolor, colorpalette[idx], secondary_alpha);
+					pickcolor_palette(message, &secondarycolor, colorpalette+idx, secondary_alpha);
 					if(currentmode==M_TEXT)
 						RedrawWindow(hTextbox, nullptr, nullptr, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE);
 				}
@@ -3903,7 +3953,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		if(currentmode<=M_RECT_SELECTION&&(mousepos==MP_IMAGEWINDOW||mousepos==MP_IMAGE))//image region
 	//	if(currentmode<=M_RECT_SELECTION&&mx>=59*showtoolbox&&mx<w&&my>=0&&my<h-74*showcolorbar)
 		{
-			POINT mouse={(short&)lParam, ((short*)&lParam)[1]};
+			POINT mouse={(uint16_t)lParam, (uint16_t)(lParam>>16)};
 			ClientToScreen(ghWnd, &mouse);
 			HMENU hMenuContext=CreatePopupMenu();
 
@@ -3927,8 +3977,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		break;
 	case WM_MOUSEWHEEL:
 		{
-			unsigned short keys=(short&)wParam;
-			bool mw_forward=((short*)&wParam)[1]>0;
+			unsigned short keys=(uint16_t)wParam;
+			bool mw_forward=(int16_t)(wParam>>16)>0;
 			if(keys&0x0008)//ctrl wheel: zoom
 			{
 				if(mw_forward)
@@ -3960,7 +4010,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				if(vscroll.dwidth&&!kb[VK_SHIFT])
 				{
 					Point new_sp=imagewindow.i;
-					new_sp.y+=conditional_negate(maximum(1, imagewindow.dy()/scroll_divisor), mw_forward);
+					int LOL_1=MAXIMUM(1, imagewindow.dy()/scroll_divisor);
+					new_sp.y+=NEGATE(LOL_1, (int)mw_forward);
 					new_sp.screen2image();
 					delta.y=new_sp.y-spy;
 					spy=new_sp.y;
@@ -3968,7 +4019,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 				else if(hscroll.dwidth)
 				{
 					Point new_sp=imagewindow.i;
-					new_sp.x+=conditional_negate(maximum(1, imagewindow.dx()/scroll_divisor), mw_forward);
+					int LOL_1=MAXIMUM(1, imagewindow.dx()/scroll_divisor);
+					new_sp.x+=NEGATE(LOL_1, (int)mw_forward);
 					new_sp.screen2image();
 					delta.x=new_sp.x-spx;
 					spx=new_sp.x;
@@ -4070,9 +4122,9 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		case VK_END:
 			{
 				Point delta(imagewindow.dx(), imagewindow.dy());
-				spx=iw-shift(delta.x, -logzoom);
+				spx=iw-SHIFT_LEFT(delta.x, -logzoom);
 				if(kb[VK_CONTROL])//ctrl end
-					spy=ih-shift(delta.y, -logzoom);
+					spy=ih-SHIFT_LEFT(delta.y, -logzoom);
 				render(REDRAW_IMAGEWINDOW, 0, w, 0, h);
 			}
 			break;
@@ -4103,7 +4155,8 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		case 'E':
 			if(kb[VK_CONTROL])//attributes
 			{
-				int prevshow=ShowWindow(hWndAttributes, SW_SHOWDEFAULT);
+				//int prevshow=
+				ShowWindow(hWndAttributes, SW_SHOWDEFAULT);
 			}
 			else if(selection.nonzero())
 			{
@@ -4371,7 +4424,7 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		Rectangle(ghDC, -1, h-17, w+1, h+1);
 	//	Rectangle(ghDC, 0, h-16, w, h);
 		int size=0;
-		for(int k=0, nv=history.size();k<nv;++k)//determine history size in pixels
+		for(int k=0, nv=(int)history.size();k<nv;++k)//determine history size in pixels
 			size+=history[k].iw*history[k].ih;
 	//	GUIPrint(ghDC, w-200, h-16, "x%g, %d/%d, %.2lfMB", zoom, histpos, history.size(), float(size<<2)/1048576);//
 		GUIPrint(ghDC, w-200, h-16, "%d/%d, %.2lfMB", histpos+1, history.size(), float(size<<2)/1048576);//
@@ -4430,7 +4483,6 @@ long			__stdcall WndProc(HWND__ *hWnd, unsigned message, unsigned wParam, long l
 		return ret;
 	return DefWindowProcA(hWnd, message, wParam, lParam);
 }
-//int				__stdcall WinMain(HINSTANCE__ *hInstance, HINSTANCE__ *hPrevInstance, char *lpCmdLine, int nCmdShow)
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
 {
 	ghInstance=hInstance;
@@ -4449,28 +4501,101 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	//	(HBRUSH__*)(COLOR_WINDOW+1),
 		0, "New format", 0
 	};
-	short success=RegisterClassExA(&wndClassEx);	SYS_ASSERT(success);
-	ghWnd=CreateWindowExA(WS_EX_ACCEPTFILES, wndClassEx.lpszClassName, default_title, WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_CLIPCHILDREN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);	SYS_ASSERT(ghWnd);//2020-06-02
+	short success=RegisterClassExA(&wndClassEx);
+	SYS_ASSERT(success);
+	ghWnd=CreateWindowExA(WS_EX_ACCEPTFILES
+		, wndClassEx.lpszClassName
+		, default_title
+		, WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_CLIPCHILDREN
+		, CW_USEDEFAULT
+		, 0
+		, CW_USEDEFAULT
+		, 0
+		, nullptr
+		, nullptr
+		, hInstance
+		, nullptr
+	);
+	SYS_ASSERT(ghWnd);//2020-06-02
 	
-	HFONT hfDefault=(HFONT)GetStockObject(DEFAULT_GUI_FONT);	GEN_ASSERT(hfDefault);
+	HFONT hfDefault=(HFONT)GetStockObject(DEFAULT_GUI_FONT);GEN_ASSERT(hfDefault);
 	
-	hFontcombobox	=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONT_COMBOBOX, hInstance, nullptr);SYS_ASSERT(hFontcombobox);
-	SendMessageW(hFontcombobox, WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
+	hFontcombobox=CreateWindowExW(0
+		, WC_COMBOBOXW
+		, nullptr
+		, WS_CHILD|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS
+		, CW_USEDEFAULT
+		, 0
+		, CW_USEDEFAULT
+		, 0
+		, ghWnd
+		, (HMENU)IDM_FONT_COMBOBOX
+		, hInstance
+		, nullptr
+	);
+	SYS_ASSERT(hFontcombobox);
+	SendMessageW(hFontcombobox, WM_SETFONT, (WPARAM)hfDefault, 0);
+	SYS_CHECK();
 
-	hFontsizecb		=CreateWindowExW(0, WC_COMBOBOXW, nullptr, WS_CHILD|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_FONTSIZE_COMBOBOX, hInstance, nullptr);	SYS_ASSERT(hFontsizecb);
-	SendMessageW(hFontsizecb, WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
-	FontComboboxProc=(WNDPROC)SetWindowLongPtrA(hFontcombobox	, GWLP_WNDPROC, (long)FontComboboxSubclass);	SYS_ASSERT(FontComboboxProc);
-	FontSizeCbProc	=(WNDPROC)SetWindowLongPtrA(hFontsizecb		, GWLP_WNDPROC, (long)FontSizeCbSubclass);		SYS_ASSERT(FontSizeCbProc);
+	hFontsizecb=CreateWindowExW(0
+		, WC_COMBOBOXW
+		, nullptr
+		, WS_CHILD|WS_VISIBLE|WS_VSCROLL | CBS_DROPDOWN|CBS_HASSTRINGS
+		, CW_USEDEFAULT
+		, 0
+		, CW_USEDEFAULT
+		, 0
+		, ghWnd
+		, (HMENU)IDM_FONTSIZE_COMBOBOX
+		, hInstance
+		, nullptr
+	);
+	SYS_ASSERT(hFontsizecb);
+	SendMessageW(hFontsizecb, WM_SETFONT, (WPARAM)hfDefault, 0);
+	SYS_CHECK();
+	FontComboboxProc=(WNDPROC)SetWindowLongPtrA(hFontcombobox, GWLP_WNDPROC, (LONG_PTR)FontComboboxSubclass);
+	SYS_ASSERT(FontComboboxProc);
+	FontSizeCbProc=(WNDPROC)SetWindowLongPtrA(hFontsizecb, GWLP_WNDPROC, (LONG_PTR)FontSizeCbSubclass);
+	SYS_ASSERT(FontSizeCbProc);
 
-	hTextbox=CreateWindowExW(0, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_MULTILINE|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_TEXT_EDIT, hInstance, nullptr);	SYS_ASSERT(hTextbox);
-	oldEditProc=(WNDPROC)SetWindowLongW(hTextbox, GWLP_WNDPROC, (long)EditProc);	SYS_ASSERT(oldEditProc);
+	hTextbox=CreateWindowExW(0
+		, WC_EDITW
+		, nullptr
+		, WS_CHILD|WS_VISIBLE | ES_MULTILINE|ES_WANTRETURN
+		, CW_USEDEFAULT
+		, 0
+		, CW_USEDEFAULT
+		, 0
+		, ghWnd
+		, (HMENU)IDM_TEXT_EDIT
+		, hInstance
+		, nullptr
+	);
+	SYS_ASSERT(hTextbox);
+	oldEditProc=(WNDPROC)SetWindowLongPtrW(hTextbox, GWLP_WNDPROC, (LONG_PTR)EditProc);
+	SYS_ASSERT(oldEditProc);
 
 	create_stretchskew();
-	hRotatebox	=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_ROTATE_BOX,	hInstance, nullptr);	SYS_ASSERT(hRotatebox);
+	hRotatebox=CreateWindowExW(WS_EX_CLIENTEDGE
+		, WC_EDITW
+		, nullptr
+		, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN
+		, CW_USEDEFAULT
+		, 0
+		, CW_USEDEFAULT
+		, 0
+		, ghWnd
+		, (HMENU)IDM_ROTATE_BOX
+		, hInstance
+		, nullptr
+	);
+	SYS_ASSERT(hRotatebox);
 	
-	SendMessageW(hRotatebox		, WM_SETFONT, (WPARAM)hfDefault, 0);	SYS_CHECK();
+	SendMessageW(hRotatebox, WM_SETFONT, (WPARAM)hfDefault, 0);
+	SYS_CHECK();
 
-	RotateBoxProc	=(WNDPROC)SetWindowLongPtrA(hRotatebox	, GWLP_WNDPROC, (long)RotateBoxSubclass);	SYS_ASSERT(RotateBoxProc);
+	RotateBoxProc=(WNDPROC)SetWindowLongPtrA(hRotatebox, GWLP_WNDPROC, (LONG_PTR)RotateBoxSubclass);
+	SYS_ASSERT(RotateBoxProc);
 
 
 	ShowWindow(ghWnd, nShowCmd);
@@ -4478,7 +4603,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	//	prof_start();
 		programpath.resize(MAX_PATH);
 		GetModuleFileNameW(0, &programpath[0], MAX_PATH);
-		for(int k=programpath.size()-1;k>=0;--k)
+		for(int k=(int)programpath.size()-1;k>=0;--k)
 		{
 			if(programpath[k]==L'/'||programpath[k]==L'\\')
 			{
@@ -4486,11 +4611,18 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 				break;
 			}
 		}
-		assign_path(programpath, 0, programpath.size(), programpath);
+		assign_path(programpath.c_str(), 0, (int)programpath.size(), programpath);
 	//	prof_add("path");
 		read_settings();
-		if(!check_FFmpeg_path(FFmpeg_path))
-			ask_FFmpeg_path();
+		//{
+		//	int settings_found=0, ffmpeg_found=0;
+		//
+		//	settings_found=read_settings();
+		//	if(settings_found)
+		//		ffmpeg_found=check_FFmpeg_path(FFmpeg_path);
+		//	if(!settings_found||!ffmpeg_found)
+		//		ask_FFmpeg_path();
+		//}
 	//	prof_add("read settings");
 
 		//LARGE_INTEGER li;
@@ -4507,8 +4639,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		hBitmap=(HBITMAP)SelectObject(ghMemDC, hBitmap);
 
 		Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-		unsigned long gdiplusToken;
+		size_t gdiplusToken;
 		Gdiplus::Status state=Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, 0);
+		(void)state;
 	//	centerP.x=X0=w/2, centerP.y=Y0=h/2;
 	//	ClientToScreen(ghWnd, &centerP);
 	//	e->initiate();
@@ -4574,10 +4707,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		};
 		EnumFontFamiliesExW(ghMemDC, &lf, FontProc, 0, 0);
 		std::sort(fonts.begin(), fonts.end());
-		for(int k=0, nfonts=fonts.size();k<nfonts;++k)
+		for(int k=0, nfonts=(int)fonts.size();k<nfonts;++k)
 			SendMessageW(hFontcombobox, CB_ADDSTRING, 0, (LPARAM)fonts[k].lf.lfFaceName);
 		if(font_idx>=(int)fonts.size())
-			font_idx=fonts.size();
+			font_idx=(int)fonts.size();
 		SendMessageW(hFontcombobox, CB_SETCURSEL, font_idx, 0);
 		//font_idx=SendMessageW(hFontcombobox, CB_SETCURSEL, 0, 0);
 		//font_size=20;
@@ -4585,7 +4718,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 	tagMSG msg;
 	int ret=0;
-	for(;ret=GetMessageA(&msg, 0, 0, 0);)
+	while((ret=GetMessageA(&msg, 0, 0, 0)))
 	{
 		if(ret==-1)
 		{
@@ -4618,5 +4751,5 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 		delete_workfolder();
 
-	return msg.wParam;
+	return (int)msg.wParam;
 }

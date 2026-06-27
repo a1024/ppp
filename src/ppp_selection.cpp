@@ -1,13 +1,14 @@
-#include		"ppp.h"
-#include		"generic.h"
+#include "ppp.h"
+#include "generic.h"
 static const char file[]=__FILE__;
+
 #if 0
-void			selection_sort(Point const &sel_start, Point const &sel_end, Point &p1, Point &p2)
+void selection_sort(Point const &sel_start, Point const &sel_end, Point &p1, Point &p2)
 {
 	p1.set(minimum(sel_start.x, sel_end.x), minimum(sel_start.y, sel_end.y));
 	p2.set(maximum(sel_start.x, sel_end.x), maximum(sel_start.y, sel_end.y));
 }
-void			selection_sortNbound(Point const &sel_start, Point const &sel_end, Point &p1, Point &p2)
+void selection_sortNbound(Point const &sel_start, Point const &sel_end, Point &p1, Point &p2)
 {
 	p1.set(minimum(sel_start.x, sel_end.x), minimum(sel_start.y, sel_end.y));
 	p2.set(maximum(sel_start.x, sel_end.x), maximum(sel_start.y, sel_end.y));
@@ -20,7 +21,7 @@ void			selection_sortNbound(Point const &sel_start, Point const &sel_end, Point 
 	if(p2.y>ih)
 		p2.y=ih;
 }
-void			selection_assign_mouse(int start_mx, int start_my, int mx, int my, Point &sel_start, Point &sel_end, Point &p1, Point &p2)
+void selection_assign_mouse(int start_mx, int start_my, int mx, int my, Point &sel_start, Point &sel_end, Point &p1, Point &p2)
 {
 	screen2image_rounded(start_mx, start_my, sel_start.x, sel_start.y);
 	screen2image_rounded(mx, my, sel_end.x, sel_end.y);
@@ -38,7 +39,7 @@ void			selection_assign_mouse(int start_mx, int start_my, int mx, int my, Point 
 
 	selection_sortNbound(sel_start, sel_end, p1, p2);
 }
-//void			selection_assign()
+//void selection_assign()
 //{
 //	Point p1, p2;
 //	selection_sortNbound(sel_start, sel_end, p1, p2);
@@ -48,7 +49,7 @@ void			selection_assign_mouse(int start_mx, int start_my, int mx, int my, Point 
 //	selid=p2-p1;
 //}
 #endif
-void			selection_resize_mouse(Rect &sel, int mx, int my, int prev_mx, int prev_my, int *xflip, int *yflip)
+void selection_resize_mouse(Rect &sel, int mx, int my, int prev_mx, int prev_my, int *xflip, int *yflip)
 {
 	int ret;
 	char xanchor=anchors[(drag-D_SEL_RESIZE_TL)<<1], yanchor=anchors[(drag-D_SEL_RESIZE_TL)<<1|1];
@@ -62,17 +63,17 @@ void			selection_resize_mouse(Rect &sel, int mx, int my, int prev_mx, int prev_m
 	if(yflip)
 		*yflip=ret;
 }
-void			selection_remove()
+void selection_remove()
 {
 	selection.set(0, 0, 0, 0);
 	sw=0, sh=0, sel_buffer=(int*)realloc(sel_buffer, 0);
 	//sel_start.set(0, 0), sel_end.set(0, 0);
 	//selection_assign();
 }
-void			selection_select(Rect const &sel)
+void selection_select(Rect const &sel)
 {
-	int x1=minimum(sel.i.x, sel.f.x), dx=abs(sel.f.x-sel.i.x);
-	int y1=minimum(sel.i.y, sel.f.y), dy=abs(sel.f.y-sel.i.y), y2=y1+dy;
+	int x1=MINIMUM(sel.i.x, sel.f.x), dx=abs(sel.f.x-sel.i.x);
+	int y1=MINIMUM(sel.i.y, sel.f.y), dy=abs(sel.f.y-sel.i.y), y2=y1+dy;
 	int ky;
 	if(dx>0&&dy>0)
 	{
@@ -85,7 +86,7 @@ void			selection_select(Rect const &sel)
 	}
 	selection_free=false;
 }
-void			selection_stamp(bool modify_hist)//sel_buffer -> image
+void selection_stamp(bool modify_hist)//sel_buffer -> image
 {
 	if(selection.iszero())
 		return;
@@ -98,8 +99,11 @@ void			selection_stamp(bool modify_hist)//sel_buffer -> image
 	int ix1, ix2, iy1, iy2;
 	selection.get(ix1, ix2, iy1, iy2);
 	int idx=ix2-ix1, idy=iy2-iy1;
-	int iystart=clamp(0, iy1, ih-1), iyend=clamp(0, iy2, ih),
-		ixstart=clamp(0, ix1, iw-1), ixend=clamp(0, ix2, iw);
+	int
+		iystart=iy1, iyend=iy2,
+		ixstart=ix1, ixend=ix2;
+	CLAMP(iystart, 0, ih-1); CLAMP(iyend, 0, ih);
+	CLAMP(ixstart, 0, iw-1); CLAMP(ixend, 0, iw);
 	//int iystart=-iy1&-(iy1<0), iyend=minimum(ih-iy1, abs(idy)),
 	//	ixstart=-ix1&-(ix1<0), ixend=minimum(iw-ix1, abs(idx));
 	//iystart=clamp(0, iystart, ih), iyend=clamp(0, iyend, ih);
@@ -117,7 +121,7 @@ void			selection_stamp(bool modify_hist)//sel_buffer -> image
 			int byrem=by%idy;
 			by/=idy;
 			by-=by0<0;
-			byrem+=abs_idy&-((byrem<0)|!byrem&(idy<0));
+			byrem+=abs_idy&-((byrem<0)|(!byrem&(idy<0)));
 			int byrem_c=abs_idy-byrem;
 			if(idy<0)
 				std::swap(byrem, byrem_c);
@@ -136,7 +140,7 @@ void			selection_stamp(bool modify_hist)//sel_buffer -> image
 				int bxrem=bx%idx;
 				bx/=idx;
 				bx-=bx0<0;
-				bxrem+=abs_idx&-((bxrem<0)|!bxrem&(idx<0));
+				bxrem+=abs_idx&-((bxrem<0)|(!bxrem&(idx<0)));
 				int bxrem_c=abs_idx-bxrem;
 				if(idx<0)
 					std::swap(bxrem, bxrem_c);
@@ -149,27 +153,27 @@ void			selection_stamp(bool modify_hist)//sel_buffer -> image
 				if(selection_free)
 				{
 					// yx		ENTIRE ROW: Y IS CONSTANT
-					src00=((unsigned)by  <(unsigned)sh)&((unsigned)bx  <(unsigned)sw)?  maskrow0[bx  ]?(const byte*)(srcrow0+bx  ):dst  :(const byte*)&secondarycolor;
-					src01=((unsigned)by  <(unsigned)sh)&((unsigned)bx+1<(unsigned)sw)?  maskrow0[bx+1]?(const byte*)(srcrow0+bx+1):dst  :(const byte*)&secondarycolor;
-					src10=((unsigned)by+1<(unsigned)sh)&((unsigned)bx  <(unsigned)sw)?  maskrow1[bx  ]?(const byte*)(srcrow1+bx  ):dst  :(const byte*)&secondarycolor;
-					src11=((unsigned)by+1<(unsigned)sh)&((unsigned)bx+1<(unsigned)sw)?  maskrow1[bx+1]?(const byte*)(srcrow1+bx+1):dst  :(const byte*)&secondarycolor;
+					src00=((unsigned)by  <(unsigned)sh)&&((unsigned)bx  <(unsigned)sw)?  maskrow0[bx  ]?(const byte*)(srcrow0+bx  ):dst  :(const byte*)&secondarycolor;
+					src01=((unsigned)by  <(unsigned)sh)&&((unsigned)bx+1<(unsigned)sw)?  maskrow0[bx+1]?(const byte*)(srcrow0+bx+1):dst  :(const byte*)&secondarycolor;
+					src10=((unsigned)by+1<(unsigned)sh)&&((unsigned)bx  <(unsigned)sw)?  maskrow1[bx  ]?(const byte*)(srcrow1+bx  ):dst  :(const byte*)&secondarycolor;
+					src11=((unsigned)by+1<(unsigned)sh)&&((unsigned)bx+1<(unsigned)sw)?  maskrow1[bx+1]?(const byte*)(srcrow1+bx+1):dst  :(const byte*)&secondarycolor;
 				}
 				else
 				{
-					src00=((unsigned)by  <(unsigned)sh)&((unsigned)bx  <(unsigned)sw)?(const byte*)(srcrow0+bx  ):(const byte*)&secondarycolor;
-					src01=((unsigned)by  <(unsigned)sh)&((unsigned)bx+1<(unsigned)sw)?(const byte*)(srcrow0+bx+1):(const byte*)&secondarycolor;
-					src10=((unsigned)by+1<(unsigned)sh)&((unsigned)bx  <(unsigned)sw)?(const byte*)(srcrow1+bx  ):(const byte*)&secondarycolor;
-					src11=((unsigned)by+1<(unsigned)sh)&((unsigned)bx+1<(unsigned)sw)?(const byte*)(srcrow1+bx+1):(const byte*)&secondarycolor;
+					src00=((unsigned)by  <(unsigned)sh)&&((unsigned)bx  <(unsigned)sw)?(const byte*)(srcrow0+bx  ):(const byte*)&secondarycolor;
+					src01=((unsigned)by  <(unsigned)sh)&&((unsigned)bx+1<(unsigned)sw)?(const byte*)(srcrow0+bx+1):(const byte*)&secondarycolor;
+					src10=((unsigned)by+1<(unsigned)sh)&&((unsigned)bx  <(unsigned)sw)?(const byte*)(srcrow1+bx  ):(const byte*)&secondarycolor;
+					src11=((unsigned)by+1<(unsigned)sh)&&((unsigned)bx+1<(unsigned)sw)?(const byte*)(srcrow1+bx+1):(const byte*)&secondarycolor;
 				}
 				if(selection_transparency==TRANSPARENT)
 				{
-					if(*(int*)src00==secondarycolor)
+					if(*(uint32_t*)src00==secondarycolor)
 						src00=dst;
-					if(*(int*)src01==secondarycolor)
+					if(*(uint32_t*)src01==secondarycolor)
 						src01=dst;
-					if(*(int*)src10==secondarycolor)
+					if(*(uint32_t*)src10==secondarycolor)
 						src10=dst;
-					if(*(int*)src11==secondarycolor)
+					if(*(uint32_t*)src11==secondarycolor)
 						src11=dst;
 				}
 				for(int kc=0;kc<4;++kc)
@@ -189,7 +193,7 @@ void			selection_stamp(bool modify_hist)//sel_buffer -> image
 		if(by<0||by>=sh)
 			break;
 		int *srcrow=sel_buffer+sw*by;
-		int *maskrow=(int*)((int)(sel_mask+sw*by)&-selection_free);
+		int *maskrow=(int*)((size_t)(sel_mask+sw*by)&-selection_free);
 		int *dstrow=image+iw*iy;
 		//int *dstrow=image+iw*(iy1+iy)+ix1;
 		for(int kx=0, ix=ixstart;kx<ixcount;++kx, ix+=ixstep)
@@ -200,7 +204,7 @@ void			selection_stamp(bool modify_hist)//sel_buffer -> image
 			if(!selection_free||maskrow[bx])
 			{
 				int src=srcrow[bx];
-				if(selection_transparency==OPAQUE||src!=secondarycolor)
+				if(selection_transparency==OPAQUE||(uint32_t)src!=secondarycolor)
 					dstrow[ix]=src;
 			}
 	/*	if(selection_free)
@@ -279,7 +283,7 @@ void			selection_stamp(bool modify_hist)//sel_buffer -> image
 	}
 #endif
 }
-void			selection_move_mouse(int prev_mx, int prev_my, int mx, int my)
+void selection_move_mouse(int prev_mx, int prev_my, int mx, int my)
 {
 	Point m, prev_m;
 	screen2image(mx, my, m.x, m.y);
@@ -291,7 +295,7 @@ void			selection_move_mouse(int prev_mx, int prev_my, int mx, int my)
 	//selpos+=d;
 	//sel_start+=d, sel_end+=d, sel_s1+=d, sel_s2+=d;
 }
-void			selection_selectall()
+void selection_selectall()
 {
 	currentmode=M_RECT_SELECTION;
 	selection_stamp(true);
@@ -302,7 +306,7 @@ void			selection_selectall()
 	//selection_sortNbound(sel_start, sel_end, p1, p2);
 	selection_select(selection);
 }
-void			selection_resetscale()
+void selection_resetscale()
 {
 	selection.sort_coords();
 	//selid.set(sw, sh);
@@ -321,13 +325,13 @@ void			selection_resetscale()
 }
 
 std::vector<Point> freesel;//free form selection vertices, image coordinates
-void			freesel_add_mouse(int mx, int my)
+void freesel_add_mouse(int mx, int my)
 {
 	Point i;
 	screen2image(mx, my, i.x, i.y);
 	freesel.push_back(i);
 }
-void			freesel_select()
+void freesel_select()
 {
 	if(freesel.size()>=3)
 	{
@@ -354,9 +358,9 @@ void			freesel_select()
 		for(int ky=ystart;ky<yend;++ky)
 		{
 			polygon_rowbounds(freesel, ky, bounds);
-			for(int kb=0, nbounds=bounds.size();kb+1<nbounds;kb+=2)
+			for(int kb=0, nbounds=(int)bounds.size();kb+1<nbounds;kb+=2)
 			{
-				int kx=(int)std::round(bounds[kb]), kxEnd=(int)std::round(bounds[kb+1]);
+				int kx=(int)round(bounds[kb]), kxEnd=(int)round(bounds[kb+1]);
 				if(kx<0)
 					kx=0;
 				if(kxEnd>iw)
@@ -377,15 +381,25 @@ void			freesel_select()
 	freesel.clear();
 }
 
-bool			editcopy()
+bool editcopy()
 {
 	if(selection.nonzero())
 	{
 		int size=sizeof(BITMAPINFO)+(sw*sh<<2);
 		char *clipboard=(char*)LocalAlloc(LMEM_FIXED, size);
-		BITMAPINFO bmi={{sizeof(BITMAPINFOHEADER), sw, -sh, 1, 32, BI_RGB, sw*sh<<2, 0, 0, 0, 0}};
-		memcpy(clipboard, &bmi, sizeof BITMAPINFOHEADER);
-		memcpy(clipboard+sizeof BITMAPINFOHEADER, sel_buffer, sw*sh<<2);
+		BITMAPINFO bmi=
+		{{
+			sizeof(BITMAPINFOHEADER),
+			sw,
+			-sh,
+			1,
+			32,
+			BI_RGB,
+			(DWORD)(sw*sh<<2),
+			0, 0, 0, 0
+		}};
+		memcpy(clipboard, &bmi, sizeof(BITMAPINFOHEADER));
+		memcpy(clipboard+sizeof(BITMAPINFOHEADER), sel_buffer, (size_t)sw*sh<<2);
 		int success=OpenClipboard(ghWnd);
 		if(!success)
 		{
@@ -399,10 +413,10 @@ bool			editcopy()
 	}
 	return false;
 }
-void			editpaste()
+void editpaste()
 {
 	unsigned clipboardformats[]={CF_DIB, CF_DIBV5, CF_BITMAP, CF_TIFF, CF_METAFILEPICT};
-	int format=GetPriorityClipboardFormat(clipboardformats, sizeof clipboardformats>>2);
+	int format=GetPriorityClipboardFormat(clipboardformats, sizeof(clipboardformats)>>2);
 	if(format>0)
 	{
 		int success=OpenClipboard(ghWnd);
@@ -412,7 +426,7 @@ void			editpaste()
 			return;
 		}
 		void *hData;
-		int size;
+		size_t size;
 		switch(format)
 		{
 		case CF_BITMAP://added 20210402
@@ -442,6 +456,8 @@ void			editpaste()
 
 				hBm2=(HBITMAP)SelectObject(hDC2, hBm2);
 				DeleteDC(hDC2);
+
+				(void)copied;
 			}
 			break;
 		case CF_DIBV5://added 20210402
@@ -455,9 +471,11 @@ void			editpaste()
 			break;
 		case CF_DIB:
 			{
-				hData=GetClipboardData(CF_DIB);						SYS_ASSERT(hData);
+				hData=GetClipboardData(CF_DIB);
+				SYS_ASSERT(hData);
 				size=GlobalSize(hData);
-				BITMAPINFO *bmi=(BITMAPINFO*)GlobalLock(hData);		SYS_ASSERT(bmi);
+				BITMAPINFO *bmi=(BITMAPINFO*)GlobalLock(hData);
+				SYS_ASSERT(bmi);
 				if(bmi->bmiHeader.biCompression==BI_RGB||bmi->bmiHeader.biCompression==BI_BITFIELDS)//uncompressed
 				{
 					int bw=bmi->bmiHeader.biWidth, bh=abs(bmi->bmiHeader.biHeight);
@@ -571,5 +589,7 @@ void			editpaste()
 			break;
 		}
 		CloseClipboard();
+
+		(void)size;
 	}
 }

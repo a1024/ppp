@@ -15,13 +15,13 @@ void			exec_FFmpeg_command(const wchar_t *executable, std::wstring const &args, 
 	SECURITY_ATTRIBUTES saAttr={sizeof(SECURITY_ATTRIBUTES), nullptr, 1};
 	void *g_hChildStd_IN_Rd=nullptr, *g_hChildStd_IN_Wr=nullptr, *g_hChildStd_OUT_Rd=nullptr, *g_hChildStd_OUT_Wr=nullptr;
 	if(!CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0))//Create a pipe for the child process's STDOUT.
-		error_exit(TEXT("StdoutRd CreatePipe"), __LINE__);
+		error_exit(L"StdoutRd CreatePipe", __LINE__);
 	if(!SetHandleInformation(g_hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0))//Ensure the read handle to the pipe for STDOUT is not inherited.
-		error_exit(TEXT("Stdout SetHandleInformation"), __LINE__);
+		error_exit(L"Stdout SetHandleInformation", __LINE__);
 	if(!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0))//Create a pipe for the child process's STDIN.
-		error_exit(TEXT("Stdin CreatePipe"), __LINE__);
+		error_exit(L"Stdin CreatePipe", __LINE__);
 	if(!SetHandleInformation(g_hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0))//Ensure the write handle to the pipe for STDIN is not inherited.
-		error_exit(TEXT("Stdin SetHandleInformation"), __LINE__);
+		error_exit(L"Stdin SetHandleInformation", __LINE__);
 	
 	//create child process
 	PROCESS_INFORMATION piProcInfo={0};//Set up members of the PROCESS_INFORMATION structure.
@@ -44,7 +44,7 @@ void			exec_FFmpeg_command(const wchar_t *executable, std::wstring const &args, 
 		&siStartInfo,		//STARTUPINFO pointer
 		&piProcInfo);		//receives PROCESS_INFORMATION
 	if(!bSuccess)//If an error occurs, exit the application.
-		error_exit(TEXT("CreateProcess"), __LINE__);
+		error_exit(L"CreateProcess", __LINE__);
 	else
 	{
 		//Close handles to the child process and its primary thread.
@@ -61,8 +61,8 @@ void			exec_FFmpeg_command(const wchar_t *executable, std::wstring const &args, 
 	unsigned long read=0;
 	do
 	{
-		memset(g_buf, 0, g_buf_size);
-		bSuccess=ReadFile(g_hChildStd_OUT_Rd, g_buf, g_buf_size, &read, nullptr);
+		memset(g_buf, 0, G_BUF_SIZE);
+		bSuccess=ReadFile(g_hChildStd_OUT_Rd, g_buf, G_BUF_SIZE, &read, nullptr);
 		result+=g_buf;
 	}while(bSuccess&&read);
 }
@@ -80,13 +80,13 @@ bool			check_FFmpeg_path(std::wstring &path)//path is stripped of doublequotes a
 	SECURITY_ATTRIBUTES saAttr={sizeof(SECURITY_ATTRIBUTES), nullptr, 1};
 	void *g_hChildStd_IN_Rd=nullptr, *g_hChildStd_IN_Wr=nullptr, *g_hChildStd_OUT_Rd=nullptr, *g_hChildStd_OUT_Wr=nullptr;
 	if(!CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0))//Create a pipe for the child process's STDOUT.
-		error_exit(TEXT("StdoutRd CreatePipe"), __LINE__);
+		error_exit(L"StdoutRd CreatePipe", __LINE__);
 	if(!SetHandleInformation(g_hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0))//Ensure the read handle to the pipe for STDOUT is not inherited.
-		error_exit(TEXT("Stdout SetHandleInformation"), __LINE__);
+		error_exit(L"Stdout SetHandleInformation", __LINE__);
 	if(!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0))//Create a pipe for the child process's STDIN.
-		error_exit(TEXT("Stdin CreatePipe"), __LINE__);
+		error_exit(L"Stdin CreatePipe", __LINE__);
 	if(!SetHandleInformation(g_hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0))//Ensure the write handle to the pipe for STDIN is not inherited.
-		error_exit(TEXT("Stdin SetHandleInformation"), __LINE__);
+		error_exit(L"Stdin SetHandleInformation", __LINE__);
 	
 	//create child process
 	PROCESS_INFORMATION piProcInfo={0};//Set up members of the PROCESS_INFORMATION structure.
@@ -109,7 +109,7 @@ bool			check_FFmpeg_path(std::wstring &path)//path is stripped of doublequotes a
 		&siStartInfo,		//STARTUPINFO pointer
 		&piProcInfo);		//receives PROCESS_INFORMATION
 	if(!bSuccess)//If an error occurs, exit the application.
-		error_exit(TEXT("CreateProcess"), __LINE__);
+		error_exit(L"CreateProcess", __LINE__);
 	else
 	{
 		//Close handles to the child process and its primary thread.
@@ -126,15 +126,16 @@ bool			check_FFmpeg_path(std::wstring &path)//path is stripped of doublequotes a
 	std::string result;
 	do
 	{
-		memset(g_buf, 0, g_buf_size);
-		bSuccess=ReadFile(g_hChildStd_OUT_Rd, g_buf, g_buf_size, &read, nullptr);
+		memset(g_buf, 0, G_BUF_SIZE);
+		bSuccess=ReadFile(g_hChildStd_OUT_Rd, g_buf, G_BUF_SIZE, &read, nullptr);
 		result+=g_buf;
 	}while(bSuccess&&read);
 	if(!result.size())
 		return false;
 	const char ex_start[]="ffmpeg version";
-	int k=0, size=result.size();
-	for(int kEnd=minimum(size, strlen(ex_start));k<kEnd;++k)
+	int k=0, size=(int)result.size();
+	int len=(int)strlen(ex_start);
+	for(int kEnd=MINIMUM(size, len);k<kEnd;++k)
 		if(result[k]!=ex_start[k])
 			return false;
 	for(;k<size&&result[k]==' ';++k);
@@ -152,13 +153,13 @@ bool			check_FFmpeg_path(std::string &path)//path is stripped of doublequotes an
 	SECURITY_ATTRIBUTES saAttr={sizeof(SECURITY_ATTRIBUTES), nullptr, 1};
 	void *g_hChildStd_IN_Rd=nullptr, *g_hChildStd_IN_Wr=nullptr, *g_hChildStd_OUT_Rd=nullptr, *g_hChildStd_OUT_Wr=nullptr;
 	if(!CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0))//Create a pipe for the child process's STDOUT.
-		error_exit(TEXT("StdoutRd CreatePipe"), __LINE__);
+		error_exit(L"StdoutRd CreatePipe", __LINE__);
 	if(!SetHandleInformation(g_hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0))//Ensure the read handle to the pipe for STDOUT is not inherited.
-		error_exit(TEXT("Stdout SetHandleInformation"), __LINE__);
+		error_exit(L"Stdout SetHandleInformation", __LINE__);
 	if(!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0))//Create a pipe for the child process's STDIN.
-		error_exit(TEXT("Stdin CreatePipe"), __LINE__);
+		error_exit(L"Stdin CreatePipe", __LINE__);
 	if(!SetHandleInformation(g_hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0))//Ensure the write handle to the pipe for STDIN is not inherited.
-		error_exit(TEXT("Stdin SetHandleInformation"), __LINE__);
+		error_exit(L"Stdin SetHandleInformation", __LINE__);
 	
 	//create child process
 	PROCESS_INFORMATION piProcInfo={0};//Set up members of the PROCESS_INFORMATION structure.
@@ -199,15 +200,16 @@ bool			check_FFmpeg_path(std::string &path)//path is stripped of doublequotes an
 	std::string result;
 	do
 	{
-		memset(g_buf, 0, g_buf_size);
-		bSuccess=ReadFile(g_hChildStd_OUT_Rd, g_buf, g_buf_size, &read, nullptr);
+		memset(g_buf, 0, G_BUF_SIZE);
+		bSuccess=ReadFile(g_hChildStd_OUT_Rd, g_buf, G_BUF_SIZE, &read, nullptr);
 		result+=g_buf;
 	}while(bSuccess&&read);
 	if(!result.size())
 		return false;
 	const char ex_start[]="ffmpeg version";
-	int k=0, size=result.size();
-	for(int kEnd=minimum(size, strlen(ex_start));k<kEnd;++k)
+	int k=0, size=(int)result.size();
+	int len=(int)strlen(ex_start);
+	for(int kEnd=MINIMUM(size, len);k<kEnd;++k)
 		if(result[k]!=ex_start[k])
 			return false;
 	for(;k<size&&result[k]==' ';++k);

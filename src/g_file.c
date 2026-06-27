@@ -1,12 +1,16 @@
-#include		<sys/stat.h>
-#if !defined __linux__
-//#if _MSC_VER<1800
-//#define	S_IFMT		00170000//octal
-//#define	S_IFREG		 0100000
-//#endif
-#define	S_ISREG(m)	(((m)&S_IFMT)==S_IFREG)
+#include<sys/stat.h>
+#if defined _MSC_VER //&& _MSC_VER<1700
+#	if _MSC_VER<1800
+#		define S_IFMT 00170000//octal
+#		define S_IFREG 0100000
+#	endif
+#define	S_ISREG(m) (((m)&S_IFMT)==S_IFREG)
 #endif
-int				file_is_readablea(const char *filename)//0: not readable, 1: regular file, 2: folder
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+int file_is_readablea(const char *filename)//0: not readable, 1: regular file, 2: folder
 {
 	struct stat info;
 	int error=stat(filename, &info);
@@ -14,7 +18,7 @@ int				file_is_readablea(const char *filename)//0: not readable, 1: regular file
 		return 1+!S_ISREG(info.st_mode);
 	return 0;
 }
-int				file_is_readablew(const wchar_t *filename)//0: not readable, 1: regular file, 2: folder
+int file_is_readablew(const wchar_t *filename)//0: not readable, 1: regular file, 2: folder
 {
 	struct _stat32 info;
 	int error=_wstat32(filename, &info);
@@ -22,7 +26,7 @@ int				file_is_readablew(const wchar_t *filename)//0: not readable, 1: regular f
 		return 1+!S_ISREG(info.st_mode);
 	return 0;
 }
-/*int				file_existsw(const wchar_t *name)
+/*int file_existsw(const wchar_t *name)
 {
 	struct _stat32 info;
 	int error=_wstat32(name, &info);
@@ -38,9 +42,12 @@ int				file_is_readablew(const wchar_t *filename)//0: not readable, 1: regular f
 	return false;
 #endif
 }
-int				file_existsa(const char *name)
+int file_existsa(const char *name)
 {
 	struct _stat32 info;
 	int error=_stat32(name, &info);
 	return !error;
 }//*/
+#ifdef __cplusplus
+}
+#endif

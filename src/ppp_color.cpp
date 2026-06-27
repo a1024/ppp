@@ -1,7 +1,7 @@
-#include		"ppp.h"
-#include		"generic.h"
-#include		<tmmintrin.h>
-void			swap_rb(int *dstimage, const int *srcimage, int pxcount)
+#include "ppp.h"
+#include "generic.h"
+#include <tmmintrin.h>
+void swap_rb(int *dstimage, const int *srcimage, int pxcount)
 {
 	const __m128i shuffle_rb=_mm_set_epi8
 		(
@@ -21,13 +21,14 @@ void			swap_rb(int *dstimage, const int *srcimage, int pxcount)
 	if(xrem)
 	{
 		for(int k=0;k<xrem;++k)
-			pixels.m128i_i32[k]=srcimage[xround+k];
-		pixels=_mm_shuffle_epi8(pixels, shuffle_rb);
-		for(int k=0;k<xrem;++k)
-			dstimage[xround+k]=pixels.m128i_i32[k];
+		{
+			uint32_t color=srcimage[xround+k];
+			color=(color&0xFF00FF00)|(color&255)<<16|(color>>16&255);
+			dstimage[xround+k]=color;
+		}
 	}
 }
-void			invertcolor(int *buffer, int bw, int bh, bool selection)
+void invertcolor(int *buffer, int bw, int bh, bool selection)
 {
 	//const __m128i ones=_mm_set1_epi32(-1);
 	//const __m128i alphamask=_mm_set1_epi32(0xFF000000);
@@ -52,7 +53,7 @@ void			invertcolor(int *buffer, int bw, int bh, bool selection)
 				if(mrow[kx])
 				{
 					auto &c=row[kx];
-					c=c&0xFF000000|~c&0x00FFFFFF;
+					c=(c&0xFF000000)|(~c&0x00FFFFFF);
 				}
 			}
 		}
@@ -91,10 +92,10 @@ void			invertcolor(int *buffer, int bw, int bh, bool selection)
 			for(;kx<bw;++kx)
 			{
 				auto &c=row[kx];
-				c=c&0xFF000000|~c&0x00FFFFFF;
+				c=(c&0xFF000000)|(~c&0x00FFFFFF);
 			}
 		}
-		_mm_empty();
+		//_mm_empty();
 		//for(int ky=0;ky<bh;++ky)
 		//{
 		//	for(int kx=0;kx<bw;++kx)
@@ -105,14 +106,14 @@ void			invertcolor(int *buffer, int bw, int bh, bool selection)
 		//}
 	}
 }
-void			clear_alpha()
+void clear_alpha()
 {
 	hist_premodify(image, iw, ih);
 	for(int k=0;k<image_size;++k)
 		image[k]|=0xFF000000;
 }
 
-void			convert2float()
+void convert2float()
 {
 	if(imagetype==IM_FLOAT32_RGBA)
 		return;
@@ -175,7 +176,7 @@ inline unsigned char clamp_byte(double x)
 		return 255;
 	return (unsigned char)x;
 }
-inline float	clamp01_d2f(double x)
+inline float clamp01_d2f(double x)
 {
 	if(x<0)
 		return 0;
@@ -183,7 +184,7 @@ inline float	clamp01_d2f(double x)
 		return 1;
 	return (float)x;
 }
-void			change_brightness(double pre_offset, double gain, double post_offset)
+void change_brightness(double pre_offset, double gain, double post_offset)
 {
 	double offset=gain*pre_offset+post_offset;
 	switch(imagetype)
@@ -211,7 +212,7 @@ void			change_brightness(double pre_offset, double gain, double post_offset)
 	}
 }
 
-void			make_grayscale()
+void make_grayscale()
 {
 	switch(imagetype)
 	{

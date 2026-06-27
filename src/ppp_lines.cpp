@@ -1,32 +1,32 @@
-#include		"ppp.h"
-#include		"ppp_inline_check.h"
-#include		"ppp_xmm_clamp.h"
-#include		"generic.h"
-#include		<algorithm>
+#include"ppp.h"
+#include"ppp_inline_check.h"
+#include"ppp_xmm_clamp.h"
+#include"generic.h"
+#include<algorithm>
 
-//	#define			LINE_AA_SHOW_BOX
+//	#define LINE_AA_SHOW_BOX
 
-void			draw_h_line(int *buffer, int x1, int x2, int y, int color)//x2 exclusive
+void draw_h_line(int *buffer, int x1, int x2, int y, int color)//x2 exclusive
 {
 	if(!ichecky(y))
 	{
-		x1=maximum(0, x1), x2=minimum(x2, iw);
+		x1=MAXIMUM(0, x1), x2=MINIMUM(x2, iw);
 		memfill(buffer+iw*y+x1, &color, (x2-x1)<<2, 1<<2);
 		//for(int kx=x1;kx<x2;++kx)
 		//	buffer[iw*y+kx]=color;
 	}
 }
-void			draw_v_line(int *buffer, int x, int y1, int y2, int color)//y2 exclusive
+void draw_v_line(int *buffer, int x, int y1, int y2, int color)//y2 exclusive
 {
 	if(!icheckx(x))
 	{
-		y1=maximum(0, y1), y2=minimum(y2, ih);
+		y1=MAXIMUM(0, y1), y2=MINIMUM(y2, ih);
 		for(int ky=y1;ky<y2;++ky)
 			buffer[iw*ky+x]=color;
 	}
 }
 
-inline bool		clip_line_boundary(int p, int q, double &t0, double &t1)
+inline bool clip_line_boundary(int p, int q, double &t0, double &t1)
 {
 	if(!p)//parallel to boundary
 	{
@@ -53,7 +53,7 @@ inline bool		clip_line_boundary(int p, int q, double &t0, double &t1)
 	}
 	return true;
 }
-bool			clip_line(int bw, int bh, int &x1, int &y1, int &x2, int &y2)
+bool clip_line(int bw, int bh, int &x1, int &y1, int &x2, int &y2)
 {//Liang-Barsky line clipping algorithm
 	int dx=x2-x1, dy=y2-y1;
 	double t0=0, t1=1;
@@ -70,7 +70,7 @@ bool			clip_line(int bw, int bh, int &x1, int &y1, int &x2, int &y2)
 	x2=xa+(int)floor(t1*dx+0.5), y2=ya+(int)floor(t1*dy+0.5);
 	return true;
 }
-bool			clip_line_y_only(int bw, int bh, int &x1, int &y1, int &x2, int &y2)
+bool clip_line_y_only(int bw, int bh, int &x1, int &y1, int &x2, int &y2)
 {//Liang-Barsky line clipping algorithm
 	int dx=x2-x1, dy=y2-y1;
 	double t0=0, t1=1;
@@ -87,7 +87,7 @@ bool			clip_line_y_only(int bw, int bh, int &x1, int &y1, int &x2, int &y2)
 	x2=xa+(int)floor(t1*dx+0.5), y2=ya+(int)floor(t1*dy+0.5);
 	return true;
 }
-void			draw_line_v2(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int color)
+void draw_line_v2(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int color)
 {//Bresenham's line algorithm (pure integers)	https://web.archive.org/web/20160311235624/http://freespace.virgin.net/hugo.elias/graphics/x_lines.htm
 	//int x1_0=x1, y1_0=y1, x2_0=x2, y2_0=y2;
 	if(!clip_line(bw, bh, x1, y1, x2, y2))
@@ -435,12 +435,12 @@ void			draw_line_v2(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2,
 	}
 #endif
 }
-void			draw_line_v2_invert(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int *imask)//imask makes sure pixel is negated once
+void draw_line_v2_invert(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int *imask)//imask makes sure pixel is negated once
 {
 	if(!clip_line(bw, bh, x1, y1, x2, y2))
 		return;
 	int dx=abs(x2-x1), dy=abs(y2-y1), xa, ya, xb, yb;
-	int error=maximum(dx, dy)>>1, inc, cmp;
+	int error=MAXIMUM(dx, dy)>>1, inc, cmp;
 	if(dx>=dy)//horizontal
 	{
 		if(x1<x2)
@@ -459,7 +459,7 @@ void			draw_line_v2_invert(int *buffer, int bw, int bh, int x1, int y1, int x2, 
 			{
 				m=-1;
 				auto &c=buffer[idx];
-				c=c&0xFF000000|~c&0x00FFFFFF;
+				c=(c&0xFF000000)|(~c&0x00FFFFFF);
 			}
 
 			error+=dy;
@@ -486,7 +486,7 @@ void			draw_line_v2_invert(int *buffer, int bw, int bh, int x1, int y1, int x2, 
 			{
 				m=-1;
 				auto &c=buffer[idx];
-				c=c&0xFF000000|~c&0x00FFFFFF;
+				c=(c&0xFF000000)|(~c&0x00FFFFFF);
 			}
 
 			error+=dx;
@@ -499,7 +499,7 @@ void			draw_line_v2_invert(int *buffer, int bw, int bh, int x1, int y1, int x2, 
 
 //draw_line_v1
 #if 0
-__forceinline void blendpixel(int *buffer, int bw, int x, int y, int color, double alpha)
+INLINE void blendpixel(int *buffer, int bw, int x, int y, int color, double alpha)
 {
 	auto src=(unsigned char*)&color, dst=(unsigned char*)(buffer+bw*y+x);
 	dst[0]=src[0]+(int)(alpha*(dst[0]-src[0]));
@@ -628,7 +628,7 @@ void			draw_line(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, in
 				if(!m)
 				{
 					m=-1;
-					c=c&0xFF000000|~c&0x00FFFFFF;
+					c=(c&0xFF000000)|(~c&0x00FFFFFF);
 				}
 			}
 			else
@@ -659,7 +659,7 @@ void			draw_line(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, in
 					if(!m)
 					{
 						m=-1;
-						c=c&0xFF000000|~c&0x00FFFFFF;
+						c=(c&0xFF000000)|(~c&0x00FFFFFF);
 					}
 				}
 				else
@@ -691,7 +691,7 @@ void			draw_line(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, in
 					if(!m)
 					{
 						m=-1;
-						c=c&0xFF000000|~c&0x00FFFFFF;
+						c=(c&0xFF000000)|(~c&0x00FFFFFF);
 					}
 				}
 				else
@@ -702,14 +702,16 @@ void			draw_line(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, in
 }
 #endif
 
-__declspec(deprecated) __forceinline void blendpixel_ct(int *buffer, int bw, int x, int y, int color, double ar, double ag, double ab)//unused
+#if 0
+DEPRECATED INLINE void blendpixel_ct(int *buffer, int bw, int x, int y, int color, double ar, double ag, double ab)//unused
 {
 	auto src=(unsigned char*)&color, dst=(unsigned char*)(buffer+bw*y+x);
 	dst[0]=dst[0]+(int)(ab*(src[0]-dst[0]));
 	dst[1]=dst[1]+(int)(ag*(src[1]-dst[1]));
 	dst[2]=dst[2]+(int)(ar*(src[2]-dst[2]));
 }
-//__forceinline double brightness_from_position(double px, double py, double x1, double y1, double x2, double y2, double dx, double dy, double d2)
+#endif
+//INLINE double brightness_from_position(double px, double py, double x1, double y1, double x2, double y2, double dx, double dy, double d2)
 //{
 //	double ar=clamp01(((px-x1)*(px-x2)+(py-y1)*(py-y2))*d2);//parameter = clamp((p-p1) dot (p-p2) / length(p1, p2))
 //	px-=x1+ar*dx;//projection on segment
@@ -728,7 +730,7 @@ struct AAInfo
 	__m128i alpha;
 	int *buffer, bw;
 };
-inline void		sse2_split_channels(__m128i const &colors, __m128 &red, __m128 &green, __m128 &blue, __m128i &alpha)
+inline void sse2_split_channels(__m128i const &colors, __m128 &red, __m128 &green, __m128 &blue, __m128i &alpha)
 {
 	__m128i t=_mm_and_si128(colors, m_channel_mask);
 	red=_mm_cvtepi32_ps(t);
@@ -748,7 +750,7 @@ inline void		sse2_split_channels(__m128i const &colors, __m128 &red, __m128 &gre
 	//t=_mm_and_si128(c, m_channel_mask);//
 	//alpha=_mm_cvtepi32_ps(t);
 }
-__forceinline __m128 aa_line_gen_alpha(__m128 const &px, __m128 const &py, AAInfo *aai)
+INLINE __m128 aa_line_gen_alpha(__m128 const &px, __m128 const &py, AAInfo *aai)
 {
 	//t = clamp01((p-p1) dot (p2-p1) / length(p1, p2)^2) = clamp01(((px-x1)*dx+(py-y1)*dy)*invd2)
 	__m128 t1=_mm_sub_ps(px, aai->x1);
@@ -778,7 +780,7 @@ __forceinline __m128 aa_line_gen_alpha(__m128 const &px, __m128 const &py, AAInf
 	__m128 alpha=clamp01(prx);
 	return alpha;
 }
-__forceinline __m128 sse2_mixchannel(__m128 const &dst, __m128 const &src, __m128 const &alpha)//dst, src: 0~255; alpha: 0~1
+INLINE __m128 sse2_mixchannel(__m128 const &dst, __m128 const &src, __m128 const &alpha)//dst, src: 0~255; alpha: 0~1
 {
 	//dst+(src-dst)*alpha
 	__m128 temp=_mm_sub_ps(src, dst);
@@ -786,7 +788,7 @@ __forceinline __m128 sse2_mixchannel(__m128 const &dst, __m128 const &src, __m12
 	temp=_mm_add_ps(temp, dst);
 	return temp;
 }
-__forceinline __m128i cb_aa_line_px(__m128i const &dst, __m128 const &mkx, __m128 const &mky, void *params, int idx, int count)
+INLINE __m128i cb_aa_line_px(__m128i const &dst, __m128 const &mkx, __m128 const &mky, void *params, int idx, int count)
 {
 	auto aai=(AAInfo*)params;
 	//__m128i dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
@@ -818,7 +820,7 @@ __forceinline __m128i cb_aa_line_px(__m128i const &dst, __m128 const &mkx, __m12
 	b32=_mm_or_si128(b32, aai->alpha);
 	return b32;
 }
-void			cb_aa_line(void *p, int x1, int x2, int y)
+void cb_aa_line(void *p, int x1, int x2, int y)
 {
 	auto aai=(AAInfo*)p;
 	int xround=x2-x1, xrem=xround&3;
@@ -866,13 +868,13 @@ void			cb_aa_line(void *p, int x1, int x2, int y)
 	if(xrem)
 	{
 		for(int kx=0;kx<xrem;++kx)
-			dst.m128i_i32[kx]=row[xround+kx];
+			((int*)&dst)[kx]=row[xround+kx];
 		res=cb_aa_line_px(dst, px, py, p, idx, xrem);
 		for(int kx=0;kx<xrem;++kx)
-			row[xround+kx]=res.m128i_i32[kx];
+			row[xround+kx]=((int*)&res)[kx];
 	}
 }
-__forceinline __m128 aa_point_gen_alpha(__m128 const &px, __m128 const &py, AAInfo *aai)
+INLINE __m128 aa_point_gen_alpha(__m128 const &px, __m128 const &py, AAInfo *aai)
 {
 	//t = length(p-p1) = sqrt((px-x1)^2+(py-y1)^2)
 	__m128 prx=_mm_sub_ps(px, aai->x1);
@@ -889,7 +891,7 @@ __forceinline __m128 aa_point_gen_alpha(__m128 const &px, __m128 const &py, AAIn
 	__m128 alpha=clamp01(prx);
 	return alpha;
 }
-__forceinline __m128i cb_aa_point_px(__m128i const &dst, __m128 const &kx, __m128 const &ky, void *params, int idx, int count)
+INLINE __m128i cb_aa_point_px(__m128i const &dst, __m128 const &kx, __m128 const &ky, void *params, int idx, int count)
 {
 	auto aai=(AAInfo*)params;
 	//__m128i dst=_mm_loadu_si128((__m128i*)(aai->buffer+idx));
@@ -921,7 +923,7 @@ __forceinline __m128i cb_aa_point_px(__m128i const &dst, __m128 const &kx, __m12
 	b32=_mm_or_si128(b32, aai->alpha);
 	return b32;
 }
-void			cb_aa_point(void *p, int x1, int x2, int y)
+void cb_aa_point(void *p, int x1, int x2, int y)
 {
 	auto aai=(AAInfo*)p;
 	int xround=x2-x1, xrem=xround&3;
@@ -942,13 +944,13 @@ void			cb_aa_point(void *p, int x1, int x2, int y)
 	if(xrem)
 	{
 		for(int kx=0;kx<xrem;++kx)
-			dst.m128i_i32[kx]=row[xround+kx];
+			((int*)&dst)[kx]=row[xround+kx];
 		res=cb_aa_point_px(dst, px, py, p, idx, xrem);
 		for(int kx=0;kx<xrem;++kx)
-			row[xround+kx]=res.m128i_i32[kx];
+			row[xround+kx]=((int*)&res)[kx];
 	}
 }
-void			draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double x2, double y2, double linewidth, int color)
+void draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double x2, double y2, double linewidth, int color)
 {//kalbasa
 	x1-=0.5, y1-=0.5, x2-=0.5, y2-=0.5;
 #if 1
@@ -1098,27 +1100,27 @@ void			draw_line_aa_v2(int *buffer, int bw, int bh, double x1, double y1, double
 #endif
 }
 
-struct			AssignColorInfo
+struct AssignColorInfo
 {
 	int *buffer, bw, color;
 };
-void			cb_assign_color(void *p, int x1, int x2, int y)
+void cb_assign_color(void *p, int x1, int x2, int y)
 {
 	auto aci=(AssignColorInfo*)p;
 	memfill(aci->buffer+aci->bw*y+x1, &aci->color, (x2-x1)<<2, 1<<2);
 	//auto color=(__m128i*)params;
 	//return *color;
 }
-struct			InvertColorInfo
+struct InvertColorInfo
 {
 	int *buffer, *imask, bw;
 	__m128i *mcomp;//{0, 1, 2, 3, 4} minus ones
 };
-__m128i			m_colormask=_mm_set1_epi32(0x00FFFFFF);
-__forceinline __m128i cb_invert_color_px(__m128i const &dst, __m128i const &mask, __m128i const &kx, __m128i const &ky, void *params, int idx, int count)
+__m128i m_colormask=_mm_set1_epi32(0x00FFFFFF);
+INLINE __m128i cb_invert_color_px(__m128i const &dst, __m128i const &mask, __m128i const &kx, __m128i const &ky, void *params, int idx, int count)
 {
 	auto ici=(InvertColorInfo*)params;
-	//if(mask.m128i_i32[0]!=mask.m128i_i32[1]||mask.m128i_i32[0]!=mask.m128i_i32[2]||mask.m128i_i32[0]!=mask.m128i_i32[3])//
+	//if(((int*)&mask)[0]!=((int*)&mask)[1]||((int*)&mask)[0]!=((int*)&mask)[2]||((int*)&mask)[0]!=((int*)&mask)[3])//
 	//	int LOL_1=0;//
 	__m128i comp_pixels=_mm_xor_si128(mask, m_onesmask);
 	comp_pixels=_mm_and_si128(comp_pixels, m_colormask);
@@ -1135,7 +1137,7 @@ __forceinline __m128i cb_invert_color_px(__m128i const &dst, __m128i const &mask
 	//	ici->imask[idx+k]=-1;
 	return ret;
 }
-void			cb_invert_color(void *p, int x1, int x2, int y)
+void cb_invert_color(void *p, int x1, int x2, int y)
 {
 	auto ici=(InvertColorInfo*)p;
 
@@ -1158,17 +1160,17 @@ void			cb_invert_color(void *p, int x1, int x2, int y)
 	{
 		for(int kx=0;kx<xrem;++kx)
 		{
-			dst.m128i_i32[kx]=row[xround+kx];
-			mask.m128i_i32[kx]=mrow[xround+kx];
+			((int*)&dst)[kx]=row[xround+kx];
+			((int*)&mask)[kx]=mrow[xround+kx];
 		}
 		res=cb_invert_color_px(dst, mask, mkx, mky, p, idx, xrem);
 		for(int kx=0;kx<xrem;++kx)
-			row[xround+kx]=res.m128i_i32[kx];
+			row[xround+kx]=((int*)&res)[kx];
 	}
 }
-void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, int x2, int y2, int color, bool invert_color, int *imask)//invert_color ignores color argument & uses imask which has same dimensions as buffer
+void draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, int x2, int y2, int color, bool invert_color, int *imask)//invert_color ignores color argument & uses imask which has same dimensions as buffer
 {
-//	const int nbrushes=sizeof resources::brushes/sizeof resources::Brush;
+//	const int nbrushes=sizeof(resources::brushes)/sizeof(resources::Brush);
 	const resources::Brush *b=resources::brushes+(brush>0&&brush<resources::nbrushes)*brush;
 	if(!b->bounds)//robust
 		return;
@@ -1303,7 +1305,7 @@ void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, i
 					{
 						m=-1;
 						auto &c=buffer[idx];
-						c=c&0xFF000000|~c&0x00FFFFFF;
+						c=(c&0xFF000000)|(~c&0x00FFFFFF);
 					}
 				}
 			}//*/
@@ -1610,7 +1612,7 @@ void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, i
 					{
 						m=-1;
 						auto &c=buffer[idx];
-						c=c&0xFF000000|~c&0x00FFFFFF;
+						c=(c&0xFF000000)|(~c&0x00FFFFFF);
 					}
 				}
 			}
@@ -1625,8 +1627,8 @@ void			draw_line_brush(int *buffer, int bw, int bh, int brush, int x1, int y1, i
 #endif
 	}//if(brush<BRUSH_LARGE_RIGHT45)/else
 }
-bool			draw_line_frame1=false;
-void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int color, int c2grad, bool enable_gradient)
+bool draw_line_frame1=false;
+void draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int color, int c2grad, bool enable_gradient)
 {
 	double x1, y1, x2, y2;
 	screen2image(mx1, my1, x1, y1);
@@ -1683,9 +1685,9 @@ void			draw_line_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int colo
 		//draw_line_brush(buffer, iw, ih, BRUSH_LARGE_RIGHT45, (int)x1, (int)y1, (int)x2a, (int)y2a, color);
 }
 
-void			draw_line_d(int *buffer, double x1, double y1, double x2, double y2, int color)
+void draw_line_d(int *buffer, double x1, double y1, double x2, double y2, int color)
 {
-	if(x1<0&&x2<0||x1>=iw&&x2>=iw||y1<0&&y2<0||y1>=ih&&y2>=ih)
+	if((x1<0&&x2<0)||(x1>=iw&&x2>=iw)||(y1<0&&y2<0)||(y1>=ih&&y2>=ih))
 		return;
 	double dx=x2-x1, dy=y2-y1, xa, ya, xb, yb;
 	if(!dx&&!dy)
@@ -1699,7 +1701,7 @@ void			draw_line_d(int *buffer, double x1, double y1, double x2, double y2, int 
 			xa=x1, ya=y1, xb=x2, yb=y2;
 		else
 			xa=x2, ya=y2, xb=x1, yb=y1;
-		int xstart=(int)maximum(xa, 0.), xend=(int)minimum(xb, (double)iw-1);
+		int xstart=(int)MAXIMUM(xa, 0.), xend=(int)MINIMUM(xb, (double)iw-1);
 		double r=(yb-ya)/(xb-xa);
 		for(double x=xstart;x<=xend;++x)
 		{
@@ -1718,7 +1720,7 @@ void			draw_line_d(int *buffer, double x1, double y1, double x2, double y2, int 
 			xa=x1, ya=y1, xb=x2, yb=y2;
 		else
 			xa=x2, ya=y2, xb=x1, yb=y1;
-		int ystart=(int)maximum(ya, 0.), yend=(int)minimum(yb, (double)ih-1);
+		int ystart=(int)MAXIMUM(ya, 0.), yend=(int)MINIMUM(yb, (double)ih-1);
 		double r=(xb-xa)/(yb-ya);
 		for(double y=ystart;y<=yend;++y)
 		{
@@ -1732,7 +1734,7 @@ void			draw_line_d(int *buffer, double x1, double y1, double x2, double y2, int 
 		}
 	}
 }
-void			draw_line_d_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int color)
+void draw_line_d_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int color)
 {
 	double x1, y1, x2, y2;
 	screen2image(mx1, my1, x1, y1);
@@ -1740,7 +1742,7 @@ void			draw_line_d_mouse(int *buffer, int mx1, int my1, int mx2, int my2, int co
 	draw_line_d(buffer, x1, y1, x2, y2, color);
 }
 
-void			draw_line_brush_mouse(int *buffer, int brush, int mx1, int my1, int mx2, int my2, int color)
+void draw_line_brush_mouse(int *buffer, int brush, int mx1, int my1, int mx2, int my2, int color)
 {
 //	double x1, y1, x2, y2;
 	int x1, y1, x2, y2;
@@ -1750,7 +1752,7 @@ void			draw_line_brush_mouse(int *buffer, int brush, int mx1, int my1, int mx2, 
 }
 
 std::vector<Point> bezier;
-void			curve_add_mouse(int mx, int my)
+void curve_add_mouse(int mx, int my)
 {
 	Point i;
 	screen2image(mx, my, i.x, i.y);
@@ -1768,7 +1770,7 @@ void			curve_add_mouse(int mx, int my)
 		break;
 	}
 }
-void			curve_update_mouse(int mx, int my)
+void curve_update_mouse(int mx, int my)
 {
 	Point i;
 	screen2image(mx, my, i.x, i.y);
@@ -1777,15 +1779,15 @@ void			curve_update_mouse(int mx, int my)
 	if(idx!=-1)
 		bezier[idx].set(i.x, i.y);
 }
-double			distance(Point const &a, Point const &b)
+double distance(Point const &a, Point const &b)
 {
 	int dx=b.x-a.x, dy=b.y-a.y;
 	return sqrt(double(dx*dx+dy*dy));
 }
-void			curve_draw(int *buffer, int color)
+void curve_draw(int *buffer, int color)
 {
 	double outerpath=0;
-	for(int k=1, nv=bezier.size();k<nv;++k)
+	for(int k=1, nv=(int)bezier.size();k<nv;++k)
 		outerpath+=distance(bezier[k-1], bezier[k]);
 	outerpath=ceil(outerpath);
 	switch(bezier.size())

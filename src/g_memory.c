@@ -1,8 +1,8 @@
-#include		"generic.h"
-#include		<string.h>
-//#include		<assert.h>
-static const char file[]=__FILE__;
-void			memfill(void *dst, const void *src, int dstbytes, int srcbytes)//repeating pattern
+#include"generic.h"
+#include<string.h>
+//#include<assert.h>
+//static const char file[]=__FILE__;
+void memfill(void *dst, const void *src, int dstbytes, int srcbytes)//repeating pattern
 {
 #if 1//1st place	1.83~2.11ms
 	int copied;
@@ -72,7 +72,7 @@ void			memfill(void *dst, const void *src, int dstbytes, int srcbytes)//repeatin
 		c2[k]=c1[k];
 #endif
 }
-void			mem_shiftback(void *dst, const void *src, int bytesize)//shift left
+void mem_shiftback(void *dst, const void *src, int bytesize)//shift left
 {
 	const char *c1=(const char*)src;
 	char *c2=(char*)dst;
@@ -81,7 +81,7 @@ void			mem_shiftback(void *dst, const void *src, int bytesize)//shift left
 		for(k=0;k<bytesize;++k)
 			c2[k]=c1[k];
 }
-void			mem_shiftforward(const void *src, void *dst, int bytesize)//shift right
+void mem_shiftforward(const void *src, void *dst, int bytesize)//shift right
 {
 	const char *c1=(const char*)src;
 	char *c2=(char*)dst;
@@ -90,12 +90,12 @@ void			mem_shiftforward(const void *src, void *dst, int bytesize)//shift right
 		for(k=bytesize-1;k>=0;--k)
 			c2[k]=c1[k];
 }
-void			cycle_image(int *image, int iw, int ih, int dx, int dy)//lossless
+void cycle_image(int *image, int iw, int ih, int dx, int dy)//lossless
 {
 	static int *temp=0, tw=0, th=0;
 	int ky, size=iw*ih, *src, *dst;
 	if(tw!=iw||th!=ih)
-		tw=iw, th=ih, temp=realloc(temp, size<<2);
+		tw=iw, th=ih, temp=(int*)realloc(temp, size<<2);
 	dx=mod(dx, iw);
 	dy=mod(dy, ih);
 	for(ky=0;ky<ih;++ky)
@@ -107,7 +107,7 @@ void			cycle_image(int *image, int iw, int ih, int dx, int dy)//lossless
 	}
 	memcpy(image, temp, size<<2);
 }
-void			shift_image(int *image, int iw, int ih, int dx, int dy)//lossy
+void shift_image(int *image, int iw, int ih, int dx, int dy)//lossy
 {
 	//int xsrc, xdst, xsize, xstep,
 	//	ysrc, ydst, ysize, ystep;

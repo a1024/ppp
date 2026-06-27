@@ -1,4 +1,4 @@
-#include		<tmmintrin.h>
+#include <tmmintrin.h>
 extern const __m128i m_getalpha0=_mm_set_epi8(-1, 7, -1, 7, -1, 7, -1, 7, -1, 3, -1, 3, -1, 3, -1, 3);
 extern const __m128i m_getalpha1=_mm_set_epi8(-1, 15, -1, 15, -1, 15, -1, 15, -1, 11, -1, 11, -1, 11, -1, 11);
 extern const __m128i m_comp_alphas=_mm_set1_epi32(0x00FF00FF), m_onesmask=_mm_set1_epi32(-1);

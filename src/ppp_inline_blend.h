@@ -23,7 +23,7 @@ inline __m128i	checkboard_sse2(int logcb, int kx, __m128i const &ky_bit, __m128i
 	//	int LOL_1=0;//
 	return cb;
 }
-__forceinline __m128i	blend_ssse3(__m128i const &src, __m128i const &dst)//4 packed pixels
+INLINE __m128i	blend_ssse3(__m128i const &src, __m128i const &dst)//4 packed pixels
 {
 	//p = sa*s+(255-sa)*d
 	//d = p/255 = ((p+1+(p>>8))>>8)

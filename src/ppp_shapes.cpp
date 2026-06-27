@@ -1,7 +1,7 @@
-#include		"ppp.h"
-#include		"ppp_inline_check.h"
-#include		<algorithm>//sort
-void			draw_rectangle(int *buffer, int x1, int x2, int y1, int y2, int color, int color2)
+#include"ppp.h"
+#include"ppp_inline_check.h"
+#include<algorithm>//sort
+void draw_rectangle(int *buffer, int x1, int x2, int y1, int y2, int color, int color2)
 {
 	if(x2<x1)
 		std::swap(x1, x2);
@@ -10,7 +10,9 @@ void			draw_rectangle(int *buffer, int x1, int x2, int y1, int y2, int color, in
 	if(rectangle_type==ST_FULL||rectangle_type==ST_FILL)//fill shape
 	{
 		int color3=rectangle_type==ST_FILL?color:color2;
-		int x1b=maximum(x1+1, 0), x2b=minimum(x2-1, iw), y1b=maximum(y1+1, 0), y2b=minimum(y2-1, ih);
+		int
+			x1b=MAXIMUM(x1+1, 0), x2b=MINIMUM(x2-1, iw),
+			y1b=MAXIMUM(y1+1, 0), y2b=MINIMUM(y2-1, ih);
 		for(int ky=y1b;ky<y2b;++ky)
 			for(int kx=x1b;kx<x2b;++kx)
 				buffer[iw*ky+kx]=color3;
@@ -26,7 +28,7 @@ void			draw_rectangle(int *buffer, int x1, int x2, int y1, int y2, int color, in
 		}
 	}
 }
-void			draw_rectangle_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int color, int color2)
+void draw_rectangle_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int color, int color2)
 {
 	int x1, y1, x2, y2;
 	screen2image(mx1, my1, x1, y1);
@@ -34,7 +36,7 @@ void			draw_rectangle_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int
 	int x2a, y2a;
 	if(kb[VK_SHIFT])
 	{
-		int dx=x2-x1, dy=y2-y1, m=minimum(abs(dx), abs(dy));
+		int dx=x2-x1, dy=y2-y1, m=MINIMUM(abs(dx), abs(dy));
 		if(dx>0)
 			x2a=x1+m;
 		else
@@ -50,20 +52,20 @@ void			draw_rectangle_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int
 }
 
 std::vector<Point> polygon;//image coordinates
-bool			polygon_leftbutton=true;
-void			polygon_add_mouse(int mx, int my)
+bool polygon_leftbutton=true;
+void polygon_add_mouse(int mx, int my)
 {
 	int ix, iy;
 	screen2image(mx, my, ix, iy);
 	polygon.push_back(Point(ix, iy));
 }
-void			polygon_add_mouse(int start_mx, int start_my, int mx, int my)
+void polygon_add_mouse(int start_mx, int start_my, int mx, int my)
 {
 	if(!polygon.size())
 		polygon_add_mouse(start_mx, start_my);
 	polygon_add_mouse(mx, my);
 }
-char			lineXrow(Point const &p1, Point const &p2, int y, double &x)
+char lineXrow(Point const &p1, Point const &p2, int y, double &x)
 {
 	if(p1.y==p2.y)
 	{
@@ -93,13 +95,13 @@ char			lineXrow(Point const &p1, Point const &p2, int y, double &x)
 	//	return '2';//intersects at p2
 	//return (x>=p1.x)!=(x>p2.x);
 }
-int				rowXpolygon_vertexcase(Point const &p_1, Point const &p0, Point const &p1)
+int rowXpolygon_vertexcase(Point const &p_1, Point const &p0, Point const &p1)
 {
 	return (p_1.y>p0.y)!=(p1.y>p0.y);
 }
-void			polygon_bounds(std::vector<Point> const &polygon, int coord_idx, int &start, int &end, int clipstart, int clipend)
+void polygon_bounds(std::vector<Point> const &polygon, int coord_idx, int &start, int &end, int clipstart, int clipend)
 {
-	int npoints=polygon.size();
+	int npoints=(int)polygon.size();
 	if(!npoints)
 	{
 		start=end=0;
@@ -121,10 +123,10 @@ void			polygon_bounds(std::vector<Point> const &polygon, int coord_idx, int &sta
 	if(end>clipend)
 		end=clipend;
 }
-void			polygon_rowbounds(std::vector<Point> const &polygon, int ky, std::vector<double> &bounds)
+void polygon_rowbounds(std::vector<Point> const &polygon, int ky, std::vector<double> &bounds)
 {
 //polygon_draw_startover:
-	int npoints=polygon.size();
+	int npoints=(int)polygon.size();
 	for(int ks=0;ks<npoints;++ks)//for each side
 	{
 		double x;
@@ -158,7 +160,7 @@ void			polygon_rowbounds(std::vector<Point> const &polygon, int ky, std::vector<
 	//}
 	std::sort(bounds.begin(), bounds.end());
 }
-void			polygon_draw(int *buffer, int color_line, int color_fill)
+void polygon_draw(int *buffer, int color_line, int color_fill)
 {
 	//{//DEBUG
 	//	polygon.clear();
@@ -170,12 +172,12 @@ void			polygon_draw(int *buffer, int color_line, int color_fill)
 	//		235,	188,
 	//		235,	43 ,
 	//	};
-	//	const int nval=sizeof coords>>2;
+	//	const int nval=sizeof(coords)>>2;
 	//	for(int k=0;k+1<nval;k+=2)
 	//		polygon.push_back(Point(coords[k], coords[k+1]));
 	//}//DEBUG
 	//polygon_to_clipboard((int*)&polygon[0], polygon.size());//
-	int npoints=polygon.size();
+	int npoints=(int)polygon.size();
 	if(npoints>=3)
 	{
 		if(polygon_type==ST_FULL||polygon_type==ST_FILL)//fill polygon
@@ -187,9 +189,9 @@ void			polygon_draw(int *buffer, int color_line, int color_fill)
 			for(int ky=ystart;ky<yend;++ky)//for each row in polygon
 			{
 				polygon_rowbounds(polygon, ky, bounds);
-				for(int kb=0, nbounds=bounds.size();kb+1<nbounds;kb+=2)
+				for(int kb=0, nbounds=(int)bounds.size();kb+1<nbounds;kb+=2)
 				{
-					int kx=(int)std::round(bounds[kb]), kxEnd=(int)std::round(bounds[kb+1]);
+					int kx=(int)round(bounds[kb]), kxEnd=(int)round(bounds[kb+1]);
 					if(kx<0)
 						kx=0;
 					if(kxEnd>iw)
@@ -212,19 +214,19 @@ void			polygon_draw(int *buffer, int color_line, int color_fill)
 	polygon.clear();
 }
 
-inline void		setpixel(int *buffer, int x, int y, int color)
+inline void setpixel(int *buffer, int x, int y, int color)
 {
 	if(!icheck(x, y))
 		buffer[iw*y+x]=color;
 }
-inline void		ellipsePlotPoints(int *buffer, int xCenter, int yCenter, int x, int y, int color)
+inline void ellipsePlotPoints(int *buffer, int xCenter, int yCenter, int x, int y, int color)
 {
     setpixel(buffer, xCenter+x, yCenter+y, color);
     setpixel(buffer, xCenter-x, yCenter+y, color);
     setpixel(buffer, xCenter+x, yCenter-y, color);
     setpixel(buffer, xCenter-x, yCenter-y, color);
 }
-void			draw_ellipse_hollow(int *buffer, int xCenter, int yCenter, int Rx, int Ry, int color)//midpoint ellipse algorithm https://www.programming-techniques.com/2012/01/drawing-ellipse-with-mid-point-ellipse.html
+void draw_ellipse_hollow(int *buffer, int xCenter, int yCenter, int Rx, int Ry, int color)//midpoint ellipse algorithm https://www.programming-techniques.com/2012/01/drawing-ellipse-with-mid-point-ellipse.html
 {
 	int Rx2=Rx*Rx, Ry2=Ry*Ry;
 	int twoRx2=Rx2<<1, twoRy2=Ry2<<1;
@@ -233,7 +235,7 @@ void			draw_ellipse_hollow(int *buffer, int xCenter, int yCenter, int Rx, int Ry
 	int px=0, py=twoRx2*y;
 	ellipsePlotPoints(buffer, xCenter, yCenter, x, y, color);
 	//For Region 1
-	p=(int)std::round(Ry2-Rx2*Ry+0.25*Rx2);
+	p=(int)round(Ry2-Rx2*Ry+0.25*Rx2);
 //	p=Ry2-Rx2*Ry+(Rx2>>2);
 	while(px<py)
 	{
@@ -250,7 +252,7 @@ void			draw_ellipse_hollow(int *buffer, int xCenter, int yCenter, int Rx, int Ry
 		ellipsePlotPoints(buffer, xCenter, yCenter, x, y, color);
 	}
 	//For Region 2
-	p=(int)std::round(Ry2*(x+0.5)*(x+0.5)+Rx2*(y-1)*(y-1)-Rx2*Ry2);
+	p=(int)round(Ry2*(x+0.5)*(x+0.5)+Rx2*(y-1)*(y-1)-Rx2*Ry2);
 	while(y>0)
 	{
 		--y;
@@ -266,17 +268,17 @@ void			draw_ellipse_hollow(int *buffer, int xCenter, int yCenter, int Rx, int Ry
 		ellipsePlotPoints(buffer, xCenter, yCenter, x, y, color);
 	}
 }
-inline int		ellipse_fn(int x0, int y0, int rx, int ry, int y)
+inline int ellipse_fn(int x0, int y0, int rx, int ry, int y)
 {
 	double temp=double(y-y0)/ry;
 	return int(rx*sqrt(1-temp*temp));
 }
-inline int		ellipse_fn2(int rx, int ry, int y)
+inline int ellipse_fn2(int rx, int ry, int y)
 {
 	double temp=double(y)/ry;
 	return int(rx*sqrt(1-temp*temp));
 }
-void			draw_ellipse(int *buffer, int x1, int x2, int y1, int y2, int color, int color2)
+void draw_ellipse(int *buffer, int x1, int x2, int y1, int y2, int color, int color2)
 {
 	if(x2<x1)
 		std::swap(x1, x2);
@@ -286,13 +288,13 @@ void			draw_ellipse(int *buffer, int x1, int x2, int y1, int y2, int color, int 
 	if(ellipse_type==ST_FULL||ellipse_type==ST_FILL)//solid ellipse
 	{
 		int color3=ellipse_type==ST_FILL?color:color2;
-		int y1b=maximum(y1+1, 0), y2b=minimum(y2-1, ih);
+		int y1b=MAXIMUM(y1+1, 0), y2b=MINIMUM(y2-1, ih);
 		for(int ky=y1b;ky<y2b;++ky)
 		{
 			int reach=ellipse_fn(x0, y0, rx, ry, ky);
 			//double temp=double(ky-y0)/ry;
 			//int reach=int(rx*sqrt(1-temp*temp));
-			int x1b=maximum(x0-reach, 0), x2b=minimum(x0+reach, iw);
+			int x1b=MAXIMUM(x0-reach, 0), x2b=MINIMUM(x0+reach, iw);
 			for(int kx=x1b;kx<x2b;++kx)
 				buffer[iw*ky+kx]=color3;
 		}
@@ -321,7 +323,7 @@ void			draw_ellipse(int *buffer, int x1, int x2, int y1, int y2, int color, int 
 		//	draw_ellipse_hollow(buffer, x0, y0, rx, ry, color);
 	}
 }
-void			draw_ellipse_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int color, int color2)
+void draw_ellipse_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int color, int color2)
 {
 	int x1, y1, x2, y2;
 	screen2image(mx1, my1, x1, y1);
@@ -329,7 +331,7 @@ void			draw_ellipse_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int c
 	int x2a, y2a;
 	if(kb[VK_SHIFT])
 	{
-		int dx=x2-x1, dy=y2-y1, m=minimum(abs(dx), abs(dy));
+		int dx=x2-x1, dy=y2-y1, m=MINIMUM(abs(dx), abs(dy));
 		if(dx>0)
 			x2a=x1+m;
 		else
@@ -344,7 +346,7 @@ void			draw_ellipse_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int c
 	draw_ellipse(buffer, x1, x2a, y1, y2a, color, color2);
 }
 
-void			draw_roundrect(int *buffer, int x1, int x2, int y1, int y2, int color, int color2)
+void draw_roundrect(int *buffer, int x1, int x2, int y1, int y2, int color, int color2)
 {
 //	x1=0, x2=50, y1=0, y2=50;//DEBUG
 	if(x2<x1)
@@ -383,7 +385,7 @@ void			draw_roundrect(int *buffer, int x1, int x2, int y1, int y2, int color, in
 		10,		//20
 	};
 	int dx=x2-x1, dy=y2-y1,
-		diameter=dx<maxdiameter||dy<maxdiameter?minimum(dx, dy):maxdiameter,//header+footer size & curve diameter
+		diameter=dx<maxdiameter||dy<maxdiameter?MINIMUM(dx, dy):maxdiameter,//header+footer size & curve diameter
 	//	radius=diameter>>1, body=dy-diameter;
 		curve_idx=rc_fn[diameter];
 	const int *curve=curves+(curve_idx<<3);
@@ -405,7 +407,7 @@ void			draw_roundrect(int *buffer, int x1, int x2, int y1, int y2, int color, in
 	//	c_info[k]=0;
 	//for(int k=0;k<ci_size;++k)//cut corners
 	//	c_info[k]=ci_size-1-k;
-	int ya=maximum(y1, 0), yb=minimum(y2, ih);
+	int ya=MAXIMUM(y1, 0), yb=MINIMUM(y2, ih);
 	if(roundrect_type==ST_FULL||roundrect_type==ST_FILL)//fill shape
 	{
 		int c3=roundrect_type==ST_FILL?color:color2;
@@ -507,7 +509,7 @@ void			draw_roundrect(int *buffer, int x1, int x2, int y1, int y2, int color, in
 		}
 	}
 }
-void			draw_roundrect_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int color, int color2)
+void draw_roundrect_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int color, int color2)
 {
 	int x1, y1, x2, y2;
 	screen2image(mx1, my1, x1, y1);
@@ -515,7 +517,7 @@ void			draw_roundrect_mouse(int *buffer, int mx1, int mx2, int my1, int my2, int
 	int x2a, y2a;
 	if(kb[VK_SHIFT])
 	{
-		int dx=x2-x1, dy=y2-y1, m=minimum(abs(dx), abs(dy));
+		int dx=x2-x1, dy=y2-y1, m=MINIMUM(abs(dx), abs(dy));
 		if(dx>0)
 			x2a=x1+m;
 		else

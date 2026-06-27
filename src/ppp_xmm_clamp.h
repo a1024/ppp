@@ -1,7 +1,7 @@
-#ifndef			PPP_XMM_CLAMP_H
-#define			PPP_XMM_CLAMP_H
-#include		"ppp_xmm_globals.h"
-__forceinline __m128 clamp01(__m128 const &x)
+#ifndef PPP_XMM_CLAMP_H
+#define PPP_XMM_CLAMP_H
+#include"ppp_xmm_globals.h"
+INLINE __m128 clamp01(__m128 const &x)
 {
 	__m128 t1=_mm_cmpgt_ps(x, _mm_setzero_ps());
 	t1=_mm_and_ps(t1, x);

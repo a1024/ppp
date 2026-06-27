@@ -1,25 +1,25 @@
 //profiler
-#include		"generic.h"
-#include		<string>
-#include		<vector>
-#include		<Windows.h>
+#include"generic.h"
+#include<string>
+#include<vector>
+#include<Windows.h>
 #ifdef PROFILER_CLIPBOARD
-#include		<sstream>
+#include<sstream>
 #endif
 #ifdef PROFILER_CYCLES
-#define			ELAPSED_FN		elapsed_cycles
+#define ELAPSED_FN elapsed_cycles
 #else
-#define			ELAPSED_FN		elapsed_ms
+#define ELAPSED_FN elapsed_ms
 #endif
 
-static const char file[]=__FILE__;
-int				prof_on=0;
+//static const char file[]=__FILE__;
+int prof_on=0;
 #ifdef PROFILER_TITLE
-std::wstring	title;
+std::wstring title;
 #endif
-void			prof_toggle()
+void prof_toggle()
 {
-	prof_on=!prof_on;
+	prof_on^=1;
 #ifdef PROFILER_TITLE
 	if(prof_on)//start
 	{
@@ -38,10 +38,10 @@ void			prof_toggle()
 }
 typedef std::pair<std::string, double> ProfInfo;
 std::vector<ProfInfo> prof;
-int				prof_array_start_idx=0;
-double			checkpoint=0;
-//void			prof_start(){ELAPSED_FN(checkpoint);}
-void			prof_add(const char *label, int divisor)
+int prof_array_start_idx=0;
+double checkpoint=0;
+//void prof_start(){ELAPSED_FN(checkpoint);}
+void prof_add(const char *label, int divisor)
 {
 	if(prof_on)
 	{
@@ -49,26 +49,26 @@ void			prof_add(const char *label, int divisor)
 		prof.push_back(ProfInfo(label, elapsed));
 	}
 }
-void			prof_sum(const char *label, int count)//add the sum of last 'count' steps
+void prof_sum(const char *label, int count)//add the sum of last 'count' steps
 {
 	if(prof_on)
 	{
 		double sum=0;
-		for(int k=prof.size()-1, k2=0;k>=0&&k2<count;--k, ++k2)
+		for(int k=(int)prof.size()-1, k2=0;k>=0&&k2<count;--k, ++k2)
 			sum+=prof[k].second;
 		prof.push_back(ProfInfo(label, sum));
 	}
 }
-void			prof_loop_start(const char **labels, int n)//describe the loop body parts in 'labels'
+void prof_loop_start(const char **labels, int n)//describe the loop body parts in 'labels'
 {
 	if(prof_on)
 	{
-		prof_array_start_idx=prof.size();
+		prof_array_start_idx=(int)prof.size();
 		for(int k=0;k<n;++k)
 			prof.push_back(ProfInfo(labels[k], 0));
 	}
 }
-void			prof_add_loop(int idx)//call on each part of loop body
+void prof_add_loop(int idx)//call on each part of loop body
 {
 	if(prof_on)
 	{
@@ -76,7 +76,7 @@ void			prof_add_loop(int idx)//call on each part of loop body
 		prof[prof_array_start_idx+idx].second+=elapsed;
 	}
 }
-void			prof_print(PROF_PRINT_ARGS)
+void prof_print(PROF_PRINT_ARGS)
 {
 	if(prof_on)
 	{
@@ -85,10 +85,10 @@ void			prof_print(PROF_PRINT_ARGS)
 
 #ifdef PROFILER_SCREEN
 		const double px_per_ms=2;//0.2 in G2
-		const int fontH=16;//18
+		//const int fontH=16;//18
 		//int xpos=w-400, xpos2=w-200;
 		GUIPrint(hDC, xlabels, 0, "fps=%lf, T=%lfms", fps, framedelay);
-		for(int k=0, kEnd=prof.size();k<kEnd;++k)
+		for(int k=0, kEnd=(int)prof.size();k<kEnd;++k)
 		{
 			auto &p=prof[k];
 			int ypos=(k+2)<<4;

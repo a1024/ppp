@@ -1,10 +1,10 @@
-#include		"ppp.h"
-#include		"generic.h"
-#include		<stdio.h>
-static const char file[]=__FILE__;
+#include"ppp.h"
+#include"generic.h"
+#include<stdio.h>
+//static const char file[]=__FILE__;
 extern const int e_msg_size=2048;
-char			first_error_msg[e_msg_size]={}, latest_error_msg[e_msg_size]={};
-void			print_errors(HDC hDC)
+char first_error_msg[e_msg_size]={}, latest_error_msg[e_msg_size]={};
+void print_errors(HDC hDC)
 {
 	if(first_error_msg[0])
 	{
@@ -12,7 +12,7 @@ void			print_errors(HDC hDC)
 		GUIPrint(hDC, w>>1, (h>>1)-16, latest_error_msg);
 	}
 }
-bool 			log_error(const char *file, int line, const char *format, ...)
+bool log_error(const char *file, int line, const char *format, ...)
 {
 	bool firsttime=first_error_msg[0]=='\0';
 	char *buf=first_error_msg[0]?latest_error_msg:first_error_msg;
@@ -20,7 +20,7 @@ bool 			log_error(const char *file, int line, const char *format, ...)
 	va_start(args, format);
 	vsprintf_s(g_buf, e_msg_size, format, args);
 	va_end(args);
-	int size=strlen(file), start=size-1;
+	int size=(int)strlen(file), start=size-1;
 	for(;start>=0&&file[start]!='/'&&file[start]!='\\';--start);
 	start+=start==-1||file[start]=='/'||file[start]=='\\';
 //	int length=snprintf(buf, e_msg_size, "%s (%d)%s", g_buf, line, file+start);
@@ -34,7 +34,7 @@ bool 			log_error(const char *file, int line, const char *format, ...)
 	}
 	return firsttime;
 }
-int				sys_check(const char *file, int line)
+int sys_check(const char *file, int line)
 {
 	int error=GetLastError();
 	if(error)
@@ -46,10 +46,11 @@ int				sys_check(const char *file, int line)
 		);
 		log_error(file, line, "System %d: %s", error, messageBuffer);
 		LocalFree(messageBuffer);
+		(void)size;
 	}
 	return 0;
 }
-//void			check(const char *file, int line)
+//void check(const char *file, int line)
 //{
 //	unsigned long error=GetLastError();
 //	if(error&&!broken)
@@ -58,14 +59,14 @@ int				sys_check(const char *file, int line)
 //		formatted_error(L"check", line);
 //	}
 //}
-//void			check(void *p, int line)
+//void check(void *p, int line)
 //{
 //	if(!p)
 //		check(line);
 //}
-//void			check(bool success, int line)
+//void check(bool success, int line)
 //{
 //	if(!success)
 //		check(line);
 //}
-//#define			SYS_CHECK(SUCCESS)	check((SUCCESS)!=0, __LINE__)
+//#define SYS_CHECK(SUCCESS)	check((SUCCESS)!=0, __LINE__)

@@ -1,9 +1,190 @@
-#include		"ppp.h"
-#include		"generic.h"
-#include		"ppp_inline_check.h"
-#include		<ppl.h>
-const char		file[]=__FILE__;
-void			rectangle(int x1, int x2, int y1, int y2, int color)
+#include"ppp.h"
+#include"generic.h"
+#include"ppp_inline_check.h"
+#ifdef _MSC_VER
+#include<ppl.h>
+#endif
+#include"ppp_xmm_globals.h"
+static const char file[]=__FILE__;
+
+//const __m128i m_four=_mm_set1_epi32(4);
+const __m128i m_lomask=_mm_set_epi32(0, -1, 0, -1);
+//const __m128i m_himask=_mm_set_epi32(-1, 0, -1, 0);
+INLINE __m128i mullo_epi32(__m128i const &a, __m128i const &b)//<15 cycles
+{
+	__m128i t1=_mm_mul_epu32(a, b);//5 cycles
+	__m128i a2=_mm_shuffle_epi32(a, _MM_SHUFFLE(2, 3, 0, 1));
+	__m128i t2=_mm_shuffle_epi32(b, _MM_SHUFFLE(2, 3, 0, 1));
+	t2=_mm_mul_epu32(a2, t2);
+	t1=_mm_and_si128(t1, m_lomask);
+	t2=_mm_and_si128(t2, m_lomask);
+	t2=_mm_shuffle_epi32(t2, _MM_SHUFFLE(2, 3, 0, 1));
+	t2=_mm_or_si128(t2, t1);
+	return t2;
+}
+INLINE __m128i clamp0h(__m128i const &x, __m128i const &hi)
+{
+	__m128i t1=_mm_cmpgt_epi32(x, _mm_setzero_si128());
+	t1=_mm_and_si128(t1, x);
+	__m128i t2=_mm_cmplt_epi32(t1, hi);
+	__m128i x2=_mm_and_si128(t2, t1);
+	t2=_mm_xor_si128(t2, m_onesmask);
+	t2=_mm_and_si128(t2, hi);
+	x2=_mm_or_si128(x2, t2);
+	return x2;
+}
+INLINE void ppp_blit_body_free_trans(
+	__m128i &bx,
+	__m128i &m_rx,
+	__m128i &m_bwm1,
+	__m128i &src,
+	uint32_t *srow,
+	uint32_t *mrow,
+	__m128i &m_mask,
+	__m128i &dst,
+	__m128i &eq,
+	__m128i &m_bkcolor,
+	__m128i &m_xstep,
+	__m128i &m_ksrc,
+	int kdst,
+	int xstep4
+)
+{
+	bx=mullo_epi32(bx, m_rx);
+	bx=_mm_srli_epi32(bx, 16);
+	bx=clamp0h(bx, m_bwm1);
+
+	int idx0=_mm_extract_epi32(bx, 0);
+	int idx1=_mm_extract_epi32(bx, 1);
+	int idx2=_mm_extract_epi32(bx, 2);
+	int idx3=_mm_extract_epi32(bx, 3);
+	src=_mm_set_epi32(srow[idx3], srow[idx2], srow[idx1], srow[idx0]);
+	m_mask=_mm_set_epi32(mrow[idx3], mrow[idx2], mrow[idx1], mrow[idx0]);
+	dst=_mm_loadu_si128((__m128i*)(rgb+kdst));
+	m_mask=_mm_cmpeq_epi32(m_mask, _mm_setzero_si128());//preparing the mask
+
+	eq=_mm_cmpeq_epi32(src, m_bkcolor);
+	eq=_mm_or_si128(eq, m_mask);
+	dst=_mm_and_si128(dst, eq);
+
+	eq=_mm_xor_si128(eq, m_onesmask);
+	eq=_mm_and_si128(eq, src);
+
+	dst=_mm_or_si128(dst, eq);
+	_mm_storeu_si128((__m128i*)(rgb+kdst), dst);
+
+	m_ksrc=_mm_add_epi32(m_ksrc, m_xstep);
+	kdst+=xstep4;
+}
+INLINE void ppp_blit_body_free_opaq(
+	__m128i &bx,
+	__m128i &m_rx,
+	__m128i &m_bwm1,
+	__m128i &src,
+	uint32_t *srow,
+	uint32_t *mrow,
+	__m128i &m_mask,
+	__m128i &dst,
+	__m128i &eq,
+	__m128i &m_bkcolor,
+	__m128i &m_xstep,
+	__m128i &m_ksrc,
+	int kdst,
+	int xstep4
+)
+{
+	bx=mullo_epi32(bx, m_rx);
+	bx=_mm_srli_epi32(bx, 16);
+	bx=clamp0h(bx, m_bwm1);
+	
+	int idx0=_mm_extract_epi32(bx, 0);
+	int idx1=_mm_extract_epi32(bx, 1);
+	int idx2=_mm_extract_epi32(bx, 2);
+	int idx3=_mm_extract_epi32(bx, 3);
+	src=_mm_set_epi32(srow[idx3], srow[idx2], srow[idx1], srow[idx0]);
+	m_mask=_mm_set_epi32(mrow[idx3], mrow[idx2], mrow[idx1], mrow[idx0]);
+	dst=_mm_loadu_si128((__m128i*)(rgb+kdst));
+	m_mask=_mm_cmpeq_epi32(m_mask, _mm_setzero_si128());//preparing the mask
+
+	eq=m_mask;
+	dst=_mm_and_si128(dst, eq);
+
+	eq=_mm_xor_si128(eq, m_onesmask);
+	eq=_mm_and_si128(eq, src);
+
+	dst=_mm_or_si128(dst, eq);
+	_mm_storeu_si128((__m128i*)(rgb+kdst), dst);
+
+	m_ksrc=_mm_add_epi32(m_ksrc, m_xstep);
+	kdst+=xstep4;
+}
+INLINE void ppp_blit_body_rect_trans(
+	__m128i &bx,
+	__m128i &m_rx,
+	__m128i &m_bwm1,
+	__m128i &src,
+	uint32_t *srow,
+	__m128i &dst,
+	__m128i &eq,
+	__m128i &m_bkcolor,
+	__m128i &m_xstep,
+	__m128i &m_ksrc,
+	int kdst,
+	int xstep4
+)
+{
+	bx=mullo_epi32(bx, m_rx);
+	bx=_mm_srli_epi32(bx, 16);
+	bx=clamp0h(bx, m_bwm1);
+	
+	int idx0=_mm_extract_epi32(bx, 0);
+	int idx1=_mm_extract_epi32(bx, 1);
+	int idx2=_mm_extract_epi32(bx, 2);
+	int idx3=_mm_extract_epi32(bx, 3);
+	src=_mm_set_epi32(srow[idx3], srow[idx2], srow[idx1], srow[idx0]);
+	dst=_mm_loadu_si128((__m128i*)(rgb+kdst));
+						
+	eq=_mm_cmpeq_epi32(src, m_bkcolor);
+	dst=_mm_and_si128(dst, eq);
+
+	eq=_mm_xor_si128(eq, m_onesmask);
+	eq=_mm_and_si128(eq, src);
+
+	dst=_mm_or_si128(dst, eq);
+	_mm_storeu_si128((__m128i*)(rgb+kdst), dst);
+
+	m_ksrc=_mm_add_epi32(m_ksrc, m_xstep);
+	kdst+=xstep4;
+}
+INLINE void ppp_blit_body_rect_opaq(
+	__m128i &bx,
+	__m128i &m_rx,
+	__m128i &m_bwm1,
+	__m128i &m_xstep,
+	__m128i &m_ksrc,
+	int kdst,
+	int xstep4,
+	const int *buffer
+)
+{
+	bx=mullo_epi32(bx, m_rx);
+	bx=_mm_srli_epi32(bx, 16);
+	bx=clamp0h(bx, m_bwm1);
+	
+	int idx0=_mm_extract_epi32(bx, 0);
+	int idx1=_mm_extract_epi32(bx, 1);
+	int idx2=_mm_extract_epi32(bx, 2);
+	int idx3=_mm_extract_epi32(bx, 3);
+	rgb[kdst+0]=buffer[idx0];
+	rgb[kdst+1]=buffer[idx1];
+	rgb[kdst+2]=buffer[idx2];
+	rgb[kdst+3]=buffer[idx3];
+
+	m_ksrc=_mm_add_epi32(m_ksrc, m_xstep);
+	kdst+=xstep4;
+}
+
+void rectangle(int x1, int x2, int y1, int y2, int color)
 {
 	if(check(x1, y1)||check(x2-1, y2-1))//
 		return;//
@@ -12,7 +193,7 @@ void			rectangle(int x1, int x2, int y1, int y2, int color)
 	//	for(int kx=x1;kx<x2;++kx)
 	//		rgb[w*ky+kx]=color;
 }
-void			rect_checkboard(int x1, int x2, int y1, int y2, int color1, int color2)
+void rect_checkboard(int x1, int x2, int y1, int y2, int color1, int color2)
 {
 	if(check(x1, y1)||check(x2-1, y2-1))//
 		return;//
@@ -22,7 +203,7 @@ void			rect_checkboard(int x1, int x2, int y1, int y2, int color1, int color2)
 	//	for(int kx=x1;kx<x2;++kx)
 	//		rgb[w*ky+kx]=colors[(kx+ky)&1];
 }
-void			h_line(int x1, int x2, int y, int color)
+void h_line(int x1, int x2, int y, int color)
 {
 	if(checkx(x1)||checkx(x2-1)||checky(y))//
 		return;//
@@ -30,7 +211,7 @@ void			h_line(int x1, int x2, int y, int color)
 	//for(int kx=x1;kx<x2;++kx)
 	//	rgb[w*y+kx]=color;
 }
-void			v_line(int x, int y1, int y2, int color)
+void v_line(int x, int y1, int y2, int color)
 {
 	if(checkx(x)||checky(y1)||checky(y2-1))//
 		return;//
@@ -39,7 +220,7 @@ void			v_line(int x, int y1, int y2, int color)
 		row[y]=color;
 	//	rgb[w*ky+x]=color;
 }
-void			h_line_add(int x1, int x2, int y, int ammount)
+void h_line_add(int x1, int x2, int y, int ammount)
 {
 	if(checkx(x1)||checkx(x2-1)||checky(y))//
 		return;//
@@ -61,7 +242,7 @@ void			h_line_add(int x1, int x2, int y, int ammount)
 		p[1]+=ammount;
 		p[2]+=ammount;
 	}
-	_mm_empty();
+	//_mm_empty();
 	//for(int kx=x1;kx<x2;++kx)
 	//{
 	//	auto p=(unsigned char*)(rgb+w*y+kx);
@@ -70,7 +251,7 @@ void			h_line_add(int x1, int x2, int y, int ammount)
 	//	p[2]+=ammount;
 	//}
 }
-void			v_line_add(int x, int y1, int y2, int ammount)
+void v_line_add(int x, int y1, int y2, int ammount)
 {
 	if(checkx(x)||checky(y1)||checky(y2-1))//
 		return;//
@@ -82,7 +263,7 @@ void			v_line_add(int x, int y1, int y2, int ammount)
 		p[2]+=ammount;
 	}
 }
-void			h_line_alt(int x1, int x2, int y, int *colors)
+void h_line_alt(int x1, int x2, int y, int *colors)
 {
 	if(checkx(x1)||checkx(x2-1)||checky(y))//
 		return;//
@@ -90,21 +271,21 @@ void			h_line_alt(int x1, int x2, int y, int *colors)
 	//for(int kx=x1;kx<x2;++kx)
 	//	rgb[w*y+kx]=colors[(kx-x1)&1];
 }
-void			v_line_alt(int x, int y1, int y2, int *colors)
+void v_line_alt(int x, int y1, int y2, int *colors)
 {
 	if(checkx(x)||checky(y1)||checky(y2-1))//
 		return;//
 	for(int ky=y1;ky<y2;++ky)
 		rgb[w*ky+x]=colors[(ky-y1)&1];
 }
-void			rectangle_hollow(int x1, int x2, int y1, int y2, int color)//sorted coordinates
+void rectangle_hollow(int x1, int x2, int y1, int y2, int color)//sorted coordinates
 {
 	h_line(x1, x2, y1, color);
 	h_line(x1, x2, y2-1, color);
 	v_line(x1, y1+1, y2-1, color);
 	v_line(x2-1, y1+1, y2-1, color);
 }
-void			line45_backslash(int x1, int y1, int n, int color)//top-left (x1, y2) -> bottom-right
+void line45_backslash(int x1, int y1, int n, int color)//top-left (x1, y2) -> bottom-right
 {
 	if(check(x1, y1)||check(x1+n, y1+n))
 		return;
@@ -114,7 +295,7 @@ void			line45_backslash(int x1, int y1, int n, int color)//top-left (x1, y2) -> 
 	//for(int k=0;k<n;++k)
 	//	rgb[w*(y1+k)+x1+k]=color;
 }
-void			line45_forwardslash(int x1, int y1, int n, int color)//bottom-right (x1, y1) -> top-left
+void line45_forwardslash(int x1, int y1, int n, int color)//bottom-right (x1, y1) -> top-left
 {
 	if(check(x1, y1)||check(x1+n, y1-n))
 		return;
@@ -124,7 +305,7 @@ void			line45_forwardslash(int x1, int y1, int n, int color)//bottom-right (x1, 
 	//for(int k=0;k<n;++k)
 	//	rgb[w*(y1-k)+x1+k]=color;
 }
-void			_3d_hole(int x1, int x2, int y1, int y2)
+void _3d_hole(int x1, int x2, int y1, int y2)
 {
 	h_line(x1, x2-1, y1, 0xA0A0A0);//top
 	h_line(x1+1, x2-2, y1+1, 0x000000);
@@ -136,7 +317,7 @@ void			_3d_hole(int x1, int x2, int y1, int y2)
 	h_line(x1, x2-1, y2-1, 0xFFFFFF);//bottom
 	h_line(x1+1, x2-2, y2-2, 0xF0F0F0);//
 }
-void			_3d_border(int x1, int x2, int y1, int y2)
+void _3d_border(int x1, int x2, int y1, int y2)
 {
 	h_line(x1, x2, y1, 0xFFFFFF);//top
 	h_line(x1+1, x2-1, y1+1, 0xF0F0F0);
@@ -149,7 +330,7 @@ void			_3d_border(int x1, int x2, int y1, int y2)
 	h_line(x1+1, x2, y2-1, 0xA0A0A0);
 }
 
-void			scrollbar_slider(int &winpos_ip, int imsize_ip, int winsize, int barsize, double zoom, short &sliderstart, short &slidersize)
+void scrollbar_slider(int &winpos_ip, int imsize_ip, int winsize, int barsize, double zoom, short &sliderstart, short &slidersize)
 {
 	const int scrollbarsize=17;
 	double winsize_ip=winsize/zoom;
@@ -167,7 +348,7 @@ void			scrollbar_slider(int &winpos_ip, int imsize_ip, int winsize, int barsize,
 		winpos_ip=int((imsize_ip+2-winsize_ip)*sliderstart/(barsize-slidersize));
 	}
 }
-void			scrollbar_scroll(int &winpos_ip, int imsize_ip, int winsize, int barsize, int slider0, int mp_slider0, int mp_slider, double zoom, short &sliderstart, short &slidersize)//_ip: in image pixels, mp_slider: mouse position starting from start of slider
+void scrollbar_scroll(int &winpos_ip, int imsize_ip, int winsize, int barsize, int slider0, int mp_slider0, int mp_slider, double zoom, short &sliderstart, short &slidersize)//_ip: in image pixels, mp_slider: mouse position starting from start of slider
 {
 	const int scrollbarsize=17;
 	double winsize_ip=winsize/zoom, r=winsize_ip/imsize_ip;
@@ -183,7 +364,7 @@ void			scrollbar_scroll(int &winpos_ip, int imsize_ip, int winsize, int barsize,
 	winpos_ip=int((imsize_ip+2-winsize_ip)*sliderstart/(barsize-slidersize));
 }
 
-void			draw_icon(int *icon, int x, int y)
+void draw_icon(int *icon, int x, int y)
 {
 	const __m128i na_pink=_mm_set1_epi32(0x00FF00FF);
 	const __m128i ones=_mm_set1_epi32(-1);
@@ -212,14 +393,14 @@ void			draw_icon(int *icon, int x, int y)
 	//	}
 	//}
 }
-void			draw_icon_monochrome(const int *ibuffer, int dx, int dy, int xpos, int ypos, int color)
+void draw_icon_monochrome(const int *ibuffer, int dx, int dy, int xpos, int ypos, int color)
 {
 	for(int ky=0;ky<dy;++ky)
 		for(int kx=0;kx<dx;++kx)
 			if(ibuffer[ky]>>(dx-1-kx)&1)
 				rgb[w*(ypos+ky)+xpos+kx]=color;
 }
-void			draw_icon_monochrome_transposed(const int *ibuffer, int dx, int dy, int xpos, int ypos, int color)
+void draw_icon_monochrome_transposed(const int *ibuffer, int dx, int dy, int xpos, int ypos, int color)
 {
 	for(int kx=0;kx<dx;++kx)
 		for(int ky=0;ky<dy;++ky)
@@ -227,7 +408,7 @@ void			draw_icon_monochrome_transposed(const int *ibuffer, int dx, int dy, int x
 				rgb[w*(ypos+kx)+xpos+ky]=color;
 }
 
-void			draw_vscrollbar(int x, int sbwidth, int y1, int y2, int &winpos, int content_h, int vscroll_s0, int vscroll_my_start, double zoom, short &vscroll_start, short &vscroll_size, int dragtype)//vertical scrollbar
+void draw_vscrollbar(int x, int sbwidth, int y1, int y2, int &winpos, int content_h, int vscroll_s0, int vscroll_my_start, double zoom, short &vscroll_start, short &vscroll_size, int dragtype)//vertical scrollbar
 {
 //	const int scrollbarwidth=17;
 	const int color_barbk=0xF0F0F0, color_slider=0xCDCDCD, color_button=0xE5E5E5;
@@ -242,17 +423,17 @@ void			draw_vscrollbar(int x, int sbwidth, int y1, int y2, int &winpos, int cont
 	rectangle(x, x+sbwidth, y1+sbwidth+vscroll_start, y1+sbwidth+vscroll_start+vscroll_size, color_slider);//vertical slider
 //	x2-=sbwidth;
 }
-void			h_line_bounded(int xa, int xb, int y, int color, Rect const &bounds)
+void h_line_bounded(int xa, int xb, int y, int color, Rect const &bounds)
 {
 	if(y>=bounds.i.y&&y<bounds.f.y)
-		h_line(maximum(xa, bounds.i.x), minimum(xb, bounds.f.x), y, color);
+		h_line(MAXIMUM(xa, bounds.i.x), MAXIMUM(xb, bounds.f.x), y, color);
 }
-void			v_line_bounded(int x, int ya, int yb, int color, Rect const &bounds)
+void v_line_bounded(int x, int ya, int yb, int color, Rect const &bounds)
 {
 	if(x>=bounds.i.x&&x<bounds.f.x)
-		v_line(x, maximum(ya, bounds.i.y), minimum(yb, bounds.f.y), color);
+		v_line(x, MAXIMUM(ya, bounds.i.y), MAXIMUM(yb, bounds.f.y), color);
 }
-void			draw_selection_rectangle(Rect irect, int x1, int x2, int y1, int y2, int padding)
+void draw_selection_rectangle(Rect irect, int x1, int x2, int y1, int y2, int padding)
 {
 	if(irect.nonzero())//selection highlight rectangle
 	{
@@ -335,7 +516,7 @@ void			draw_selection_rectangle(Rect irect, int x1, int x2, int y1, int y2, int 
 	}
 }
 
-void			movewindow_c(HWND hWnd, int x, int y, int w, int h, bool repaint)//MoveWindow takes client coordinates, for CHILD windows
+void movewindow_c(HWND hWnd, int x, int y, int w, int h, bool repaint)//MoveWindow takes client coordinates, for CHILD windows
 {
 	int success=MoveWindow(hWnd, x, y, w, h, repaint);
 	SYS_ASSERT(success);
@@ -350,12 +531,12 @@ void			movewindow_c(HWND hWnd, int x, int y, int w, int h, bool repaint)//MoveWi
 //	movewindow_c(hWnd, position.x, position.y, w, h, repaint);
 //}
 
-int				colorbarcontents=CS_NONE;//additional options in color bar
-void			fliprotate_moveui(bool repaint)
+int colorbarcontents=CS_NONE;//additional options in color bar
+void fliprotate_moveui(bool repaint)
 {
 	movewindow_c(hRotatebox, 924-17, h-49-3, 50, 21, repaint);
 }
-void			stretchskew_moveui(bool repaint)
+void stretchskew_moveui(bool repaint)
 {
 	int x1=705, x2=x1+180,
 		y1=h-69-1, y2=y1+22,
@@ -365,7 +546,7 @@ void			stretchskew_moveui(bool repaint)
 	movewindow_c(hStretchSkew[SS_SKEW_H], x2, y1, dx, dy, repaint);
 	movewindow_c(hStretchSkew[SS_SKEW_V], x2, y2, dx, dy, repaint);
 }
-void			show_colorbarcontents(bool show)
+void show_colorbarcontents(bool show)
 {
 	static const char zero[]="0", onehundred[]="100";
 	int mask=-(int)show,
@@ -406,7 +587,7 @@ void			show_colorbarcontents(bool show)
 		break;
 	}
 }
-void			replace_colorbarcontents(int contents)
+void replace_colorbarcontents(int contents)
 {
 	if(contents!=colorbarcontents)
 	{
@@ -416,8 +597,8 @@ void			replace_colorbarcontents(int contents)
 	}
 }
 
-#include		"ppp_inline_blend.h"
-void			blend_with_checkboard_zoomed(const int *buffer, int x0, int y0, int x1, int x2, int y1, int y2, short cbx0, short cby0)
+#include"ppp_inline_blend.h"
+void blend_with_checkboard_zoomed(const int *buffer, int x0, int y0, int x1, int x2, int y1, int y2, short cbx0, short cby0)
 {
 #ifdef SSSE3_BLEND
 	if(check(x1, y1)||check(x2-1, y2-1))
@@ -429,15 +610,16 @@ void			blend_with_checkboard_zoomed(const int *buffer, int x0, int y0, int x1, i
 	screen2image(x2, y2, ix, iy);//
 	if(ix>0&&iy>0&&icheck(ix-1, iy-1))//
 		return;//
-	int logcb=clamp(2, 3+logzoom, 7);
+	int logcb=3+logzoom;
+	CLAMP(logcb, 2, 7);
 	__m128i c_even=_mm_set1_epi32(0xABABAB), c_odd=_mm_set1_epi32(0xFFFFFF);
 	int xrange=x2-x1, xround=xrange&~3, xrem=xrange&3, xoffset=x1-x0, yoffset=y1-y0;
 	if(logzoom>=0)//1:1 or zoomed in
 	{
-#ifdef _DEBUG
-		for(int ky=y1;ky<y2;++ky)
-#else
+#if !defined _DEBUG && defined _MSC_VER
 		Concurrency::parallel_for(y1, y2, [&](int ky)
+#else
+		for(int ky=y1;ky<y2;++ky)
 #endif
 		{
 			iy=spy+((ky-y0)>>logzoom);
@@ -450,7 +632,7 @@ void			blend_with_checkboard_zoomed(const int *buffer, int x0, int y0, int x1, i
 				src=_mm_set_epi32(by[(kx+3+xoffset)>>logzoom], by[(kx+2+xoffset)>>logzoom], by[(kx+1+xoffset)>>logzoom], by[(kx+xoffset)>>logzoom]);
 				//dst=_mm_loadu_si128((__m128i*)pixels);
 
-				//if(src.m128i_i32[0]!=src.m128i_i32[1]||src.m128i_i32[2]!=src.m128i_i32[3])//bouncing ball: hits but shouldn't
+				//if(((int*)&src)[0]!=((int*)&src)[1]||((int*)&src)[2]!=((int*)&src)[3])//bouncing ball: hits but shouldn't
 				//	int LOL_1=0;//
 				dst=checkboard_sse2(logcb, xoffset+kx, ky_bit, c_even, c_odd);
 				//dst=_mm_set1_epi32(-1);
@@ -458,35 +640,43 @@ void			blend_with_checkboard_zoomed(const int *buffer, int x0, int y0, int x1, i
 				//src=_mm_set_epi32(0xFF000000, 0xC0000000, 0x80000000, 0x40000000);//
 				//dst=_mm_set_epi32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF);//
 				dst=blend_ssse3(src, dst);
-				//if(dst.m128i_i32[0]!=dst.m128i_i32[1]||dst.m128i_i32[2]!=dst.m128i_i32[3])//
+				//if(((int*)&src)[0]!=((int*)&src)[1]||((int*)&src)[2]!=((int*)&src)[3])//
 				//	int LOL_1=0;//
 
 				_mm_storeu_si128((__m128i*)(pixels+kx), dst);
 			}
 			if(xrem)
 			{
+				ALIGN(16) uint32_t a[4]={0};
+
 				for(int k=0;k<xrem;++k)
-					src.m128i_i32[k]=by[(xround+k+xoffset)>>logzoom];
+					a[k]=by[(xround+k+xoffset)>>logzoom];
+				src=_mm_load_si128((__m128i*)a);
+				//for(int k=0;k<xrem;++k)
+				//	src.m128i_i32[k]=by[(xround+k+xoffset)>>logzoom];
 				//for(int k=0;k<xrem;++k)
 				//	dst.m128i_i32[k]=pixels[xround+k];
 				
 				dst=checkboard_sse2(logcb, xoffset+xround, ky_bit, c_even, c_odd);
 				dst=blend_ssse3(src, dst);
 				
+				_mm_store_si128((__m128i*)a, dst);
 				for(int k=0;k<xrem;++k)
-					pixels[xround+k]=dst.m128i_i32[k];
+					pixels[xround+k]=a[k];
+				//for(int k=0;k<xrem;++k)
+				//	pixels[xround+k]=dst.m128i_i32[k];
 			}
 		}
-#ifndef _DEBUG
+#if !defined _DEBUG && defined _MSC_VER
 		);
 #endif
 	}
 	else//logzoom<0 (zoomed out)
 	{
-#ifdef _DEBUG
-		for(int ky=y1;ky<y2;++ky)
-#else
+#if !defined _DEBUG && defined _MSC_VER
 		Concurrency::parallel_for(y1, y2, [&](int ky)
+#else
+		for(int ky=y1;ky<y2;++ky)
 #endif
 		{
 			iy=spy+((ky-y0)<<-logzoom);
@@ -506,30 +696,40 @@ void			blend_with_checkboard_zoomed(const int *buffer, int x0, int y0, int x1, i
 			}
 			if(xround<xrange)
 			{
+				ALIGN(16) uint32_t a[4]={0};
+
+				
 				for(int k=0;k<xrem;++k)
-					src.m128i_i32[k]=by[(xround+k+xoffset)<<-logzoom];
+					a[k]=by[(xround+k+xoffset)<<-logzoom];
+				src=_mm_load_si128((__m128i*)a);
+				//for(int k=0;k<xrem;++k)
+				//	src.m128i_i32[k]=by[(xround+k+xoffset)<<-logzoom];
 				//for(int k=0;k<xrem;++k)
 				//	dst.m128i_i32[k]=pixels[xround+k];
 				
 				dst=checkboard_sse2(logcb, xoffset+xround, ky_bit, c_even, c_odd);
 				dst=blend_ssse3(src, dst);
 				
+				_mm_store_si128((__m128i*)a, dst);
 				for(int k=0;k<xrem;++k)
-					pixels[xround+k]=dst.m128i_i32[k];
+					pixels[xround+k]=a[k];
+				//for(int k=0;k<xrem;++k)
+				//	pixels[xround+k]=dst.m128i_i32[k];
 			}
 		}
-#ifndef _DEBUG
+#if !defined _DEBUG && defined _MSC_VER
 		);
 #endif
 	}
-	_m_empty();
+//	_m_empty();
+	(void)yoffset;
 #else
 //	for(int ky=y1;ky<y2;++ky)
 	Concurrency::parallel_for(y1, y2, [&](int ky)//blend 12ms, total 19ms, 51fps
 	{
 		for(int kx=x1;kx<x2;++kx)
 		{
-			int ix=spx+shift(kx-x1, -logzoom), iy=spy+shift(ky-y1, -logzoom);
+			int ix=spx+SHIFT_LEFT(kx-x1, -logzoom), iy=spy+SHIFT_LEFT(ky-y1, -logzoom);
 			if(icheck(ix, iy))//robust
 				break;//
 			auto dst=(unsigned char*)(rgb+w*ky+kx), src=(unsigned char*)(buffer+iw*iy+ix);
@@ -543,7 +743,7 @@ void			blend_with_checkboard_zoomed(const int *buffer, int x0, int y0, int x1, i
 #endif
 }
 
-void			stamp_mask(const int *mask, char mw, char mh, char upsidedown, char transposed, short x1, short x2, short y1, short y2, int color)
+void stamp_mask(const int *mask, char mw, char mh, char upsidedown, char transposed, short x1, short x2, short y1, short y2, int color)
 {
 //	std::vector<LOL_1> vec;
 	//int ud=-upsidedown, tr=-transposed;
@@ -574,7 +774,7 @@ void			stamp_mask(const int *mask, char mw, char mh, char upsidedown, char trans
 			else
 				bit=0xFFFFFFFF;
 			auto &pixel=rgb[w*ky+kx];
-			pixel=color&bit|pixel&~bit;
+			pixel=(color&bit)|(pixel&~bit);
 
 			//LOL_1 s={*i_idx, *b_idx};//
 			//vec.push_back(s);//
@@ -582,7 +782,7 @@ void			stamp_mask(const int *mask, char mw, char mh, char upsidedown, char trans
 	}
 //	vec.clear();
 }
-void			v_line_comp_dots(int x, int y1, int y2, Point const &cTL, Point const &cBR)
+void v_line_comp_dots(int x, int y1, int y2, Point const &cTL, Point const &cBR)
 {
 	if(x<cTL.x||x>=cBR.x)
 		return;
@@ -602,10 +802,10 @@ void			v_line_comp_dots(int x, int y1, int y2, Point const &cTL, Point const &cB
 	for(int idx=start;idx<end;idx+=step)
 	{
 		auto &pixel=rgb[idx];
-		pixel=0xFF000000&pixel|0x00FFFFFF&~pixel;
+		pixel=(0xFF000000&pixel)|(0x00FFFFFF&~pixel);
 	}
 }
-void			h_line_comp_dots(int x1, int x2, int y, Point const &cTL, Point const &cBR)
+void h_line_comp_dots(int x1, int x2, int y, Point const &cTL, Point const &cBR)
 {
 	if(y<cTL.y||y>=cBR.y)
 		return;
@@ -633,42 +833,21 @@ void			h_line_comp_dots(int x1, int x2, int y, Point const &cTL, Point const &cB
 	}
 	if(xrem)
 	{
+		ALIGN(16) uint32_t a[4]={0};
+
+		_mm_store_si128((__m128i*)a, mask);
 		for(int kx=0;kx<xrem;++kx)
-			pixels.m128i_i32[kx]=start[xround+kx];
-		pixels=_mm_xor_si128(pixels, mask);
-		for(int kx=0;kx<xrem;++kx)
-			start[xround+kx]=pixels.m128i_i32[kx];
+			start[xround+kx]^=a[kx];
+		//for(int kx=0;kx<xrem;++kx)
+		//	pixels.m128i_i32[kx]=start[xround+kx];
+		//pixels=_mm_xor_si128(pixels, mask);
+		//for(int kx=0;kx<xrem;++kx)
+		//	start[xround+kx]=pixels.m128i_i32[kx];
 	}
 }
 
-//const __m128i m_four=_mm_set1_epi32(4);
-const __m128i m_lomask=_mm_set_epi32(0, -1, 0, -1);
-//const __m128i m_himask=_mm_set_epi32(-1, 0, -1, 0);
-__forceinline __m128i mullo_epi32(__m128i const &a, __m128i const &b)//<15 cycles
-{
-	__m128i t1=_mm_mul_epu32(a, b);//5 cycles
-	__m128i a2=_mm_shuffle_epi32(a, _MM_SHUFFLE(2, 3, 0, 1));
-	__m128i t2=_mm_shuffle_epi32(b, _MM_SHUFFLE(2, 3, 0, 1));
-	t2=_mm_mul_epu32(a2, t2);
-	t1=_mm_and_si128(t1, m_lomask);
-	t2=_mm_and_si128(t2, m_lomask);
-	t2=_mm_shuffle_epi32(t2, _MM_SHUFFLE(2, 3, 0, 1));
-	t2=_mm_or_si128(t2, t1);
-	return t2;
-}
-__forceinline __m128i clamp0h(__m128i const &x, __m128i const &hi)
-{
-	__m128i t1=_mm_cmpgt_epi32(x, _mm_setzero_si128());
-	t1=_mm_and_si128(t1, x);
-	__m128i t2=_mm_cmplt_epi32(t1, hi);
-	__m128i x2=_mm_and_si128(t2, t1);
-	t2=_mm_xor_si128(t2, m_onesmask);
-	t2=_mm_and_si128(t2, hi);
-	x2=_mm_or_si128(x2, t2);
-	return x2;
-}
-#define			PPP_GUI_CPP
-void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int sx0, int sy0,  int sx1, int sx2, int sy1, int sy2,  int *mask, int transparent, int bkcolor)//mask: pass nullptr for rectangular selection
+#define PPP_GUI_CPP
+void stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int sx0, int sy0,  int sx1, int sx2, int sy1, int sy2,  int *mask, int transparent, int bkcolor)//mask: pass nullptr for rectangular selection
 {//i0: start on image, id: extent in image, s0: imagewindow start on screen, s1 & s2: draw start & end on screen
 	int ix0=irect.i.x, idx=irect.dx(),
 		iy0=irect.i.y, idy=irect.dy();
@@ -682,10 +861,10 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 		std::swap(sxa, sxb);
 	if(sya>syb)
 		std::swap(sya, syb);
-	sx1=clamp(sxa, sx1, sxb);
-	sx2=clamp(sxa, sx2, sxb);
-	sy1=clamp(sya, sy1, syb);
-	sy2=clamp(sya, sy2, syb);
+	CLAMP(sx1, sxa, sxb);
+	CLAMP(sx2, sxa, sxb);
+	CLAMP(sy1, sya, syb);
+	CLAMP(sy2, sya, syb);
 	int xrange=abs(sx2-sx1), yrange=abs(sy2-sy1);
 	int xstep=(sx1<sx2)-(sx1>sx2), ystep=(sy1<sy2)-(sy1>sy2);
 
@@ -700,17 +879,21 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 		//int grid=-(logzoom>1&&abs_xden/bw>2&&abs_yden/bh>2);
 		int axden2=abs_xden<<1, ayden2=abs_yden<<1;
 		//int prevxrem=0, prevyrem=0;
-		int gx=0, gx_prev=0,
+		int
+			gx=0, gx_prev=0,
 			gy=0, gy_prev=0;
+
+		(void)axden2;
+		(void)ayden2;
 		for(int ky=sy1, ycount=0;ycount<yrange;++ycount, ky+=ystep)
 		{
-			gy=(spy-iy0+shift(ky-sy0, -logzoom))*ynum;
+			gy=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*ynum;
 			int by=gy-yroundoffset;
 			int by0=by;
 			int byrem=by%yden;
 			by/=yden;
 			by-=by0<0;
-			byrem+=abs_yden&-((byrem<0)|!byrem&(yden<0));
+			byrem+=abs_yden&-((byrem<0)|(!byrem&(yden<0)));
 			//byrem+=abs_yden&-(byrem<0);
 			int byrem_c=abs_yden-byrem;
 			if(idy<0)
@@ -729,13 +912,13 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			int *dstrow=rgb+w*ky;
 			for(int kx=sx1, xcount=0;xcount<xrange;++xcount, kx+=xstep)
 			{
-				gx=(spx-ix0+shift(kx-sx0, -logzoom))*xnum;
+				gx=(spx-ix0+SHIFT_LEFT(kx-sx0, -logzoom))*xnum;
 				int bx=gx-xroundoffset;
 				int bx0=bx;
 				int bxrem=bx%xden;
 				bx/=xden;
 				bx-=bx0<0;
-				bxrem+=abs_xden&-((bxrem<0)|!bxrem&(xden<0));
+				bxrem+=abs_xden&-((bxrem<0)|(!bxrem&(xden<0)));
 				//bxrem+=abs_xden&-(bxrem<0);
 				int bxrem_c=abs_xden-bxrem;
 				if(idx<0)
@@ -761,27 +944,27 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 				if(selection_free)
 				{
 					// yx		ENTIRE ROW: Y IS CONSTANT
-					src00=((unsigned)by  <(unsigned)bh)&((unsigned)bx  <(unsigned)bw)?  maskrow0[bx  ]?(const byte*)(srcrow0+bx  ):dst  :(const byte*)&secondarycolor;
-					src01=((unsigned)by  <(unsigned)bh)&((unsigned)bx+1<(unsigned)bw)?  maskrow0[bx+1]?(const byte*)(srcrow0+bx+1):dst  :(const byte*)&secondarycolor;
-					src10=((unsigned)by+1<(unsigned)bh)&((unsigned)bx  <(unsigned)bw)?  maskrow1[bx  ]?(const byte*)(srcrow1+bx  ):dst  :(const byte*)&secondarycolor;
-					src11=((unsigned)by+1<(unsigned)bh)&((unsigned)bx+1<(unsigned)bw)?  maskrow1[bx+1]?(const byte*)(srcrow1+bx+1):dst  :(const byte*)&secondarycolor;
+					src00=((unsigned)by  <(unsigned)bh)&&((unsigned)bx  <(unsigned)bw)?  maskrow0[bx  ]?(const byte*)(srcrow0+bx  ):dst  :(const byte*)&secondarycolor;
+					src01=((unsigned)by  <(unsigned)bh)&&((unsigned)bx+1<(unsigned)bw)?  maskrow0[bx+1]?(const byte*)(srcrow0+bx+1):dst  :(const byte*)&secondarycolor;
+					src10=((unsigned)by+1<(unsigned)bh)&&((unsigned)bx  <(unsigned)bw)?  maskrow1[bx  ]?(const byte*)(srcrow1+bx  ):dst  :(const byte*)&secondarycolor;
+					src11=((unsigned)by+1<(unsigned)bh)&&((unsigned)bx+1<(unsigned)bw)?  maskrow1[bx+1]?(const byte*)(srcrow1+bx+1):dst  :(const byte*)&secondarycolor;
 				}
 				else
 				{
-					src00=((unsigned)by  <(unsigned)bh)&((unsigned)bx  <(unsigned)bw)?(const byte*)(srcrow0+bx  ):(const byte*)&secondarycolor;
-					src01=((unsigned)by  <(unsigned)bh)&((unsigned)bx+1<(unsigned)bw)?(const byte*)(srcrow0+bx+1):(const byte*)&secondarycolor;
-					src10=((unsigned)by+1<(unsigned)bh)&((unsigned)bx  <(unsigned)bw)?(const byte*)(srcrow1+bx  ):(const byte*)&secondarycolor;
-					src11=((unsigned)by+1<(unsigned)bh)&((unsigned)bx+1<(unsigned)bw)?(const byte*)(srcrow1+bx+1):(const byte*)&secondarycolor;
+					src00=((unsigned)by  <(unsigned)bh)&&((unsigned)bx  <(unsigned)bw)?(const byte*)(srcrow0+bx  ):(const byte*)&secondarycolor;
+					src01=((unsigned)by  <(unsigned)bh)&&((unsigned)bx+1<(unsigned)bw)?(const byte*)(srcrow0+bx+1):(const byte*)&secondarycolor;
+					src10=((unsigned)by+1<(unsigned)bh)&&((unsigned)bx  <(unsigned)bw)?(const byte*)(srcrow1+bx  ):(const byte*)&secondarycolor;
+					src11=((unsigned)by+1<(unsigned)bh)&&((unsigned)bx+1<(unsigned)bw)?(const byte*)(srcrow1+bx+1):(const byte*)&secondarycolor;
 				}
 				if(transparent)
 				{
-					if(*(int*)src00==secondarycolor)
+					if(*(uint32_t*)src00==secondarycolor)
 						src00=dst;
-					if(*(int*)src01==secondarycolor)
+					if(*(uint32_t*)src01==secondarycolor)
 						src01=dst;
-					if(*(int*)src10==secondarycolor)
+					if(*(uint32_t*)src10==secondarycolor)
 						src10=dst;
-					if(*(int*)src11==secondarycolor)
+					if(*(uint32_t*)src11==secondarycolor)
 						src11=dst;
 				}
 				for(int kc=0;kc<4;++kc)
@@ -794,7 +977,9 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			}
 		}
 #endif
-#if 0//grid is on center of pixel
+
+		//grid is on center of pixel
+#if 0
 		int xnum=bw, xden=idx, abs_xden=abs(xden), xroundoffset=(abs_xden>>1)&-(abs_xden!=bw),
 			ynum=bh, yden=idy, abs_yden=abs(yden), yroundoffset=(abs_yden>>1)&-(abs_yden!=bh);
 		int gridcolors[]={0xFF8000, 0xFFC000};
@@ -805,7 +990,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 		//int prevxrem=0, prevyrem=0;
 		for(int ky=sy1, ycount=0, by_prev=0;ycount<yrange;++ycount, ky+=ystep)
 		{
-			int by=(spy-iy0+shift(ky-sy0, -logzoom))*ynum-yroundoffset;
+			int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*ynum-yroundoffset;
 			int by0=by;
 			int byrem=by%yden;
 			by/=yden;
@@ -827,7 +1012,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			int *dstrow=rgb+w*ky;
 			for(int kx=sx1, xcount=0, bx_prev=0;xcount<xrange;++xcount, kx+=xstep)
 			{
-				int bx=(spx-ix0+shift(kx-sx0, -logzoom))*xnum-xroundoffset;
+				int bx=(spx-ix0+SHIFT_LEFT(kx-sx0, -logzoom))*xnum-xroundoffset;
 				int bx0=bx;
 				int bxrem=bx%xden;
 				bx/=xden;
@@ -889,7 +1074,9 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			}
 		}
 #endif
-#if 0//grid (broken) & mask
+
+		//grid (broken) & mask
+#if 0
 		int xnum=bw, xden=idx, abs_xden=abs(xden), xroundoffset=(abs_xden>>1)&-(abs_xden!=bw),
 			ynum=bh, yden=idy, abs_yden=abs(yden), yroundoffset=(abs_yden>>1)&-(abs_yden!=bh);
 		int gridcolors[]={0xFF8000, 0xFFC000};
@@ -900,7 +1087,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 		//int prevxrem=0, prevyrem=0;
 		for(int ky=sy1, ycount=0, yerror=0;ycount<yrange;++ycount, ky+=ystep, yerror+=bh)
 		{
-			int by=(spy-iy0+shift(ky-sy0, -logzoom))*ynum-yroundoffset;
+			int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*ynum-yroundoffset;
 			int by0=by;
 			int byrem=by%yden;
 			by/=yden;
@@ -919,7 +1106,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			int *dstrow=rgb+w*ky;
 			for(int kx=sx1, xcount=0, xerror=0;xcount<xrange;++xcount, kx+=xstep, xerror+=bw)
 			{
-				int bx=(spx-ix0+shift(kx-sx0, -logzoom))*xnum-xroundoffset;
+				int bx=(spx-ix0+SHIFT_LEFT(kx-sx0, -logzoom))*xnum-xroundoffset;
 				int bx0=bx;
 				int bxrem=bx%xden;
 				bx/=xden;
@@ -978,12 +1165,14 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			}
 		}
 #endif
-#if 0//transparency
+
+		//transparency
+#if 0
 		int xnum=bw, xden=idx, abs_xden=abs(xden), halfx=abs_xden>>1,
 			ynum=bh, yden=idy, abs_yden=abs(yden), halfy=abs_yden>>1;
 		for(int ky=sy1, ycount=0;ycount<yrange;++ycount, ky+=ystep)
 		{
-			int by=(spy-iy0+shift(ky-sy0, -logzoom))*ynum-halfy;
+			int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*ynum-halfy;
 			int byrem=by%yden;
 			by/=yden;
 			byrem+=abs_yden&-(byrem<0);
@@ -995,7 +1184,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			int *dstrow=rgb+w*ky;
 			for(int kx=sx1, xcount=0;xcount<xrange;++xcount, kx+=xstep)
 			{
-				int bx=(spx-ix0+shift(kx-sx0, -logzoom))*xnum-halfx;
+				int bx=(spx-ix0+SHIFT_LEFT(kx-sx0, -logzoom))*xnum-halfx;
 				int bxrem=bx%xden;
 				bx/=xden;
 				bxrem+=abs_xden&-(bxrem<0);
@@ -1035,7 +1224,9 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			}
 		}
 #endif
-#if 0//doesn't work
+
+		//doesn't work
+#if 0
 		const int experimental_count=8;
 		static int experimental=0;
 		experimental=(experimental+1)%experimental_count;
@@ -1053,8 +1244,8 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 		//	yden=idy+(idy>0)-(idy<0);
 		for(int ky=sy1, ycount=0;ycount<yrange;++ycount, ky+=ystep)
 		{
-			//int by=(spy-iy0+shift(ky-sy0, -logzoom))*(bh+1)+yoffset;
-			INT by=(spy-iy0+shift(ky-sy0, -logzoom))*ynum-halfy;
+			//int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*(bh+1)+yoffset;
+			INT by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*ynum-halfy;
 			INT byrem=by%yden;
 			by/=yden;
 			//by/=idy;
@@ -1068,8 +1259,8 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			int *dstrow=rgb+w*ky;
 			for(int kx=sx1, xcount=0;xcount<xrange;++xcount, kx+=xstep)
 			{
-				//int bx=(spx-ix0+shift(kx-sx0, -logzoom))*(bw+1)+xoffset;
-				INT bx=(spx-ix0+shift(kx-sx0, -logzoom))*xnum-halfx;
+				//int bx=(spx-ix0+SHIFT_LEFT(kx-sx0, -logzoom))*(bw+1)+xoffset;
+				INT bx=(spx-ix0+SHIFT_LEFT(kx-sx0, -logzoom))*xnum-halfx;
 				INT bxrem=bx%xden;
 				bx/=xden;
 				//bx/=idx;
@@ -1100,12 +1291,14 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			}
 		}
 #endif
-#if 0//initial reference
+
+		//initial reference
+#if 0
 		int xnum=bw, xden=idx, abs_xden=abs(xden), halfx=abs_xden>>1,
 			ynum=bh, yden=idy, abs_yden=abs(yden), halfy=abs_yden>>1;
 		for(int ky=sy1, ycount=0;ycount<yrange;++ycount, ky+=ystep)
 		{
-			int by=(spy-iy0+shift(ky-sy0, -logzoom))*ynum;
+			int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*ynum;
 			int byrem=by%yden;
 			by/=yden;
 			byrem+=abs_yden&-(byrem<0);
@@ -1118,7 +1311,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 			int *dstrow=rgb+w*ky;
 			for(int kx=sx1, xcount=0;xcount<xrange;++xcount, kx+=xstep)
 			{
-				int bx=(spx-ix0+shift(kx-sx0, -logzoom))*xnum;
+				int bx=(spx-ix0+SHIFT_LEFT(kx-sx0, -logzoom))*xnum;
 				int bxrem=bx%xden;
 				bx/=xden;
 				//bx/=idx;
@@ -1155,14 +1348,14 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 	}
 
 	__m128i m_bkcolor=_mm_set1_epi32(bkcolor);
-	__m128i m_sy0=_mm_set1_epi32(sy0), m_ydiff=_mm_set1_epi32(spy-iy0);
-	__m128i m_sx0=_mm_set1_epi32(sx0), m_xdiff=_mm_set1_epi32(spx-ix0);
+	//__m128i m_sy0=_mm_set1_epi32(sy0), m_ydiff=_mm_set1_epi32(spy-iy0);
+	//__m128i m_sx0=_mm_set1_epi32(sx0), m_xdiff=_mm_set1_epi32(spx-ix0);
 	int rx=bw*(1<<16)/idx;
 	__m128i m_rx=_mm_set1_epi32(rx);
 	__m128i m_bwm1=_mm_set1_epi32(bw-1);
-	int sr=16+logzoom,
-		zoommask=~(shift(1, logzoom)-1);//the 'logzoom' least significant bits are cleared
-	__m128i m_zoommask=_mm_set1_epi32(zoommask);
+	//int sr=16+logzoom;
+	//int zoommask=~(SHIFT_LEFT(1, logzoom)-1);//the 'logzoom' least significant bits are cleared
+	//__m128i m_zoommask=_mm_set1_epi32(zoommask);
 	int xstep4=xstep<<2;
 	__m128i m_xstep=_mm_set1_epi32(xstep4);
 	int xround=xrange&~3, xrem=xrange&3;
@@ -1173,10 +1366,10 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 #if 1
 			for(int ky=sy1;ky<sy2;++ky)
 			{
-				int by=(spy-iy0+shift(ky-sy0, -logzoom))*bh/idy;
-				by=clamp(0, by, bh-1);
+				int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*bh/idy;
+				CLAMP(by, 0, bh-1);
 				const int *srow=buffer+bw*by, *mrow=mask+bw*by;
-				int ksrc=sx1-sx0+shift(spx-ix0, logzoom);
+				int ksrc=sx1-sx0+SHIFT_LEFT(spx-ix0, logzoom);
 				int kdst=w*ky+sx1;
 				__m128i m_ksrc=_mm_set_epi32(ksrc+3*xstep, ksrc+2*xstep, ksrc+xstep, ksrc);
 				__m128i bx, src, dst, eq, m_mask;
@@ -1184,16 +1377,26 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 				{
 					for(int kx=0;kx<xround;kx+=4)
 					{
-						bx=_mm_srli_epi32(m_ksrc, logzoom);//shift right
-#include				"ppp_blit_body_free_trans.h"
+						bx=_mm_srli_epi32(m_ksrc, logzoom);
+						ppp_blit_body_free_trans(
+							bx, m_rx,
+							m_bwm1, src, (uint32_t*)srow, (uint32_t*)mrow,
+							m_mask, dst, eq, m_bkcolor, m_xstep, m_ksrc, kdst, xstep4
+						);
+//#include"ppp_blit_body_free_trans.h"
 					}
 				}
 				else
 				{
 					for(int kx=0;kx<xround;kx+=4)
 					{
-						bx=_mm_slli_epi32(m_ksrc, -logzoom);//shift left
-#include				"ppp_blit_body_free_trans.h"
+						bx=_mm_slli_epi32(m_ksrc, -logzoom);
+						ppp_blit_body_free_trans(
+							bx, m_rx,
+							m_bwm1, src, (uint32_t*)srow, (uint32_t*)mrow,
+							m_mask, dst, eq, m_bkcolor, m_xstep, m_ksrc, kdst, xstep4
+						);
+//#include"ppp_blit_body_free_trans.h"
 					}
 				}
 				if(xrem)
@@ -1206,11 +1409,18 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 					bx=_mm_srli_epi32(bx, 16);
 					bx=clamp0h(bx, m_bwm1);
 
+					int idx[]=
+					{
+						_mm_extract_epi32(bx, 0),
+						_mm_extract_epi32(bx, 1),
+						_mm_extract_epi32(bx, 2),
+						_mm_extract_epi32(bx, 3),
+					};
 					for(int k=0;k<xrem;++k)
 					{
-						src.m128i_i32[k]=srow[bx.m128i_i32[k]];
-						m_mask.m128i_i32[k]=mask[bx.m128i_i32[k]];
-						dst.m128i_i32[k]=rgb[kdst+k];
+						((int*)&src)[k]=srow[idx[k]];
+						((int*)&m_mask)[k]=mask[idx[k]];
+						((int*)&dst)[k]=rgb[kdst+k];
 					}
 					m_mask=_mm_cmpeq_epi32(m_mask, _mm_setzero_si128());//preparing the mask
 
@@ -1223,7 +1433,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 
 					dst=_mm_or_si128(dst, eq);
 					for(int k=0;k<xrem;++k)
-						rgb[kdst+k]=dst.m128i_i32[k];
+						rgb[kdst+k]=((int*)&dst)[k];
 				}
 			}
 #endif
@@ -1233,27 +1443,39 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 #if 1
 			for(int ky=sy1;ky<sy2;++ky)
 			{
-				int by=(spy-iy0+shift(ky-sy0, -logzoom))*bh/idy;
-				by=clamp(0, by, bh-1);
+				int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*bh/idy;
+				CLAMP(by, 0, bh-1);
 				const int *srow=buffer+bw*by, *mrow=mask+bw*by;
-				int ksrc=sx1-sx0+shift(spx-ix0, logzoom);
+				int ksrc=sx1-sx0+SHIFT_LEFT(spx-ix0, logzoom);
 				int kdst=w*ky+sx1;
 				__m128i m_ksrc=_mm_set_epi32(ksrc+3*xstep, ksrc+2*xstep, ksrc+xstep, ksrc);
 				__m128i bx, src, dst, eq, m_mask;
 				if(logzoom>=0)
 				{
+					__m128i mlogzoom=_mm_set_epi32(0, 0, 0, logzoom);
 					for(int kx=0;kx<xround;kx+=4)
 					{
-						bx=_mm_srli_epi32(m_ksrc, logzoom);//shift right
-#include				"ppp_blit_body_free_opaq.h"
+						bx=_mm_srl_epi32(m_ksrc, mlogzoom);
+						ppp_blit_body_free_opaq(
+							bx, m_rx,
+							m_bwm1, src, (uint32_t*)srow, (uint32_t*)mrow,
+							m_mask, dst, eq, m_bkcolor, m_xstep, m_ksrc, kdst, xstep4
+						);
+//#include"ppp_blit_body_free_opaq.h"
 					}
 				}
 				else
 				{
+					__m128i mlogzoom=_mm_set_epi32(0, 0, 0, -logzoom);
 					for(int kx=0;kx<xround;kx+=4)
 					{
-						bx=_mm_slli_epi32(m_ksrc, -logzoom);//shift left
-#include				"ppp_blit_body_free_opaq.h"
+						bx=_mm_sll_epi32(m_ksrc, mlogzoom);
+						ppp_blit_body_free_opaq(
+							bx, m_rx,
+							m_bwm1, src, (uint32_t*)srow, (uint32_t*)mrow,
+							m_mask, dst, eq, m_bkcolor, m_xstep, m_ksrc, kdst, xstep4
+						);
+//#include"ppp_blit_body_free_opaq.h"
 					}
 				}
 				if(xrem)
@@ -1268,9 +1490,9 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 
 					for(int k=0;k<xrem;++k)
 					{
-						src.m128i_i32[k]=srow[bx.m128i_i32[k]];
-						m_mask.m128i_i32[k]=mask[bx.m128i_i32[k]];
-						dst.m128i_i32[k]=rgb[kdst+k];
+						((int*)&src)[k]=srow[((int*)&bx)[k]];
+						((int*)&m_mask)[k]=mask[((int*)&bx)[k]];
+						((int*)&dst)[k]=rgb[kdst+k];
 					}
 					m_mask=_mm_cmpeq_epi32(m_mask, _mm_setzero_si128());//preparing the mask
 
@@ -1282,7 +1504,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 
 					dst=_mm_or_si128(dst, eq);
 					for(int k=0;k<xrem;++k)
-						rgb[kdst+k]=dst.m128i_i32[k];
+						rgb[kdst+k]=((int*)&dst)[k];
 				}
 			}
 #endif
@@ -1295,27 +1517,39 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 #if 1
 			for(int ky=sy1;ky<sy2;++ky)
 			{
-				int by=(spy-iy0+shift(ky-sy0, -logzoom))*bh/idy;
-				by=clamp(0, by, bh-1);
+				int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*bh/idy;
+				CLAMP(by, 0, bh-1);
 				const int *srow=buffer+bw*by;
-				int ksrc=sx1-sx0+shift(spx-ix0, logzoom);
+				int ksrc=sx1-sx0+SHIFT_LEFT(spx-ix0, logzoom);
 				int kdst=w*ky+sx1;
 				__m128i m_ksrc=_mm_set_epi32(ksrc+3*xstep, ksrc+2*xstep, ksrc+xstep, ksrc);
 				__m128i bx, src, dst, eq;
 				if(logzoom>=0)
 				{
+					__m128i mlogzoom=_mm_set_epi32(0, 0, 0, logzoom);
 					for(int kx=0;kx<xround;kx+=4)
 					{
-						bx=_mm_srli_epi32(m_ksrc, logzoom);//shift right
-#include				"ppp_blit_body_rect_trans.h"
+						bx=_mm_srl_epi32(m_ksrc, mlogzoom);
+						ppp_blit_body_rect_trans(
+							bx, m_rx,
+							m_bwm1, src, (uint32_t*)srow,
+							dst, eq, m_bkcolor, m_xstep, m_ksrc, kdst, xstep4
+						);
+//#include"ppp_blit_body_rect_trans.h"
 					}
 				}
 				else
 				{
+					__m128i mlogzoom=_mm_set_epi32(0, 0, 0, -logzoom);
 					for(int kx=0;kx<xround;kx+=4)
 					{
-						bx=_mm_slli_epi32(m_ksrc, -logzoom);//shift left
-#include				"ppp_blit_body_rect_trans.h"
+						bx=_mm_sll_epi32(m_ksrc, mlogzoom);
+						ppp_blit_body_rect_trans(
+							bx, m_rx,
+							m_bwm1, src, (uint32_t*)srow,
+							dst, eq, m_bkcolor, m_xstep, m_ksrc, kdst, xstep4
+						);
+//#include"ppp_blit_body_rect_trans.h"
 					}
 				}
 				if(xrem)
@@ -1330,8 +1564,8 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 
 					for(int k=0;k<xrem;++k)
 					{
-						src.m128i_i32[k]=srow[bx.m128i_i32[k]];
-						dst.m128i_i32[k]=rgb[kdst+k];
+						((int*)&src)[k]=srow[((int*)&bx)[k]];
+						((int*)&dst)[k]=rgb[kdst+k];
 					}
 
 					eq=_mm_cmpeq_epi32(src, m_bkcolor);
@@ -1342,19 +1576,19 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 
 					dst=_mm_or_si128(dst, eq);
 					for(int k=0;k<xrem;++k)
-						rgb[kdst+k]=dst.m128i_i32[k];
+						rgb[kdst+k]=((int*)&dst)[k];
 				}
 			}
 #endif
 #if 0//do not remove
 			for(int ky=sy1, ycount=0;ycount<yrange;++ycount, ky+=ystep)
 			{
-				int by=(spy-iy0+shift(ky-sy0, -logzoom))*bh/idy;
+				int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*bh/idy;
 				by=clamp(0, by, bh-1);
 				int *srow=buffer+bw*by;
-				for(int ksrc=sx1-sx0+shift(spx-ix0, logzoom), kdst=w*ky+sx1, xcount=0;xcount<xrange;++xcount, kdst+=xstep, ksrc+=xstep)
+				for(int ksrc=sx1-sx0+SHIFT_LEFT(spx-ix0, logzoom), kdst=w*ky+sx1, xcount=0;xcount<xrange;++xcount, kdst+=xstep, ksrc+=xstep)
 				{
-					int bx=shift(ksrc, -logzoom)*rx>>16;
+					int bx=SHIFT_LEFT(ksrc, -logzoom)*rx>>16;
 					bx=clamp(0, bx, bw-1);
 					int src=srow[bx];
 					if(src!=bkcolor)
@@ -1365,35 +1599,35 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 #if 0//do not remove
 			for(int ky=sy1, ycount=0;ycount<yrange;++ycount, ky+=ystep)
 			{
-				int by=(spy-iy0+shift(ky-sy0, -logzoom))*bh/idy;//screen position(ky) - imagewindow screen start(sy0) + imagewindow image start(spy) - selection image start(iy0)
-				//int by=(spy-iy0+shift(((ky-sy0)&zoommask), -logzoom))*bh/idy;
-				//int by=spy-iy0+shift(((ky-sy0)&zoommask)*bh/idy, -logzoom);
-				//int by=spy-iy0+shift((ky-sy0)*bh/idy, -logzoom);
-				//int by=spy-iy0+shift((ky-sy0)*bh/idy+halfscreenpixel, -logzoom);
-				//int by=spy-iy0+shift((ky-sy1)*bh/idy, -logzoom);
-				//int by=spy-iy0+shift((ky-y0)*bh/dy, -logzoom);
-				//int by=(spy-iy0)*bh+shift((ky-y0)*bh/dy, -logzoom);
-				//int by=(spy-iy0+shift((ky-y0)/dy, -logzoom))*bh;//X
-				//int by=(spy-iy0+shift(ky-y0, -logzoom))*bh/dy;
-				//int by=shift(ky-y0, -logzoom)*bh/dy;
-				//int by=(iy0+shift(ky-y0, -logzoom))*bh/dy;
+				int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*bh/idy;//screen position(ky) - imagewindow screen start(sy0) + imagewindow image start(spy) - selection image start(iy0)
+				//int by=(spy-iy0+SHIFT_LEFT(((ky-sy0)&zoommask), -logzoom))*bh/idy;
+				//int by=spy-iy0+SHIFT_LEFT(((ky-sy0)&zoommask)*bh/idy, -logzoom);
+				//int by=spy-iy0+SHIFT_LEFT((ky-sy0)*bh/idy, -logzoom);
+				//int by=spy-iy0+SHIFT_LEFT((ky-sy0)*bh/idy+halfscreenpixel, -logzoom);
+				//int by=spy-iy0+SHIFT_LEFT((ky-sy1)*bh/idy, -logzoom);
+				//int by=spy-iy0+SHIFT_LEFT((ky-y0)*bh/dy, -logzoom);
+				//int by=(spy-iy0)*bh+SHIFT_LEFT((ky-y0)*bh/dy, -logzoom);
+				//int by=(spy-iy0+SHIFT_LEFT((ky-y0)/dy, -logzoom))*bh;//X
+				//int by=(spy-iy0+SHIFT_LEFT(ky-y0, -logzoom))*bh/dy;
+				//int by=SHIFT_LEFT(ky-y0, -logzoom)*bh/dy;
+				//int by=(iy0+SHIFT_LEFT(ky-y0, -logzoom))*bh/dy;
 				by=clamp(0, by, bh-1);//when zoomed out: nearest pixel to selection
 				//if(by<0||by>=bh)
 				//	return;
 				for(int kx=sx1, xcount=0;xcount<xrange;++xcount, kx+=xstep)
 				{
-					int bx=(spx-ix0+shift(kx-sx0, -logzoom))*bw/idx;
-					//int bx=(spx-ix0+shift(((kx-sx0)&zoommask), -logzoom))*bw/idx;
-					//int bx=spx-ix0+shift(((kx-sx0)&zoommask)*bw/idx, -logzoom);
-					//int bx=spx-ix0+shift((kx-sx0)*bw/idx, -logzoom);
-					//int bx=spx-ix0+shift((kx-sx0)*bw/idx+halfscreenpixel, -logzoom);
-					//int bx=spx-ix0+shift((kx-sx1)*bw/idx, -logzoom);
-					//int bx=spx-ix0+shift((kx-x0)*bw/dx, -logzoom);
-					//int bx=(spx-ix0)*bw+shift((kx-x0)*bw/dx, -logzoom);
-					//int bx=(spx-ix0+shift((kx-x0)/dx, -logzoom))*bw;//X
-					//int bx=(spx-ix0+shift(kx-x0, -logzoom))*bw/dx;
-					//int bx=shift(kx-x0, -logzoom)*bw/dx;
-					//int bx=(ix0+shift(kx-x0, -logzoom))*bw/dx;
+					int bx=(spx-ix0+SHIFT_LEFT(kx-sx0, -logzoom))*bw/idx;
+					//int bx=(spx-ix0+SHIFT_LEFT(((kx-sx0)&zoommask), -logzoom))*bw/idx;
+					//int bx=spx-ix0+SHIFT_LEFT(((kx-sx0)&zoommask)*bw/idx, -logzoom);
+					//int bx=spx-ix0+SHIFT_LEFT((kx-sx0)*bw/idx, -logzoom);
+					//int bx=spx-ix0+SHIFT_LEFT((kx-sx0)*bw/idx+halfscreenpixel, -logzoom);
+					//int bx=spx-ix0+SHIFT_LEFT((kx-sx1)*bw/idx, -logzoom);
+					//int bx=spx-ix0+SHIFT_LEFT((kx-x0)*bw/dx, -logzoom);
+					//int bx=(spx-ix0)*bw+SHIFT_LEFT((kx-x0)*bw/dx, -logzoom);
+					//int bx=(spx-ix0+SHIFT_LEFT((kx-x0)/dx, -logzoom))*bw;//X
+					//int bx=(spx-ix0+SHIFT_LEFT(kx-x0, -logzoom))*bw/dx;
+					//int bx=SHIFT_LEFT(kx-x0, -logzoom)*bw/dx;
+					//int bx=(ix0+SHIFT_LEFT(kx-x0, -logzoom))*bw/dx;
 					bx=clamp(0, bx, bw-1);
 					//if(bx<0||bx>=bw)
 					//	return;
@@ -1409,41 +1643,57 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 #if 1
 			for(int ky=sy1;ky<sy2;++ky)
 			{
-				int by=(spy-iy0+shift(ky-sy0, -logzoom))*bh/idy;
-				by=clamp(0, by, bh-1);
-				const int *srow=buffer+bw*by;
-				int ksrc=sx1-sx0+shift(spx-ix0, logzoom);
+				int by=(spy-iy0+SHIFT_LEFT(ky-sy0, -logzoom))*bh/idy;
+				CLAMP(by, 0, bh-1);
+				//const int *srow=buffer+bw*by;
+				int ksrc=sx1-sx0+SHIFT_LEFT(spx-ix0, logzoom);
 				int kdst=w*ky+sx1;
 				__m128i m_ksrc=_mm_set_epi32(ksrc+3*xstep, ksrc+2*xstep, ksrc+xstep, ksrc);
-				__m128i bx;
+				__m128i bx=_mm_setzero_si128();
 				if(logzoom>=0)
 				{
+					__m128i mlogzoom=_mm_set_epi32(0, 0, 0, logzoom);
 					for(int kx=0;kx<xround;kx+=4)
 					{
-						bx=_mm_srli_epi32(m_ksrc, logzoom);//shift right
-#include				"ppp_blit_body_rect_opaq.h"
+						bx=_mm_srl_epi32(m_ksrc, mlogzoom);
+						ppp_blit_body_rect_opaq(
+							bx, m_rx, m_bwm1,
+							m_xstep, m_ksrc, kdst, xstep4, buffer
+						);
+//#include"ppp_blit_body_rect_opaq.h"
 					}
 				}
 				else
 				{
+					__m128i mlogzoom=_mm_set_epi32(0, 0, 0, -logzoom);
 					for(int kx=0;kx<xround;kx+=4)
 					{
-						bx=_mm_slli_epi32(m_ksrc, -logzoom);//shift left
-#include				"ppp_blit_body_rect_opaq.h"
+						bx=_mm_sll_epi32(m_ksrc, mlogzoom);
+						ppp_blit_body_rect_opaq(
+							bx, m_rx, m_bwm1,
+							m_xstep, m_ksrc, kdst, xstep4, buffer
+						);
+//#include"ppp_blit_body_rect_opaq.h"
 					}
 				}
 				if(xrem)
 				{
 					if(logzoom>=0)
-						bx=_mm_srli_epi32(m_ksrc, logzoom);
+					{
+						__m128i mlogzoom=_mm_set_epi32(0, 0, 0, logzoom);
+						bx=_mm_srl_epi32(m_ksrc, mlogzoom);
+					}
 					else
-						bx=_mm_slli_epi32(m_ksrc, -logzoom);
+					{
+						__m128i mlogzoom=_mm_set_epi32(0, 0, 0, -logzoom);
+						bx=_mm_sll_epi32(m_ksrc, mlogzoom);
+					}
 					bx=mullo_epi32(bx, m_rx);
 					bx=_mm_srli_epi32(bx, 16);
 					bx=clamp0h(bx, m_bwm1);
 					
 					for(int k=0;k<xrem;++k)
-						rgb[kdst+k]=buffer[bx.m128i_i32[k]];
+						rgb[kdst+k]=buffer[((int*)&bx)[k]];
 				}
 			}
 #endif
@@ -1451,7 +1701,7 @@ void			stretch_blit(const int *buffer, int bw, int bh,  Rect const &irect,  int 
 	}//if mask else
 }
 
-void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
+void display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 {
 	if(imagetype==IM_INT8_RGBA||x1+4>=x2)
 		return;
@@ -1459,7 +1709,7 @@ void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 	if(imagetype==IM_FLOAT32_MOSAIC)
 	{
 		int nlevels=(x2-x1)>>2;//4 channels per level (RGGB) in histogram
-		float inv_nlevelsm1=1.f/(nlevels-1);
+		//float inv_nlevelsm1=1.f/(nlevels-1);
 		int *histogram=nullptr;
 		if(histogramMode==H_HISTOGRAM)
 		{
@@ -1471,7 +1721,7 @@ void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 		{
 			for(int kx=x1;kx<x2;++kx)
 			{
-				int ix=spx+shift(kx-x1, -logzoom), iy=spy+shift(ky-y1, -logzoom);
+				int ix=spx+SHIFT_LEFT(kx-x1, -logzoom), iy=spy+SHIFT_LEFT(ky-y1, -logzoom);
 				if(icheck(ix, iy))
 					continue;
 				int sh=(ix&1)+!(iy&1);//GR BG
@@ -1503,7 +1753,7 @@ void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 					histMax=histogram[k+2];
 			}
 			//int hColor[]={0xFFFF0000, 0xFF00FF00, 0xFF00FF00, 0xFF0000FF};//RG GB
-			int hColor[]={0xFF00FF00, 0xFF0000FF, 0xFFFF0000, 0xFF00FF00};//GB RG
+			uint32_t hColor[]={0xFF00FF00, 0xFF0000FF, 0xFFFF0000, 0xFF00FF00};//GB RG
 			//int hColor[]={0xFF00FF00, 0xFFFF0000, 0xFF0000FF, 0xFF00FF00};//GR BG
 			for(int kx=0;kx<hsize&&x1+kx<x2;++kx)
 			{
@@ -1521,7 +1771,7 @@ void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 	else if(imagetype==IM_FLOAT32_RGBA)
 	{
 		int nlevels=(x2-x1)>>2;//4 channels per level (RGBA) in histogram
-		float inv_nlevelsm1=1.f/(nlevels-1);
+		//float inv_nlevelsm1=1.f/(nlevels-1);
 		int *histogram=nullptr;
 		if(histogramMode==H_HISTOGRAM)
 		{
@@ -1537,7 +1787,7 @@ void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 			//	int LOL_1=0;
 			for(int kx=x1;kx<x2;++kx)
 			{
-				int ix=spx+shift(kx-x1, -logzoom), iy=spy+shift(ky-y1, -logzoom);
+				int ix=spx+SHIFT_LEFT(kx-x1, -logzoom), iy=spy+SHIFT_LEFT(ky-y1, -logzoom);
 				if(icheck(ix, iy))
 					continue;
 				int ix2=ix<<2;
@@ -1576,7 +1826,7 @@ void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 				if(histMax<histogram[k+2])
 					histMax=histogram[k+2];
 			}
-			int hColor[]={0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFFFF};//rgba
+			uint32_t hColor[]={0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFFFF};//rgba
 			for(int kx=0;kx<hsize&&x1+kx<x2;++kx)
 			{
 				int freq=histogram[kx]*(y2-y1)/histMax;
@@ -1593,7 +1843,7 @@ void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2)
 	}
 }
 #if 0
-void			display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2, int bitdepth)
+void display_raw(int *buffer, int bw, int bh, int x1, int x2, int y1, int y2, int bitdepth)
 {
 	int nlevels=1<<bitdepth;
 	int *histogram;

@@ -1,9 +1,9 @@
-#include		"ppp.h"
-#include		"generic.h"
-#include		<CommCtrl.h>
-const char		file[]=__FILE__;
+#include"ppp.h"
+#include"generic.h"
+#include<CommCtrl.h>
+const char file[]=__FILE__;
 
-/*int				getwindowint(HWND hWnd)
+/*int getwindowint(HWND hWnd)
 {
 	int size=SendMessageA(hWnd, WM_GETTEXTLENGTH, 0, 0);
 	std::string str(size+1, 0);
@@ -11,7 +11,7 @@ const char		file[]=__FILE__;
 	int val=atoi(str.c_str());
 	return val;
 }
-double			getwindowdouble(HWND hWnd)
+double getwindowdouble(HWND hWnd)
 {
 	int size=SendMessageA(hWnd, WM_GETTEXTLENGTH, 0, 0);
 	std::string str(size+1, 0);
@@ -19,7 +19,7 @@ double			getwindowdouble(HWND hWnd)
 	double val=atof(str.c_str());
 	return val;
 }//*/
-int				identify_attr_wnd(HWND hWnd, HWND *hWndArray, int start, int count)
+int identify_attr_wnd(HWND hWnd, HWND *hWndArray, int start, int count)
 {
 	int kWnd=start;
 	for(;kWnd<count;++kWnd)
@@ -29,8 +29,8 @@ int				identify_attr_wnd(HWND hWnd, HWND *hWndArray, int start, int count)
 }
 
 //FONT OPTIONS GUI
-WNDPROC			FontComboboxProc=nullptr, FontSizeCbProc=nullptr;
-long			__stdcall FontComboboxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+WNDPROC FontComboboxProc=nullptr, FontSizeCbProc=nullptr;
+LRESULT __stdcall FontComboboxSubclass(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message)
 	{
@@ -41,7 +41,7 @@ long			__stdcall FontComboboxSubclass(HWND__ *hWnd, unsigned message, unsigned w
 		return 0;
 	return CallWindowProcA(FontComboboxProc, hWnd, message, wParam, lParam);
 }
-long			__stdcall FontSizeCbSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+LRESULT __stdcall FontSizeCbSubclass(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message)
 	{
@@ -54,8 +54,8 @@ long			__stdcall FontSizeCbSubclass(HWND__ *hWnd, unsigned message, unsigned wPa
 }
 
 //FLIPROTATE OPTIONS
-WNDPROC			RotateBoxProc=nullptr;
-long			__stdcall RotateBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+WNDPROC RotateBoxProc=nullptr;
+LRESULT __stdcall RotateBoxSubclass(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message)
 	{
@@ -68,9 +68,9 @@ long			__stdcall RotateBoxSubclass(HWND__ *hWnd, unsigned message, unsigned wPar
 }
 
 //STRETCHSKEW OPTIONS
-HWND			hStretchSkew[4]={nullptr};
-WNDPROC			stretchskewproc[4]={nullptr};
-long			__stdcall StretchSkewSubclass(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+HWND hStretchSkew[4]={nullptr};
+WNDPROC stretchskewproc[4]={nullptr};
+LRESULT __stdcall StretchSkewSubclass(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
 	int kWnd=identify_attr_wnd(hWnd, hStretchSkew, 0, 4);
 	if(kWnd>=4)
@@ -114,18 +114,18 @@ long			__stdcall StretchSkewSubclass(HWND__ *hWnd, unsigned message, unsigned wP
 	}
 	return CallWindowProcA(stretchskewproc[kWnd], hWnd, message, wParam, lParam);
 }
-void			create_stretchskew()
+void create_stretchskew()
 {
 	HFONT hfDefault=(HFONT)GetStockObject(DEFAULT_GUI_FONT);	GEN_ASSERT(hfDefault);
 	for(int k=0;k<4;++k)
 	{
-		hStretchSkew[k]=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)(IDM_STRETCH_H_BOX+k), ghInstance, nullptr);
+		hStretchSkew[k]=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)(size_t)(IDM_STRETCH_H_BOX+k), ghInstance, nullptr);
 		SYS_ASSERT(hStretchSkew[k]);
 
 		SendMessageW(hStretchSkew[k], WM_SETFONT, (WPARAM)hfDefault, 0);
 		SYS_CHECK();
 
-		stretchskewproc[k]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[k], GWLP_WNDPROC, (long)StretchSkewSubclass);
+		stretchskewproc[k]=(WNDPROC)SetWindowLongPtrA(hStretchSkew[k], GWLP_WNDPROC, (LONG_PTR)StretchSkewSubclass);
 		SYS_ASSERT(stretchskewproc[k]);
 	}
 	//hStretchSkew[0]=CreateWindowExW(WS_EX_CLIENTEDGE, WC_EDITW, nullptr, WS_CHILD|WS_VISIBLE | ES_LEFT|ES_WANTRETURN, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, ghWnd, (HMENU)IDM_STRETCH_H_BOX,	ghInstance, nullptr);	SYS_ASSERT(hStretchSkew[0]);
@@ -143,22 +143,22 @@ void			create_stretchskew()
 }
 
 //MASK WINDOW
-const int		xpad=10, ypad=10,
-				rowh=25, labelw=75, boxw=50, boxh=19, sliderw=28+510, buttonw=75;
+const int xpad=10, ypad=10,
+	rowh=25, labelw=75, boxw=50, boxh=19, sliderw=28+510, buttonw=75;
 
-int				brushmask=0xFFFFFFFF;
-HWND			hWndMask=nullptr;
-static HWND		hMaskEdit[5]={nullptr}, hMaskTrack[5]={nullptr}, hMaskOK;//{common, r, g, b, a}
-enum			WndMaskCommands
+int brushmask=0xFFFFFFFF;
+HWND hWndMask=nullptr;
+static HWND hMaskEdit[5]={nullptr}, hMaskTrack[5]={nullptr}, hMaskOK;//{common, r, g, b, a}
+enum WndMaskCommands
 {
 	ID_BOX_ALL=1,	ID_TRACK_ALL,
-	ID_BOX_R,		ID_TRACK_R,
-	ID_BOX_G,		ID_TRACK_G,
-	ID_BOX_B,		ID_TRACK_B,
-	ID_BOX_A,		ID_TRACK_A,
+	ID_BOX_R,	ID_TRACK_R,
+	ID_BOX_G,	ID_TRACK_G,
+	ID_BOX_B,	ID_TRACK_B,
+	ID_BOX_A,	ID_TRACK_A,
 	ID_OK,
 };
-long			__stdcall WndProcMask(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+LRESULT __stdcall WndProcMask(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message)
 	{
@@ -168,7 +168,7 @@ long			__stdcall WndProcMask(HWND__ *hWnd, unsigned message, unsigned wParam, lo
 			HFONT hFont=(HFONT)GetStockObject(DEFAULT_GUI_FONT);
 			for(int k=0;k<5;++k)
 			{
-				hMaskEdit[k]=CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, nullptr, WS_CHILD|WS_VISIBLE|ES_CENTER, x, y, boxw, boxh, hWnd, (HMENU)(ID_BOX_ALL+(k<<1)), ghInstance, nullptr);
+				hMaskEdit[k]=CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, nullptr, WS_CHILD|WS_VISIBLE|ES_CENTER, x, y, boxw, boxh, hWnd, (HMENU)(size_t)(ID_BOX_ALL+(k<<1)), ghInstance, nullptr);
 				SYS_ASSERT(hMaskEdit[k]);
 				SendMessageA(hMaskEdit[k], WM_SETFONT, (WPARAM)hFont, 0);	//SYS_CHECK();
 				y+=rowh+(ypad<<int(k==0));
@@ -176,19 +176,19 @@ long			__stdcall WndProcMask(HWND__ *hWnd, unsigned message, unsigned wParam, lo
 			x+=boxw+xpad, y=ypad;
 			for(int k=0;k<5;++k)
 			{
-				hMaskTrack[k]=CreateWindowExA(0, TRACKBAR_CLASSA, nullptr, WS_CHILD|WS_VISIBLE, x, y, sliderw, rowh, hWnd, (HMENU)(ID_TRACK_ALL+(k<<1)), ghInstance, nullptr);
+				hMaskTrack[k]=CreateWindowExA(0, TRACKBAR_CLASSA, nullptr, WS_CHILD|WS_VISIBLE, x, y, sliderw, rowh, hWnd, (HMENU)(size_t)(ID_TRACK_ALL+(k<<1)), ghInstance, nullptr);
 				SYS_ASSERT(hMaskTrack[k]);
 				y+=rowh+(ypad<<int(k==0));
 			}
 			y+=ypad;
-			hMaskOK=CreateWindowExA(0, WC_BUTTONA, nullptr, WS_CHILD|WS_VISIBLE, x+sliderw-buttonw, y, buttonw, rowh, hWnd, (HMENU)ID_OK, ghInstance, nullptr);
+			hMaskOK=CreateWindowExA(0, WC_BUTTONA, nullptr, WS_CHILD|WS_VISIBLE, x+sliderw-buttonw, y, buttonw, rowh, hWnd, (HMENU)(size_t)ID_OK, ghInstance, nullptr);
 			SendMessageA(hMaskOK, WM_SETFONT, (WPARAM)hFont, 0);	//SYS_CHECK();
 			SetWindowTextA(hMaskOK, "OK");
 		}
 		break;
 	case WM_COMMAND:
 		{
-			int wp_hi=((short*)&wParam)[1], wp_lo=(short&)wParam;
+			int wp_hi=(int16_t)(wParam>>16), wp_lo=(int16_t)wParam;
 			switch(wp_lo)
 			{
 			case ID_BOX_ALL:
@@ -199,6 +199,8 @@ long			__stdcall WndProcMask(HWND__ *hWnd, unsigned message, unsigned wParam, lo
 					//std::string str(size, 0);
 					//SendMessageA(hTextbox, WM_GETTEXT, size, (LPARAM)&str[0]);
 					//double val=atof(str.c_str());
+
+					(void)val;
 				}
 				break;
 			case ID_TRACK_ALL:
@@ -224,7 +226,7 @@ long			__stdcall WndProcMask(HWND__ *hWnd, unsigned message, unsigned wParam, lo
 	}
 	return DefWindowProcA(hWnd, message, wParam, lParam);
 }
-void			create_maskwindow()
+void create_maskwindow()
 {
 	const int
 		cl_w=xpad+labelw+xpad+boxw+xpad+sliderw+xpad,
@@ -260,12 +262,12 @@ void			create_maskwindow()
 }
 
 //ATTRIBUTES WINDOW
-const int		attr_xpad=10, attr_ypad=10,
-				attr_col_w=90, attr_row_h=28,
-				attr_edit_w=48, attr_edit_h=20,
-				attr_button_w=90, attr_button_h=23;
-HWND			hWndAttributes=nullptr;
-enum			AttirbutesMessages
+const int attr_xpad=10, attr_ypad=10,
+	attr_col_w=90, attr_row_h=28,
+	attr_edit_w=48, attr_edit_h=20,
+	attr_button_w=90, attr_button_h=23;
+HWND hWndAttributes=nullptr;
+enum AttirbutesMessages
 {
 	ATTR_WIDTH=1,
 	ATTR_HEIGHT,
@@ -274,10 +276,10 @@ enum			AttirbutesMessages
 	ATTR_CANCEL,
 	ATTR_NCONTROLS//number of controls plus one
 };
-static HWND		hAttr[ATTR_NCONTROLS]={nullptr};
-static WNDPROC	AttrProc[ATTR_NCONTROLS]={nullptr};
-char			same_buffer=false;
-void			apply_image_dimensions()
+static HWND hAttr[ATTR_NCONTROLS]={nullptr};
+static WNDPROC AttrProc[ATTR_NCONTROLS]={nullptr};
+char same_buffer=false;
+void apply_image_dimensions()
 {
 	int newwidth=getwindowint(hAttr[ATTR_WIDTH]), newheight=getwindowint(hAttr[ATTR_HEIGHT]);
 	if(newwidth&&newheight)
@@ -288,7 +290,7 @@ void			apply_image_dimensions()
 			int height=image_size/newwidth+(image_size%newwidth!=0);//ceil(size/h)
 			int size=newwidth*height;
 			int *image2=(int*)malloc(size<<2);
-			int minsize=minimum(size, image_size);
+			int minsize=MINIMUM(size, image_size);
 			memcpy(image2, image, minsize<<2);
 			if(size>image_size)//fill remainder with white
 				memset(image2+image_size, 0xFF, (size-image_size)<<2);
@@ -299,7 +301,7 @@ void			apply_image_dimensions()
 		render(REDRAW_ALL, 0, w, 0, h);
 	}
 }
-long			__stdcall WndSubclassAttributes(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+LRESULT __stdcall WndSubclassAttributes(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
 	int kWnd=identify_attr_wnd(hWnd, hAttr, 1, ATTR_NCONTROLS);
 	if(kWnd>=ATTR_NCONTROLS)
@@ -345,7 +347,7 @@ long			__stdcall WndSubclassAttributes(HWND__ *hWnd, unsigned message, unsigned 
 	}
 	return CallWindowProcA(AttrProc[kWnd], hWnd, message, wParam, lParam);
 }
-long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wParam, long lParam)
+LRESULT __stdcall WndProcAttributes(HWND hWnd, uint32_t message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message)
 	{
@@ -355,14 +357,38 @@ long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wPar
 			int x=attr_col_w, y=attr_ypad+1, success;
 			for(int k=0;k<2;++k)
 			{
-				hAttr[ATTR_WIDTH+k]	=CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, nullptr, WS_CHILD|WS_VISIBLE|ES_LEFT|ES_WANTRETURN, x, y, attr_edit_w, attr_edit_h, hWnd, (HMENU)(ATTR_WIDTH+k), ghInstance, nullptr);
+				hAttr[ATTR_WIDTH+k]=CreateWindowExA(WS_EX_CLIENTEDGE
+					, WC_EDITA
+					, nullptr
+					, WS_CHILD|WS_VISIBLE|ES_LEFT|ES_WANTRETURN
+					, x
+					, y
+					, attr_edit_w
+					, attr_edit_h
+					, hWnd
+					, (HMENU)(size_t)(ATTR_WIDTH+k)
+					, ghInstance
+					, nullptr
+				);
 				SYS_ASSERT(hAttr[ATTR_WIDTH+k]);
 				SendMessageA(hAttr[ATTR_WIDTH+k], WM_SETFONT, (WPARAM)hFont, 0);
 				SYS_CHECK();
 				y+=attr_row_h;
 			}
 			const char *buttonlabels[]={"OK", "Cancel", "Same buffer"};
-			hAttr[ATTR_SAMEBUFFER]	=CreateWindowExA(0, WC_BUTTONA, nullptr, WS_CHILD|WS_VISIBLE | BS_CHECKBOX, attr_xpad, y, attr_button_w, attr_button_h, hWnd, (HMENU)ATTR_SAMEBUFFER, ghInstance, nullptr);
+			hAttr[ATTR_SAMEBUFFER]=CreateWindowExA(0
+				, WC_BUTTONA
+				, nullptr
+				, WS_CHILD|WS_VISIBLE | BS_CHECKBOX
+				, attr_xpad
+				, y
+				, attr_button_w
+				, attr_button_h
+				, hWnd
+				, (HMENU)(size_t)ATTR_SAMEBUFFER
+				, ghInstance
+				, nullptr
+			);
 			SYS_ASSERT(hAttr[ATTR_SAMEBUFFER]);
 			SendMessageA(hAttr[ATTR_SAMEBUFFER], WM_SETFONT, (WPARAM)hFont, 0);	//SYS_CHECK();
 			success=SetWindowTextA(hAttr[ATTR_SAMEBUFFER], buttonlabels[2]);	SYS_ASSERT(success);
@@ -370,7 +396,19 @@ long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wPar
 			x+=attr_col_w, y=attr_ypad;
 			for(int k=0;k<2;++k)
 			{
-				hAttr[ATTR_OK+k]	=CreateWindowExA(0, WC_BUTTONA, nullptr, WS_CHILD|WS_VISIBLE, x, y, attr_button_w, attr_button_h, hWnd, (HMENU)(ATTR_OK+k), ghInstance, nullptr);
+				hAttr[ATTR_OK+k]=CreateWindowExA(0
+					, WC_BUTTONA
+					, nullptr
+					, WS_CHILD|WS_VISIBLE
+					, x
+					, y
+					, attr_button_w
+					, attr_button_h
+					, hWnd
+					, (HMENU)(size_t)(ATTR_OK+k)
+					, ghInstance
+					, nullptr
+				);
 				SYS_ASSERT(hAttr[ATTR_OK+k]);
 				SendMessageA(hAttr[ATTR_OK+k], WM_SETFONT, (WPARAM)hFont, 0);	//SYS_CHECK();
 				success=SetWindowTextA(hAttr[ATTR_OK+k], buttonlabels[k]);	SYS_ASSERT(success);
@@ -379,17 +417,17 @@ long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wPar
 
 			for(int k=1;k<ATTR_NCONTROLS;++k)//subclass
 			{
-				AttrProc[k]=(WNDPROC)SetWindowLongPtrA(hAttr[k], GWLP_WNDPROC, (long)WndSubclassAttributes);
+				AttrProc[k]=(WNDPROC)SetWindowLongPtrA(hAttr[k], GWLP_WNDPROC, (LONG_PTR)WndSubclassAttributes);
 				SYS_ASSERT(AttrProc[k]);
 			}
 		}
 		break;
 	case WM_SHOWWINDOW:
 		{
-			sprintf_s(g_buf, g_buf_size, "%d", iw);
+			sprintf_s(g_buf, G_BUF_SIZE, "%d", iw);
 			int success=SetWindowTextA(hAttr[ATTR_WIDTH], g_buf);	SYS_ASSERT(success);
 
-			sprintf_s(g_buf, g_buf_size, "%d", ih);
+			sprintf_s(g_buf, G_BUF_SIZE, "%d", ih);
 			success=SetWindowTextA(hAttr[ATTR_HEIGHT], g_buf);		SYS_ASSERT(success);
 
 			SendMessageA(hAttr[ATTR_SAMEBUFFER], BM_SETCHECK, same_buffer?BST_CHECKED:BST_UNCHECKED, 0);
@@ -419,7 +457,10 @@ long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wPar
 		break;
 	case WM_COMMAND:
 		{
-			int wp_hi=((short*)&wParam)[1], wp_lo=(short&)wParam;
+			int wp_hi=(int16_t)(wParam>>16);
+			int wp_lo=(int16_t)wParam;
+
+			(void)wp_hi;
 			switch(wp_lo)
 			{
 			//case ATTR_WIDTH:
@@ -433,7 +474,7 @@ long			__stdcall WndProcAttributes(HWND__ *hWnd, unsigned message, unsigned wPar
 			//	}
 			//	break;
 			case ATTR_SAMEBUFFER:
-				same_buffer=!same_buffer;
+				same_buffer=1-same_buffer;
 				SendMessageA(hAttr[ATTR_SAMEBUFFER], BM_SETCHECK, same_buffer?BST_CHECKED:BST_UNCHECKED, 0);
 				//same_buffer=IsDlgButtonChecked(hWnd, ATTR_SAMEBUFFER)==BST_CHECKED;
 				break;

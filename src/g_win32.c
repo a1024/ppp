@@ -1,26 +1,27 @@
-#include		"generic.h"
-#include		<Windows.h>
-#include		<stdio.h>
-#include		<strsafe.h>
+#include"generic.h"
+#include<Windows.h>
+#include<stdio.h>
+#include<strsafe.h>
 static const char file[]=__FILE__;
-static int		sys_check(const char *file, int line)
+static int sys_check(const char *file, int line)
 {
-	char *messageBuffer=0;
 	int error=GetLastError();
 	if(error)
 	{
+		char *messageBuffer=0;
 		size_t size=FormatMessageA(
 			FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
 			NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL
 		);
 		messageboxa(0, "Error", "%s(%d):\n%s", file, line, messageBuffer);
 		LocalFree(messageBuffer);
+		(void)size;
 	}
 	return 0;
 }
-int				GUINPrint(HDC hDC, int x, int y, int w, int h, const char *a, ...)
+int GUINPrint(HDC hDC, int x, int y, int w, int h, const char *a, ...)
 {
-	int length=vsprintf_s(g_buf, g_buf_size, a, (char*)(&a+1));
+	int length=vsprintf_s(g_buf, G_BUF_SIZE, a, (char*)(&a+1));
 	if(length>0)
 	{
 		RECT r={x, y, x+w, y+h};
@@ -28,23 +29,23 @@ int				GUINPrint(HDC hDC, int x, int y, int w, int h, const char *a, ...)
 	}
 	return 0;
 }
-long			GUITPrint(HDC hDC, int x, int y, const char *a, ...)//return value: 0xHHHHWWWW		width=(short&)ret, height=((short*)&ret)[1]
+long GUITPrint(HDC hDC, int x, int y, const char *a, ...)//return value: 0xHHHHWWWW		width=(short&)ret, height=((short*)&ret)[1]
 {
-	int length=vsprintf_s(g_buf, g_buf_size, a, (char*)(&a+1));
+	int length=vsprintf_s(g_buf, G_BUF_SIZE, a, (char*)(&a+1));
 	if(length>0)
 		return TabbedTextOutA(hDC, x, y, g_buf, length, 0, 0, 0);
 	return 0;
 }
-void			GUIPrint(HDC hDC, int x, int y, const char *a, ...)
+void GUIPrint(HDC hDC, int x, int y, const char *a, ...)
 {
-	int length=vsprintf_s(g_buf, g_buf_size, a, (char*)(&a+1)), success;
+	int length=vsprintf_s(g_buf, G_BUF_SIZE, a, (char*)(&a+1)), success;
 	if(length>0)
 	{
 		success=TextOutA(hDC, x, y, g_buf, length);
 		((void)((success)!=0||sys_check(file, __LINE__)));
 	}
 }
-int			get_key_state(int key)
+int get_key_state(int key)
 {
 	return (GetAsyncKeyState(key)>>15)!=0;
 }
@@ -54,7 +55,7 @@ int			get_key_state(int key)
 //	if(length>0)
 //		success=TextOutA(hDC, x, y, g_buf, length);
 //}
-const char*		wm2str(int message)
+const char* wm2str(int message)
 {
 	const char *a="???";
 	switch(message)
@@ -383,55 +384,57 @@ const char*		wm2str(int message)
 	return a;
 }
 
-void			messagebox(HWND hWnd, const wchar_t *title, const wchar_t *format, ...)
+void messagebox(HWND hWnd, const wchar_t *title, const wchar_t *format, ...)
 {
-	vswprintf_s(g_wbuf, g_buf_size, format, (char*)(&format+1));
+	vswprintf_s(g_wbuf, G_BUF_SIZE, format, (char*)(&format+1));
 	MessageBoxW(hWnd, g_wbuf, title, MB_OK);
 }
-void			messageboxa(HWND hWnd, const char *title, const char *format, ...)
+void messageboxa(HWND hWnd, const char *title, const char *format, ...)
 {
-	vsprintf_s(g_buf, g_buf_size, format, (char*)(&format+1));
+	vsprintf_s(g_buf, G_BUF_SIZE, format, (char*)(&format+1));
 	MessageBoxA(hWnd, g_buf, title, MB_OK);
 }
-void			formatted_error(const wchar_t *lpszFunction, int line)//unused in ppp
+void formatted_error(const wchar_t *lpszFunction, int line)//unused in ppp
 {
 	DWORD dw=GetLastError();
 	wchar_t *lpMsgBuf=0, *lpDisplayBuf=0;
 
 	FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, 0, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (wchar_t*)&lpMsgBuf, 0, 0);
 	lpDisplayBuf=(wchar_t*)LocalAlloc(LMEM_ZEROINIT, (lstrlenW(lpMsgBuf)+lstrlenW(lpszFunction)+40)*sizeof(wchar_t));
-	StringCchPrintfW(lpDisplayBuf, LocalSize(lpDisplayBuf)/sizeof(TCHAR), TEXT("%s (line %d) failed with error %d: %s"), lpszFunction, line, dw, lpMsgBuf);
+	StringCchPrintfW(lpDisplayBuf, LocalSize(lpDisplayBuf)/sizeof(TCHAR), L"%s (line %d) failed with error %d: %s", lpszFunction, line, dw, lpMsgBuf);
 //	MessageBoxW(0, lpDisplayBuf, TEXT("Error"), MB_OK);
 	MessageBoxW(0, lpDisplayBuf, lpDisplayBuf, MB_OK);//
 	LocalFree(lpMsgBuf);
 	LocalFree(lpDisplayBuf);
 }
-void			error_exit(const wchar_t *lpszFunction, int line)//unused in ppp
+void error_exit(const wchar_t *lpszFunction, int line)//unused in ppp
 {
 	formatted_error(lpszFunction, line);
 	ExitProcess(1);
 }
-//void			check_exit(const wchar_t *lpszFunction, int line)
+//void check_exit(const wchar_t *lpszFunction, int line)
 //{
 //	int err=GetLastError();
 //	err=err;
 //	//if(err)
 //	//	error_exit(lpszFunction, line);
 //}
-//void			my_assert(bool success, int line)
+//void my_assert(bool success, int line)
 //{
 //	if(!success)
 //		formatted_error(L"my_assert", line);
 //}
 //#define		MY_ASSERT(SUCCESS)	my_assert((SUCCESS)!=0, __LINE__)
 
-double			getwindowdouble(HWND hWnd)
+double getwindowdouble(HWND hWnd)
 {
-	int length=GetWindowTextA(hWnd, g_buf, g_buf_size);
+	int length=GetWindowTextA(hWnd, g_buf, G_BUF_SIZE);
+	(void)length;
 	return atof(g_buf);
 }
-int				getwindowint(HWND hWnd)
+int getwindowint(HWND hWnd)
 {
-	int length=GetWindowTextA(hWnd, g_buf, g_buf_size);
+	int length=GetWindowTextA(hWnd, g_buf, G_BUF_SIZE);
+	(void)length;
 	return atoi(g_buf);
 }

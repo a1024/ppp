@@ -1,5 +1,5 @@
-#include		<stdlib.h>
-namespace		resources
+#include<stdlib.h>
+namespace resources
 {
 	extern const unsigned char free_select[]={0,4,17,0,15,18,0,6,17,0,7,17,0,6,18,0,10,17,0,2,17,0,9,17,0,3,17,0,3,17,0,7,17,0,7,17,0,22,17,0,8,17,0,5,17,0,10,17,0,3,17,0,12,17,0,1,18,0,1,18,0,4,18,0,1,20,0,4,17,0,3,17,0,27,17,0,1,17,0,13,18,0,14,17,0,11,};
 	extern const unsigned char select[]={0,49,17,0,1,18,0,1,18,0,1,18,0,1,18,0,1,17,0,1,17,0,13,17,0,17,17,0,13,17,0,1,17,0,13,17,0,17,17,0,13,17,0,1,17,0,13,17,0,17,17,0,13,17,0,1,17,0,1,18,0,1,18,0,1,18,0,1,18,0,1,17,0,32,};
@@ -160,7 +160,7 @@ namespace		resources
 	{
 		0, 0
 	};
-	extern const int *large_square=eraser08;
+	extern const int *const large_square=eraser08;
 	extern const int square[]=
 	{
 		-2, 2,
@@ -222,7 +222,7 @@ namespace		resources
 		-1, -1,
 		0, 0
 	};
-	struct		Brush
+	struct Brush
 	{
 		const int *bounds;
 		int yoffset, ysize;
@@ -267,7 +267,7 @@ namespace		resources
 		0x7FFFF,
 	};
 }
-void			unpack_icon(const unsigned char *rle, int csize, int *rgb2)
+void unpack_icon(const unsigned char *rle, int csize, int *rgb2)
 {
 	enum Color{C_TRANSPARENT, C_BLACK, C_WHITE, C_YELLOW, C_MUSTARD, C_GREY, C_MARINE, C_DARK_GREY, C_DARK_BLUE, C_BLUE, C_DARK_RED};
 	for(int kp=0, kc=0;kc<csize;++kc)
@@ -294,40 +294,41 @@ void			unpack_icon(const unsigned char *rle, int csize, int *rgb2)
 		case C_BLUE:		color=0x000000FF;break;
 		case C_DARK_RED:	color=0x00BF0000;break;
 		default:
-			{
-				int LOL_1=0;//unreachable
-			}
+			//{
+			//	int LOL_1=0;//unreachable
+			//}
 			break;
 		}
 		int k2=0;
 		for(;k2<count;++k2)
 		{
 			int idx=kp+k2;
-			int ki=idx>>8, kx=idx&15, ky=idx>>4&15;
+		//	int ki=idx>>8;
+			int kx=idx&15, ky=idx>>4&15;
 		//	if(color!=0xFFF0F0F0)//
 				rgb2[ky<<4|kx]=color;
 		}
 		kp+=k2;
 	}
 }
-void			unpack_icons(int *&icons, int &nicons)
+void unpack_icons(int *&icons, int &nicons)
 {
 	const unsigned char *rle_icons[]=
 	{
-		resources::free_select,	resources::select,		resources::eraser,	resources::fill,
+		resources::free_select,	resources::select,	resources::eraser,	resources::fill,
 		resources::pick_color,	resources::magnifier,	resources::pencil,	resources::brush,
-		resources::airbrush,	resources::text,		resources::line,	resources::curve,
-		resources::rectangle,	resources::polygon,		resources::ellipse,	resources::rounded_rectangle,
+		resources::airbrush,	resources::text,	resources::line,	resources::curve,
+		resources::rectangle,	resources::polygon,	resources::ellipse,	resources::rounded_rectangle,
 	};
 	int lengths[]=
 	{
-		sizeof resources::free_select,	sizeof resources::select,		sizeof resources::eraser,	sizeof resources::fill,
-		sizeof resources::pick_color,	sizeof resources::magnifier,	sizeof resources::pencil,	sizeof resources::brush,
-		sizeof resources::airbrush,		sizeof resources::text,			sizeof resources::line,		sizeof resources::curve,
-		sizeof resources::rectangle,	sizeof resources::polygon,		sizeof resources::ellipse,	sizeof resources::rounded_rectangle,
+		sizeof(resources::free_select),	sizeof(resources::select),	sizeof(resources::eraser),	sizeof(resources::fill),
+		sizeof(resources::pick_color),	sizeof(resources::magnifier),	sizeof(resources::pencil),	sizeof(resources::brush),
+		sizeof(resources::airbrush),	sizeof(resources::text),	sizeof(resources::line),	sizeof(resources::curve),
+		sizeof(resources::rectangle),	sizeof(resources::polygon),	sizeof(resources::ellipse),	sizeof(resources::rounded_rectangle),
 	};
 	nicons=sizeof(lengths)>>2;
-	icons=(int*)malloc(256*nicons<<2);
+	icons=(int*)malloc((size_t)256*nicons<<2);
 	for(int ki=0;ki<nicons;++ki)
 		unpack_icon(rle_icons[ki], lengths[ki], icons+(ki<<8));
 }

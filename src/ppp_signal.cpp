@@ -153,7 +153,7 @@ void			apply_dct(float *buffer, int bw, int bh)
 	memcpy(buf_in, buffer, size*sizeof(float));
 	p_fftwf_execute(p_dct);
 	memcpy(buffer, buf_out, size*sizeof(float));
-	scale_buffer(buffer, size, 1.f/sqrt((float)(size<<2)));//
+	scale_buffer(buffer, size, 1.f/sqrtf((float)(size<<2)));//
 }
 void			apply_idct(float *buffer, int bw, int bh)
 {
@@ -163,7 +163,7 @@ void			apply_idct(float *buffer, int bw, int bh)
 	memcpy(buf_in, buffer, size*sizeof(float));
 	p_fftwf_execute(p_idct);
 	memcpy(buffer, buf_out, size*sizeof(float));
-	scale_buffer(buffer, size, 1.f/sqrt((float)(size<<2)));
+	scale_buffer(buffer, size, 1.f/sqrtf((float)(size<<2)));
 }
 void			cleanup_fftw()
 {

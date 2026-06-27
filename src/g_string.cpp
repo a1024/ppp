@@ -1,11 +1,11 @@
-#include		"ppp.h"
-#include		"generic.h"
-#include		<string>
-#include		<wchar.h>//toupper
-#include		<assert.h>
-template<typename INT> inline INT readint(const wchar_t *str, int *advance)
+#include"ppp.h"
+#include"generic.h"
+#include<string>
+#include<wchar.h>//toupper
+#include<assert.h>
+static int64_t readint(const wchar_t *str, int *advance)
 {
-	if(!str||(str[0]<'0'||str[0]>'9')&&(!str[0]||str[0]!='-'&&str[0]!='+'||str[1]<'0'||str[1]>'9'))
+	if(!str||((str[0]<'0'||str[0]>'9')&&(!str[0]||(str[0]!='-'&&str[0]!='+')||str[1]<'0'||str[1]>'9')))
 //	if(!str||!(*str>='0'&&*str<='9'||*str&&(*str=='-'||*str=='+')&&str[1]>='0'&&str[1]<='9'))
 	{
 		if(advance)
@@ -14,27 +14,27 @@ template<typename INT> inline INT readint(const wchar_t *str, int *advance)
 	}
 	int start=str[0]=='-'||str[0]=='+', end=start;
 	for(;str[end]&&str[end]>='0'&&str[end]<='9';++end);
-	INT p=1, val=0;
+	int64_t p=1, val=0;
 	for(int k=end-1;k>=start;--k, p*=10)
-		val+=(str[k]-'0')*p;
+		val+=((int64_t)str[k]-'0')*p;
 	if(advance)
 		*advance=end;
 	int neg=str[0]=='-';
-	return (val^-(INT)neg)+neg;
+	return (val^-(int64_t)neg)+neg;
 }
 extern "C"
 {
-	long long	acme_wtoll(const wchar_t *str, int *ret_advance){return readint<long long>(str, ret_advance);}
-	int			acme_wtoi(const wchar_t *str, int *ret_advance){return readint<int>(str, ret_advance);}
+	long long acme_wtoll(const wchar_t *str, int *ret_advance){return readint(str, ret_advance);}
+	int acme_wtoi(const wchar_t *str, int *ret_advance){return (int)readint(str, ret_advance);}
 }
 
-void			assign_path(std::wstring const &text, int start, int end, std::wstring &pathret)//pathret can be text
+void assign_path(const wchar_t *text, int start, int end, std::wstring &pathret)//pathret can be text
 {
 	for(;end>0&&(text[end-1]==' '||text[end-1]=='\t'||text[end-1]=='\r'||text[end-1]=='\n');--end);//skip trailing whitespace
 	start+=text[start]==doublequote, end-=text[end-1]==doublequote;
 	assert(start<end);
-	std::wstring temp(text.begin()+start, text.begin()+end);
-	int size=temp.size();
+	std::wstring temp(text+start, text+end);
+	int size=(int)temp.size();
 	for(int k=0;k<size;++k)
 	{
 		if(temp[k]==L'\\')
@@ -44,13 +44,13 @@ void			assign_path(std::wstring const &text, int start, int end, std::wstring &p
 		temp.pop_back();
 	pathret=std::move(temp);
 }
-void			assign_path(std::string const &text, int start, int end, std::wstring &pathret)//pathret can be text
+void assign_path(const char *text, int start, int end, std::wstring &pathret)//pathret can be text
 {
 	for(;end>0&&(text[end-1]==' '||text[end-1]=='\t'||text[end-1]=='\r'||text[end-1]=='\n');--end);//skip trailing whitespace
 	start+=text[start]==doublequote, end-=text[end-1]==doublequote;
 	assert(start<end);
-	std::wstring temp(text.begin()+start, text.begin()+end);
-	int size=temp.size();
+	std::wstring temp(text+start, text+end);
+	int size=(int)temp.size();
 	for(int k=0;k<size;++k)
 	{
 		if(temp[k]==L'\\')
@@ -60,16 +60,17 @@ void			assign_path(std::string const &text, int start, int end, std::wstring &pa
 		temp.pop_back();
 	pathret=std::move(temp);
 }
-void			assign_path(std::string const &text, int start, int end, std::string &pathret)//pathret can be text
+void assign_path(const char *text, int start, int end, std::string &pathret)//pathret can be text
 {
-	assert(text.size());
-	if(end>=(int)text.size())
-		end=text.size();
+	assert(text&&start<end);
+	//if((ptrdiff_t)end>=(ptrdiff_t)text.size())
+	//	end=(int)text.size();
 	for(;end>0&&(text[end-1]==' '||text[end-1]=='\t'||text[end-1]=='\r'||text[end-1]=='\n');--end);//skip trailing whitespace
-	start+=text[start]==doublequote, end-=text[end-1]==doublequote;
+	start+=text[start]==doublequote;
+	end-=text[end-1]==doublequote;
 	assert(start<end);
-	std::string temp(text.begin()+start, text.begin()+end);
-	int size=temp.size();
+	std::string temp(text+start, text+end);
+	int size=(int)temp.size();
 	for(int k=0;k<size;++k)
 	{
 		if(temp[k]==L'\\')
@@ -79,10 +80,10 @@ void			assign_path(std::string const &text, int start, int end, std::string &pat
 		temp.pop_back();
 	pathret=std::move(temp);
 }
-void			get_name_from_path(std::wstring const &path, std::wstring &name)
+void get_name_from_path(const wchar_t *path, int len, std::wstring &name)
 {
 	int start=-1;
-	for(int k=path.size()-1;k>=0;--k)
+	for(int k=len-1;k>=0;--k)
 	{
 		if(path[k]==L'/'||path[k]==L'\\')
 		{
@@ -92,24 +93,24 @@ void			get_name_from_path(std::wstring const &path, std::wstring &name)
 	}
 	if(start==-1)
 		start=0;//unreachable
-	name.assign(path.begin()+start, path.end());
+	name.assign(path+start, path+len);
 }
 
-bool			skip_whitespace(std::wstring const &text, int &k)
+bool skip_whitespace(std::wstring const &text, int &k)
 {
-	const int size=text.size();
+	const int size=(int)text.size();
 	for(;k<size&&(text[k]==L' '||text[k]==L'\t'||text[k]==L'\r'||text[k]==L'\n');++k);
 	return k>=size;
 }
-bool			skip_whitespace(std::string const &text, int &k)
+bool skip_whitespace(std::string const &text, int &k)
 {
-	const int size=text.size();
+	const int size=(int)text.size();
 	for(;k<size&&(text[k]==' '||text[k]=='\t'||text[k]=='\r'||text[k]=='\n');++k);
 	return k>=size;
 }
-bool			compare_string_caseinsensitive(std::wstring const &text, int &k, const wchar_t *label, int label_size)
+bool compare_string_caseinsensitive(std::wstring const &text, int &k, const wchar_t *label, int label_size)
 {
-	const int size=text.size();
+	const int size=(int)text.size();
 	if(size-k<label_size)
 		return false;
 	int k2=k;
@@ -119,9 +120,9 @@ bool			compare_string_caseinsensitive(std::wstring const &text, int &k, const wc
 	k=k2;
 	return true;
 }
-bool			compare_string_caseinsensitive(std::string const &text, int &k, const char *label, int label_size)
+bool compare_string_caseinsensitive(std::string const &text, int &k, const char *label, int label_size)
 {
-	const int size=text.size();
+	const int size=(int)text.size();
 	if(size-k<label_size)
 		return false;
 	int k2=k;
@@ -131,9 +132,9 @@ bool			compare_string_caseinsensitive(std::string const &text, int &k, const cha
 	k=k2;
 	return true;
 }
-int				seek_path(std::wstring const &text, int &k)//k should point at path start / opening quote, returns true if path is enclosed in double quotes
+int seek_path(std::wstring const &text, int &k)//k should point at path start / opening quote, returns true if path is enclosed in double quotes
 {
-	const int size=text.size();
+	const int size=(int)text.size();
 	char quotes=text[k]==doublequote;
 	if(quotes)
 	{
@@ -144,9 +145,9 @@ int				seek_path(std::wstring const &text, int &k)//k should point at path start
 	for(;k<size&&text[k]!=L' '&&text[k]!=L'\t'&&text[k]!=L'\r'&&text[k]!=L'\n';++k);//skip till whitespace
 	return false;
 }
-bool			seek_token(std::string const &text, int &k, const char *token)//skip till token is found
+bool seek_token(std::string const &text, int &k, const char *token)//skip till token is found
 {
-	const int size=text.size(), token_size=strlen(token);
+	const int size=(int)text.size(), token_size=(int)strlen(token);
 	for(int k2=k;k2<size;++k2)
 	{
 		bool match=true;
@@ -166,7 +167,7 @@ bool			seek_token(std::string const &text, int &k, const char *token)//skip till
 	}
 	return false;
 }
-bool			parse_path_field(std::wstring const &text, int &k, const wchar_t *token, std::wstring &result)//returns true if has spaces & quotes
+bool parse_path_field(std::wstring const &text, int &k, const wchar_t *token, std::wstring &result)//returns true if has spaces & quotes
 {
 	const wchar_t path_token[]=L"path:";
 	int path_size=lstrlenW(path_token), token_size=lstrlenW(token);
@@ -195,9 +196,9 @@ bool			parse_path_field(std::wstring const &text, int &k, const wchar_t *token, 
 	}
 	return false;
 }
-unsigned		read_unsigned_int(std::string const &text, int &k)//k at first decimal digit
+unsigned read_unsigned_int(std::string const &text, int &k)//k at first decimal digit
 {
-	const int size=text.size();
+	const int size=(int)text.size();
 	int k0=k, p=1;
 	for(;k<size&&text[k]>='0'&&text[k]<='9';++k);//skip till end of number
 	unsigned value=0;
@@ -205,12 +206,12 @@ unsigned		read_unsigned_int(std::string const &text, int &k)//k at first decimal
 		value+=(text[k2]-'0')*p;
 	return value;
 }
-double			read_unsigned_float(std::string const &text, int &k)//k at first decimal digit
+double read_unsigned_float(std::string const &text, int &k)//k at first decimal digit
 {
-	const int size=text.size();
+	const int size=(int)text.size();
 	int k0=k, kpoint=-1;
 	double p=1;
-	for(;k<size&&(text[k]>='0'&&text[k]<='9'||text[k]=='.');++k)//skip till end of number
+	for(;k<size&&((text[k]>='0'&&text[k]<='9')||text[k]=='.');++k)//skip till end of number
 	{
 		if(text[k]=='.'&&kpoint==-1)
 			kpoint=k;
@@ -224,7 +225,7 @@ double			read_unsigned_float(std::string const &text, int &k)//k at first decima
 	return value;
 }
 
-extern "C" int	acme_strcmp_ci(const wchar_t *s1, const wchar_t *s2)//returns zero on match, n+1 on mismatch at n
+extern "C" int acme_strcmp_ci(const wchar_t *s1, const wchar_t *s2)//returns zero on match, n+1 on mismatch at n
 {
 	int k=1;
 	for(;*s1&&*s2&&acme_tolower(*s1)==acme_tolower(*s2);++s1, ++s2, ++k);
@@ -232,7 +233,7 @@ extern "C" int	acme_strcmp_ci(const wchar_t *s1, const wchar_t *s2)//returns zer
 		return 0;
 	return k;
 }
-int				acme_matchlabel_ci(const wchar_t *text, int size, int &k, const wchar_t *label, int &advance)
+int acme_matchlabel_ci(const wchar_t *text, int size, int &k, const wchar_t *label, int &advance)
 {
 	int kL=0, kT=k;
 	for(;label[kL]&&text[kT]&&acme_tolower(text[kT])==acme_tolower(label[kL]);++kT, ++kL);
@@ -240,7 +241,7 @@ int				acme_matchlabel_ci(const wchar_t *text, int size, int &k, const wchar_t *
 	k+=advance;
 	return k>=size;
 }
-int				skip_till_newline_or_null(const wchar_t *text, int size, int &k, int &advance)
+int skip_till_newline_or_null(const wchar_t *text, int size, int &k, int &advance)
 {
 	for(;text[k]&&text[k]!='\r'&&text[k]!='\n';++k);
 	return k>=size;

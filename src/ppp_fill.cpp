@@ -1,18 +1,18 @@
-#include		"ppp.h"
-#include		"ppp_inline_check.h"
-#include		"ppp_xmm_clamp.h"
-#include		"generic.h"
-#include		<queue>
-#include		<stack>
-#include		<algorithm>
-#include		<assert.h>
-struct			XFillInfo
+#include "ppp.h"
+#include "ppp_inline_check.h"
+#include "ppp_xmm_clamp.h"
+#include "generic.h"
+#include <queue>
+#include <stack>
+#include <algorithm>
+#include <assert.h>
+struct XFillInfo
 {
 	int y, x1, x2;
 	XFillInfo(int y, int x1, int x2):y(y), x1(x1), x2(x2){}
 };
 #define INSIDE(X, Y) mask[bw*(Y)+(X)]
-static void		fill_v2_explore(int bw, int ty, int x1, int x2, std::stack<XFillInfo> &s, char *mask)
+static void fill_v2_explore(int bw, int ty, int x1, int x2, std::stack<XFillInfo> &s, char *mask)
 {
 	if(x1<x2)
 	{
@@ -39,7 +39,7 @@ static void		fill_v2_explore(int bw, int ty, int x1, int x2, std::stack<XFillInf
 		}
 	}
 }
-char*			fill_v2_init(int *buffer, int bw, int bh, int x0, int y0)
+char* fill_v2_init(int *buffer, int bw, int bh, int x0, int y0)
 {
 	int size=bw*bh;
 	char *mask=(char*)malloc(size);
@@ -48,7 +48,7 @@ char*			fill_v2_init(int *buffer, int bw, int bh, int x0, int y0)
 		mask[k]=buffer[k]==activeColor;
 	return mask;
 }
-void			fill_v2(int *buffer, int bw, int bh, int x0, int y0, XFillCallback callback, void *data, char *mask0)
+void fill_v2(int *buffer, int bw, int bh, int x0, int y0, XFillCallback callback, void *data, char *mask0)
 {
 	if(x0<0||x0>=bw||y0<0||y0>=bh)
 		return;
@@ -88,7 +88,7 @@ void			fill_v2(int *buffer, int bw, int bh, int x0, int y0, XFillCallback callba
 	free(mask);
 }
 #undef	INSIDE
-void			fill(int *buffer, int bw, int bh, int x0, int y0, int color)
+void fill(int *buffer, int bw, int bh, int x0, int y0, int color)
 {
 	if(icheck(x0, y0))
 		return;
@@ -116,16 +116,16 @@ void			fill(int *buffer, int bw, int bh, int x0, int y0, int color)
 			buffer[bw*(y-1)+x]=color, q.push(Point(x, y-1));
 	}
 }
-struct			XFillPlain
+struct XFillPlain
 {
 	int *buffer, bw, color;
 };
-void			xfill_plain(void *p, int x1, int x2, int y)
+void xfill_plain(void *p, int x1, int x2, int y)
 {
 	auto data=(XFillPlain*)p;
 	memfill(data->buffer+data->bw*y+x1, &data->color, (x2-x1)<<2, 1<<2);
 }
-void			fill_mouse(int *buffer, int mx0, int my0, int color)
+void fill_mouse(int *buffer, int mx0, int my0, int color)
 {
 	int x0, y0;
 	screen2image(mx0, my0, x0, y0);
@@ -136,7 +136,7 @@ void			fill_mouse(int *buffer, int mx0, int my0, int color)
 	//fill(buffer, iw, ih, x0, y0, color);
 }
 
-void			airbrush(int *buffer, int x0, int y0, int color)
+void airbrush(int *buffer, int x0, int y0, int color)
 {
 	for(int k=0;k<airbrush_cpt;++k)
 	{
@@ -164,14 +164,14 @@ void			airbrush(int *buffer, int x0, int y0, int color)
 			buffer[iw*y+x]=color;
 	}
 }
-void			airbrush_mouse(int *buffer, int mx0, int my0, int color)
+void airbrush_mouse(int *buffer, int mx0, int my0, int color)
 {
 	double x0, y0;
 	screen2image(mx0, my0, x0, y0);
 	airbrush(buffer, (int)x0, (int)y0, color);
 }
 
-struct			LineAlgorithm
+struct LineAlgorithm
 {
 	int dx, dy;
 	int xa, xstart, xend;
@@ -210,7 +210,7 @@ struct			LineAlgorithm
 	}
 };
 #if 1
-void			draw_line_v3(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int color)//from ppp_lines.cpp
+void draw_line_v3(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2, int color)//from ppp_lines.cpp
 {//137~149ms	naive int		raw: 42~60ms
 	int xa, ya, xb, yb;
 	if(y1<y2)
@@ -220,7 +220,7 @@ void			draw_line_v3(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2,
 	int dx=xb-xa, dy=yb-ya;//dy is always positive
 	if(!dy)
 	{
-		memfill(buffer+bw*ya+minimum(xa, xb), &color, (abs(xb-xa)+1)<<2, 1<<2);
+		memfill(buffer+bw*ya+MINIMUM(xa, xb), &color, (abs(xb-xa)+1)<<2, 1<<2);
 		return;
 	}
 	int xstart, xend;
@@ -255,16 +255,16 @@ void			draw_line_v3(int *buffer, int bw, int bh, int x1, int y1, int x2, int y2,
 				kx2=xstart;
 			if(kx2>xend)
 				kx2=xend;
-			memfill(buffer+bw*ky+minimum(kx, kx2)+(kx2<kx), &color, (abs(kx2-kx)+(kx==kx2))<<2, 1<<2);
+			memfill(buffer+bw*ky+MINIMUM(kx, kx2)+(kx2<kx), &color, (abs(kx2-kx)+(kx==kx2))<<2, 1<<2);
 			return;
 		}
-		memfill(buffer+bw*ky+minimum(kx, kx2)+(kx2<kx), &color, (abs(kx2-kx)+(kx==kx2))<<2, 1<<2);
+		memfill(buffer+bw*ky+MINIMUM(kx, kx2)+(kx2<kx), &color, (abs(kx2-kx)+(kx==kx2))<<2, 1<<2);
 		//buffer[bw*ky+kx]=color;//
 		kx=kx2;
 	}
 }
 #endif
-void			fill_horizontal(int *buffer, int bw, int bh, Point const *p, int nv, XFillCallback callback, void *params)
+void fill_horizontal(int *buffer, int bw, int bh, Point const *p, int nv, XFillCallback callback, void *params)
 {
 	int fillstart=p[0].x, fillend=p[0].x, ky=p[0].y;
 	for(int k=1;k<nv;++k)
@@ -302,7 +302,7 @@ void			fill_horizontal(int *buffer, int bw, int bh, Point const *p, int nv, XFil
 	//	}
 	//}
 }
-void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int nvmask, XFillCallback callback, void *params)//number of vertices = POT
+void fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int nvmask, XFillCallback callback, void *params)//number of vertices = POT
 {
 	int vtop=0;//min y
 	char all_horizontal=true;
@@ -322,34 +322,33 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 	//if(p[0].y==p[1].y&&p[0].y==p[2].y&&p[0].y==p[3].y)
 	//	int LOL_1=0;
 
-	int flipped=1-((p[vtop].x<p[vtop-1&nvmask].x||p[vtop].x>p[vtop+1&nvmask].x)<<1);
-	int L2=vtop-flipped&nvmask, L1=vtop, R1=vtop, R2=vtop+flipped&nvmask;
+	int flipped=1-((p[vtop].x<p[(vtop-1)&nvmask].x||p[vtop].x>p[(vtop+1)&nvmask].x)<<1);
+	int L2=(vtop-flipped)&nvmask, L1=vtop, R1=vtop, R2=(vtop+flipped)&nvmask;
 	//if(p[L2].y==p[L1].y)//left edge is horizontal
 	//{
 	//	L1=L2;
-	//	L2=L2-flipped&nvmask;//[L2=vtop-2]<-[L1=vtop-1] horizontal [R1=vtop]->[R2=vtop+1]
+	//	L2=(L2-flipped)&nvmask;//[L2=vtop-2]<-[L1=vtop-1] horizontal [R1=vtop]->[R2=vtop+1]
 	//}
 	//else if(p[R1].y==p[R2].y)//right edge is horizontal
 	//{
 	//	R1=R2;
-	//	R2=R2+flipped&nvmask;//[L2=vtop-1]<-[L1=vtop] horizontal [R1=vtop+1]->[R2=vtop+2]
+	//	R2=(R2+flipped)&nvmask;//[L2=vtop-1]<-[L1=vtop] horizontal [R1=vtop+1]->[R2=vtop+2]
 	//}
 	int Lxa=p[L1].x, Lya=p[L1].y, Lxb=p[L2].x, Lyb=p[L2].y;
 	int Rxa=p[R1].x, Rya=p[R1].y, Rxb=p[R2].x, Ryb=p[R2].y;
 	while(Lya==Lyb)//left edge is horizontal
 	{
 		L1=L2;
-		L2=L2-flipped&nvmask;//[L2=vtop-2]<-[L1=vtop-1] horizontal [R1=vtop]->[R2=vtop+1]
+		L2=(L2-flipped)&nvmask;//[L2=vtop-2]<-[L1=vtop-1] horizontal [R1=vtop]->[R2=vtop+1]
 		Lxa=p[L1].x, Lya=p[L1].y, Lxb=p[L2].x, Lyb=p[L2].y;
 	}
 	while(Rya==Ryb)//right edge is horizontal
 	{
 		R1=R2;
-		R2=R2+flipped&nvmask;//[L2=vtop-1]<-[L1=vtop] horizontal [R1=vtop+1]->[R2=vtop+2]
+		R2=(R2+flipped)&nvmask;//[L2=vtop-1]<-[L1=vtop] horizontal [R1=vtop+1]->[R2=vtop+2]
 		Rxa=p[R1].x, Rya=p[R1].y, Rxb=p[R2].x, Ryb=p[R2].y;
 	}
-	int Lnext=L2-flipped&nvmask,
-		Rnext=R2+flipped&nvmask;
+	int Lnext=(L2-flipped)&nvmask, Rnext=(R2+flipped)&nvmask;
 #ifdef _DEBUG
 	assert(p[L1].y==p[R1].y);
 #endif
@@ -359,11 +358,11 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 	__m128i mky=_mm_set1_epi32(Lya);
 	for(int ky=Lya, Lkx=Lxa, Lkx2, Rkx=Rxa, Rkx2;;++ky)
 	{
-		if(ky==Lyb&&p[L2].y<p[Lnext].y||ky>Lyb)
+		if((ky==Lyb&&p[L2].y<p[Lnext].y)||ky>Lyb)
 		{
 			L1=L2;
 			L2=Lnext;
-			Lnext=Lnext-flipped&nvmask;
+			Lnext=(Lnext-flipped)&nvmask;
 			Lxa=p[L1].x, Lya=p[L1].y, Lxb=p[L2].x, Lyb=p[L2].y;
 			if(Lya>=Lyb)//horizontal or upside-down
 				break;
@@ -371,11 +370,11 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 			if(Lkx>Lxa)
 				Lkx=Lxa;
 		}
-		if(ky==Ryb&&p[R2].y<p[Rnext].y||ky>Ryb)
+		if((ky==Ryb&&p[R2].y<p[Rnext].y)||ky>Ryb)
 		{
 			R1=R2;
 			R2=Rnext;
-			Rnext=Rnext+flipped&nvmask;
+			Rnext=(Rnext+flipped)&nvmask;
 			Rxa=p[R1].x, Rya=p[R1].y, Rxb=p[R2].x, Ryb=p[R2].y;
 			if(Rya>=Ryb)
 				break;
@@ -387,10 +386,10 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 		Rkx2=right.iterate();
 		if(Lkx2<left.xstart||Lkx2>left.xend)
 		{
-			Lkx2=clamp(left.xstart, Lkx2, left.xend);
+			CLAMP(Lkx2, left.xstart, left.xend);
 			L1=L2;
 			L2=Lnext;
-			Lnext=Lnext-flipped&nvmask;
+			Lnext=(Lnext-flipped)&nvmask;
 			Lxa=p[L1].x, Lya=p[L1].y, Lxb=p[L2].x, Lyb=p[L2].y;
 			if(Lya>=Lyb)
 				break;
@@ -399,10 +398,10 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 		}
 		if(Rkx2<right.xstart||Rkx2>right.xend)
 		{
-			Rkx2=clamp(right.xstart, Rkx2, right.xend);
+			CLAMP(Rkx2, right.xstart, right.xend);
 			R1=R2;
 			R2=Rnext;
-			Rnext=Rnext+flipped&nvmask;
+			Rnext=(Rnext+flipped)&nvmask;
 			Rxa=p[R1].x, Rya=p[R1].y, Rxb=p[R2].x, Ryb=p[R2].y;
 			if(Rya>=Ryb)
 				break;
@@ -414,10 +413,10 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 			//int fillstart=minimum(Lkx, Lkx2)+(Lkx2<Lkx);//X can be flipped
 			//int fillend=minimum(Rkx, Rkx2)+(Rkx2<Rkx)+abs(Rkx2-Rkx)+(Rkx==Rkx2);
 
-			int Lstart=minimum(Lkx, Lkx2)+(Lkx2<Lkx), Lrange=abs(Lkx2-Lkx)+(Lkx==Lkx2);
-			int Rstart=minimum(Rkx, Rkx2)+(Rkx2<Rkx), Rrange=abs(Rkx2-Rkx)+(Rkx==Rkx2);
-			int fillstart=minimum(Lstart, Rstart);
-			int fillend=maximum(Lstart+Lrange, Rstart+Rrange);
+			int Lstart=MINIMUM(Lkx, Lkx2)+(Lkx2<Lkx), Lrange=abs(Lkx2-Lkx)+(Lkx==Lkx2);
+			int Rstart=MINIMUM(Rkx, Rkx2)+(Rkx2<Rkx), Rrange=abs(Rkx2-Rkx)+(Rkx==Rkx2);
+			int fillstart=MINIMUM(Lstart, Rstart);
+			int fillend=MAXIMUM(Lstart+Lrange, Rstart+Rrange);
 
 			//int fs0=fillstart, fe0=fillend;//
 			fillstart+=(0-fillstart)&-(fillstart<0);
@@ -450,7 +449,7 @@ void			fill_convex_POT(int *buffer, int bw, int bh, Point const *p, int nv, int 
 		mky=_mm_add_epi32(mky, m_one32);
 	}
 }
-struct			PolarPoint
+struct PolarPoint
 {
 	int x, y;
 	double r, th;
@@ -480,7 +479,7 @@ struct			PolarPoint
 	}
 	Point get_point()const{return Point(x, y);}
 };
-void			print_points(PolarPoint const *points, int np)
+void print_points(PolarPoint const *points, int np)
 {
 	for(int k2=0;k2<np;++k2)
 	{
@@ -488,9 +487,9 @@ void			print_points(PolarPoint const *points, int np)
 		printf("(%d, %d), r=%g,\tth=%g\n", point.x, point.y, point.r, point.th*todeg);
 	}
 	printf("\n");
-	log_pause(LL_PROGRESS);//
+	console_pause(LL_PROGRESS);//
 }
-void			print_points(Point const *points, int np)
+void print_points(Point const *points, int np)
 {
 	for(int k2=0;k2<np;++k2)
 	{
@@ -498,20 +497,20 @@ void			print_points(Point const *points, int np)
 		printf("(%d, %d),  ", point.x, point.y);
 	}
 	printf("\n");
-	log_pause(LL_PROGRESS);//
+	console_pause(LL_PROGRESS);//
 }
-inline int		counterclockwise(Point const &a, Point const &b, Point const &c)
+inline int counterclockwise(Point const &a, Point const &b, Point const &c)
 {
 	int x1=b.x-a.x, y1=b.y-a.y;
 	int x2=c.x-b.x, y2=c.y-b.y;
 	return x1*y2-y1*x2;
 }
-void			convex_hull(Point const *p, int nv, std::vector<Point> &hull)
+void convex_hull(Point const *p, int nv, std::vector<Point> &hull)
 {//Graham's scan
 	int bottomleft=0;
 	for(int k=1;k<nv;++k)
 	{
-		if(p[bottomleft].y>p[k].y||p[bottomleft].y==p[k].y&&p[bottomleft].x>p[k].x)
+		if(p[bottomleft].y>p[k].y||(p[bottomleft].y==p[k].y&&p[bottomleft].x>p[k].x))
 			bottomleft=k;
 	}
 	static std::vector<PolarPoint> points;
@@ -529,7 +528,7 @@ void			convex_hull(Point const *p, int nv, std::vector<Point> &hull)
 	}
 
 	hull.clear();
-	int nv2=points.size();
+	int nv2=(int)points.size();
 
 	//log_start(LL_PROGRESS);//
 #if 0
@@ -542,7 +541,7 @@ void			convex_hull(Point const *p, int nv, std::vector<Point> &hull)
 	{
 		auto current=points[k].get_point();
 		int size;
-		while((size=hull.size())>1&&counterclockwise(hull[size-2], hull[size-1], current)<=0)
+		while((size=(int)hull.size())>1&&counterclockwise(hull[size-2], hull[size-1], current)<=0)
 			hull.pop_back();
 		hull.push_back(current);
 #if 0
@@ -556,11 +555,11 @@ void			convex_hull(Point const *p, int nv, std::vector<Point> &hull)
 #endif
 	//log_end();//
 }
-void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFillCallback callback, void *params)
+void fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFillCallback callback, void *params)
 {
 	static std::vector<Point> p;
 	convex_hull(points, nv, p);
-	nv=p.size();
+	nv=(int)p.size();
 
 	int vtop=0;//min y
 	char all_horizontal=true;
@@ -603,7 +602,7 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFi
 	__m128i mky=_mm_set1_epi32(Lya);
 	for(int ky=Lya, Lkx=Lxa, Lkx2, Rkx=Rxa, Rkx2;;++ky)
 	{
-		if(ky==Lyb&&p[L2].y<p[Lnext].y||ky>Lyb)
+		if((ky==Lyb&&p[L2].y<p[Lnext].y)||ky>Lyb)
 		{
 			L1=L2;
 			L2=Lnext;
@@ -615,7 +614,7 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFi
 			if(Lkx>Lxa)
 				Lkx=Lxa;
 		}
-		if(ky==Ryb&&p[R2].y<p[Rnext].y||ky>Ryb)
+		if((ky==Ryb&&p[R2].y<p[Rnext].y)||ky>Ryb)
 		{
 			R1=R2;
 			R2=Rnext;
@@ -631,7 +630,7 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFi
 		Rkx2=right.iterate();
 		if(Lkx2<left.xstart||Lkx2>left.xend)
 		{
-			Lkx2=clamp(left.xstart, Lkx2, left.xend);
+			CLAMP(Lkx2, left.xstart, left.xend);
 			L1=L2;
 			L2=Lnext;
 			Lnext=mod(Lnext-flipped, nv);
@@ -643,7 +642,7 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFi
 		}
 		if(Rkx2<right.xstart||Rkx2>right.xend)
 		{
-			Rkx2=clamp(right.xstart, Rkx2, right.xend);
+			CLAMP(Rkx2, right.xstart, right.xend);
 			R1=R2;
 			R2=Rnext;
 			Rnext=mod(Rnext+flipped, nv);
@@ -655,10 +654,10 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFi
 		}
 		if(ky>=0&&ky<bh)
 		{
-			int Lstart=minimum(Lkx, Lkx2)+(Lkx2<Lkx), Lrange=abs(Lkx2-Lkx)+(Lkx==Lkx2);
-			int Rstart=minimum(Rkx, Rkx2)+(Rkx2<Rkx), Rrange=abs(Rkx2-Rkx)+(Rkx==Rkx2);
-			int fillstart=minimum(Lstart, Rstart);
-			int fillend=maximum(Lstart+Lrange, Rstart+Rrange);
+			int Lstart=MINIMUM(Lkx, Lkx2)+(Lkx2<Lkx), Lrange=abs(Lkx2-Lkx)+(Lkx==Lkx2);
+			int Rstart=MINIMUM(Rkx, Rkx2)+(Rkx2<Rkx), Rrange=abs(Rkx2-Rkx)+(Rkx==Rkx2);
+			int fillstart=MINIMUM(Lstart, Rstart);
+			int fillend=MAXIMUM(Lstart+Lrange, Rstart+Rrange);
 
 			fillstart+=(0-fillstart)&-(fillstart<0);
 			fillend+=(bw-fillend)&-(fillend>bw);
@@ -703,13 +702,13 @@ void			fill_convex(int *buffer, int bw, int bh, Point const *points, int nv, XFi
 //#endif
 }
 
-struct			XFillGradient
+struct XFillGradient
 {
 	int *buffer, bw;
 	double A, B, C;
 	__m128 *mc1, *dc, *pmA4;
 };
-__forceinline __m128i gen_gradient_sse(__m128 const &z, __m128 const *mc1, __m128 const *dc)
+INLINE __m128i gen_gradient_sse(__m128 const &z, __m128 const *mc1, __m128 const *dc)
 {
 	__m128 alpha=clamp01(z);
 	//alpha = clamp01(z)		eg: z={-1, 0, 1, 2}
@@ -750,7 +749,7 @@ __forceinline __m128i gen_gradient_sse(__m128 const &z, __m128 const *mc1, __m12
 
 	return color[0];
 }
-void			xfill_gradient(void *p, int x1, int x2, int y)
+void xfill_gradient(void *p, int x1, int x2, int y)
 {
 	auto data=(XFillGradient*)p;
 	int xround=x2-x1, xrem=xround&3;
@@ -775,21 +774,27 @@ void			xfill_gradient(void *p, int x1, int x2, int y)
 	if(xrem)
 	{
 		colors=gen_gradient_sse(z, data->mc1, data->dc);
-		for(kx=0;kx<xrem;++kx)
-			row[xround+kx]=colors.m128i_i32[kx];
+		{
+			ALIGN(16) uint32_t a[4];
+			_mm_store_si128((__m128i*)a, colors);
+			for(kx=0;kx<xrem;++kx)
+				row[xround+kx]=a[kx];
+		}
+		//for(kx=0;kx<xrem;++kx)
+		//	row[xround+kx]=colors.m128i_i32[kx];
 	}
 	//memfill(data->buffer+data->bw*y+x1, &data->color, (x2-x1)<<2, 1<<2);
 }
-void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, double x2, double y2, int c2, bool startOver)
+void draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, double x2, double y2, int c2, bool startOver)
 {
 	static char *mask=0;
-	static int mw=0, mh=0;
+	//static int mw=0, mh=0;
 	if(startOver)
 	{
 		if(mask)
 			free(mask);
 		mask=fill_v2_init(buffer, bw, bh, (int)x1, (int)y1);
-		mw=bw, mh=bh;
+		//mw=bw, mh=bh;
 	}
 
 	//p1=(x1, y1, 0)
@@ -800,8 +805,8 @@ void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, 
 	double dx=x2-x1, dy=y2-y1, d2=dx*dx+dy*dy;
 	if(!d2)
 		return;
-	if(d2>100)//
-		int LOL_1=0;//
+	//if(d2>100)//
+	//	int LOL_1=0;//
 	d2=1/d2;
 	double A=dx*d2, B=dy*d2, C=-(dx*x1+dy*y1)*d2;
 	auto p1=(unsigned char*)&c2, p2=(unsigned char*)&c1;
@@ -877,7 +882,7 @@ void			draw_gradient(int *buffer, int bw, int bh, int c1, double x1, double y1, 
 
 //register line
 #if 0
-struct			Range
+struct Range
 {
 	int i, f;
 	//Range():i(iw), f(0){}
@@ -906,7 +911,7 @@ struct			Range
 	}
 };
 std::vector<Range> bounds;
-void			register_line(std::vector<Range> &bounds, int bw, int bh, int x1, int y1, int x2, int y2)
+void register_line(std::vector<Range> &bounds, int bw, int bh, int x1, int y1, int x2, int y2)
 {
 	clip_line_y_only(bw, bh, x1, y1, x2, y2);
 	int dx=abs(x2-x1), dy=abs(y2-y1), xa, ya, xb, yb;

@@ -1,29 +1,33 @@
 #define	_USE_MATH_DEFINES
-#include		<math.h>
-#include		<stdlib.h>
-const double	_pi=3.141592653589793238462643383279,
-				todeg=57.29577951308232087679815481411,//180/pi
-				torad=0.01745329251994329576923690768489;//pi/180
-//int			maximum(int a, int b){return a>b?a:b;}
-//int			minimum(int a, int b){return a<b?a:b;}
-int				mod(int x, int n)
+#include<math.h>
+#include<stdlib.h>
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+double _pi=M_PI,
+	todeg=180/M_PI,//180/pi
+	torad=M_PI/180;//pi/180
+int mod(int x, int n)
 {
 	x%=n;
 	x+=n&-(x<0);
 	return x;
 }
-int				floor_log2(unsigned long long n)
+int floor_log2(unsigned long long n)
 {
-	int logn=0;
-	int sh=(n>=1ULL<<32)<<5;logn+=sh, n>>=sh;
-		sh=(n>=1<<16)<<4;	logn+=sh, n>>=sh;
-		sh=(n>=1<< 8)<<3;	logn+=sh, n>>=sh;
-		sh=(n>=1<< 4)<<2;	logn+=sh, n>>=sh;
-		sh=(n>=1<< 2)<<1;	logn+=sh, n>>=sh;
-		sh= n>=1<< 1;		logn+=sh;
+	int logn, sh;
+
+	logn=0;
+	sh=(n>=1ULL<<32)<<5;	logn+=sh, n>>=sh;
+	sh=(n>=1<<16)<<4;	logn+=sh, n>>=sh;
+	sh=(n>=1<< 8)<<3;	logn+=sh, n>>=sh;
+	sh=(n>=1<< 4)<<2;	logn+=sh, n>>=sh;
+	sh=(n>=1<< 2)<<1;	logn+=sh, n>>=sh;
+	sh= n>=1<< 1;		logn+=sh;
 	return logn;
 }
-int				floor_log10(double x)
+int floor_log10(double x)
 {
 	static const double pmask[]=//positive powers
 	{
@@ -63,7 +67,7 @@ int				floor_log10(double x)
 		sh=(x>=pmask[7])<<3;	logn+=sh, x*=nmask[6+(sh!=0)];
 		sh=(x>=pmask[5])<<2;	logn+=sh, x*=nmask[4+(sh!=0)];
 		sh=(x>=pmask[3])<<1;	logn+=sh, x*=nmask[2+(sh!=0)];
-		sh= x>=pmask[1];		logn+=sh;
+		sh= x>=pmask[1];	logn+=sh;
 		return logn;
 	}
 	logn=-1;
@@ -71,14 +75,14 @@ int				floor_log10(double x)
 	sh=(x<nmask[15])<<7;	logn-=sh;	x*=pmask[14+(sh!=0)];
 	sh=(x<nmask[13])<<6;	logn-=sh;	x*=pmask[12+(sh!=0)];
 	sh=(x<nmask[11])<<5;	logn-=sh;	x*=pmask[10+(sh!=0)];
-	sh=(x<nmask[9])<<4;		logn-=sh;	x*=pmask[8+(sh!=0)];
-	sh=(x<nmask[7])<<3;		logn-=sh;	x*=pmask[6+(sh!=0)];
-	sh=(x<nmask[5])<<2;		logn-=sh;	x*=pmask[4+(sh!=0)];
-	sh=(x<nmask[3])<<1;		logn-=sh;	x*=pmask[2+(sh!=0)];
-	sh= x<nmask[1];			logn-=sh;
+	sh=(x<nmask[9])<<4;	logn-=sh;	x*=pmask[8+(sh!=0)];
+	sh=(x<nmask[7])<<3;	logn-=sh;	x*=pmask[6+(sh!=0)];
+	sh=(x<nmask[5])<<2;	logn-=sh;	x*=pmask[4+(sh!=0)];
+	sh=(x<nmask[3])<<1;	logn-=sh;	x*=pmask[2+(sh!=0)];
+	sh= x<nmask[1];		logn-=sh;
 	return logn;
 }
-double			power(double x, int y)
+double power(double x, int y)
 {
 	double mask[]={1, 0}, product=1;
 	if(y<0)
@@ -94,21 +98,22 @@ double			power(double x, int y)
 	}
 	return product;
 }
-double			_10pow(int n)
+static double powers10[616]={0};
+double _10pow(int n)
 {
-	static double *mask=0;
 	int k;
-//	const double _ln10=log(10.);
-	if(!mask)
+
+	if(!*powers10)
 	{
-		mask=(double*)malloc(616*sizeof(double));
 		for(k=-308;k<308;++k)		//23.0
-			mask[k+308]=power(10., k);
-		//	mask[k+308]=exp(k*_ln10);//inaccurate
+			powers10[k+308]=power(10., k);
 	}
 	if(n<-308)
 		return 0;
 	if(n>307)
-		return _HUGE;
-	return mask[n+308];
+		return HUGE_VAL;
+	return powers10[n+308];
 }
+#ifdef __cplusplus
+}
+#endif
